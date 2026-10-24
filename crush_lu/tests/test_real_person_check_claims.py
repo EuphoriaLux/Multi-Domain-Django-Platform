@@ -751,12 +751,13 @@ class CheckOutreachStaysOffTheMemberOverviewTests(TestCase):
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class CallAttemptAdminDoesNotLeakTheOutcomeTests(TestCase):
-    """CallAttemptAdmin shows the check as a read-only link labelled with its
-    __str__; staff who are not superusers can open that page."""
+    """CallAttemptAdmin shows real-person check attempts, and the checking
+    coach's notes on them, to superusers only (Codex P1 on #1311)."""
 
-    def test_a_staff_member_sees_the_check_id_but_not_the_outcome(self):
+    NOTE = "private outreach note"
+
+    def setUp(self):
         from django.contrib.auth.models import Permission
-        from django.urls import reverse
 
         cache.clear()
         Site.objects.get_or_create(
@@ -764,23 +765,61 @@ class CallAttemptAdminDoesNotLeakTheOutcomeTests(TestCase):
         )
         coach = make_coach("rpc_leak_coach")
         member = make_member("rpc_leak_member")
-        check = claim_check(coach, _profile_id(member))
-        attempt = log_outreach(coach, check.pk, result="sms_sent")
-        decide_check(coach, check.pk, "suspected_fake", notes="secret verdict")
-        staff = User.objects.create_user(
+        self.check = claim_check(coach, _profile_id(member))
+        self.attempt = log_outreach(
+            coach, self.check.pk, result="sms_sent", notes=self.NOTE
+        )
+        decide_check(coach, self.check.pk, "suspected_fake", notes="secret verdict")
+        # An ordinary screening-call attempt stays visible to staff.
+        self.screening = CallAttempt.objects.create(
+            profile=profile_of(member), coach=coach, result="failed", notes="screening"
+        )
+        self.staff = User.objects.create_user(
             "rpc_leak_staff", "rpc_leak_staff@example.com", "pw", is_staff=True
         )
-        staff.user_permissions.add(Permission.objects.get(codename="view_callattempt"))
-        self.client.force_login(staff)
-
-        response = self.client.get(
-            reverse("crush_admin:crush_lu_callattempt_change", args=[attempt.pk])
+        self.staff.user_permissions.add(
+            Permission.objects.get(codename="view_callattempt")
         )
 
+    def _change_url(self, attempt):
+        from django.urls import reverse
+
+        return reverse("crush_admin:crush_lu_callattempt_change", args=[attempt.pk])
+
+    def _changelist(self, **params):
+        from django.urls import reverse
+
+        return self.client.get(
+            reverse("crush_admin:crush_lu_callattempt_changelist"), params
+        )
+
+    def test_staff_cannot_open_a_real_person_check_attempt(self):
+        self.client.force_login(self.staff)
+        response = self.client.get(self._change_url(self.attempt))
+        self.assertNotEqual(response.status_code, 200)
+        self.assertNotContains(response, self.NOTE, status_code=response.status_code)
+
+    def test_staff_do_not_find_it_in_the_list_or_by_searching_its_note(self):
+        self.client.force_login(self.staff)
+        listing = self._changelist()
+        self.assertEqual(listing.status_code, 200)
+        pks = {row.pk for row in listing.context["cl"].result_list}
+        self.assertNotIn(self.attempt.pk, pks)
+        self.assertIn(self.screening.pk, pks)
+        searched = self._changelist(q=self.NOTE)
+        self.assertNotIn(
+            self.attempt.pk, {row.pk for row in searched.context["cl"].result_list}
+        )
+
+    def test_a_superuser_still_sees_it_without_the_verdict(self):
+        superuser = User.objects.create_superuser(
+            "rpc_leak_root", "rpc_leak_root@example.com", "pw"
+        )
+        self.client.force_login(superuser)
+        response = self.client.get(self._change_url(self.attempt))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, f"Real-person check #{check.pk}")
-        self.assertNotContains(response, "suspected_fake")
-        self.assertNotContains(response, "Suspected fake")
+        self.assertContains(response, self.NOTE)
+        self.assertContains(response, f"Real-person check #{self.check.pk}")
         self.assertNotContains(response, "secret verdict")
 
 

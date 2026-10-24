@@ -3015,6 +3015,17 @@ class CallAttemptAdmin(admin.ModelAdmin):
     date_hierarchy = "attempt_date"
     list_per_page = 50
 
+    def get_queryset(self, request):
+        # Real-person check attempts carry the checking coach's private notes,
+        # which coach_member_overview hides too; only superusers, who oversee
+        # the checks themselves, see them here. Filtering the queryset also
+        # hides them from search and 404s their change page.
+        # Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+        qs = super().get_queryset(request)
+        if not request.user.is_superuser:
+            qs = qs.filter(real_person_check__isnull=True)
+        return qs
+
     @admin.display(description=_("User"))
     def get_target_user(self, obj):
         profile = obj.profile or (obj.submission.profile if obj.submission else None)
