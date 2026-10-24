@@ -46355,3 +46355,50 @@ msgstr "Bonne réponse : {answer}"
 #: crush_lu/views_payments.py
 msgid "This membership is not pending payment."
 msgstr "Cette adhésion n’est pas en attente de paiement."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "Messages from your Crush number aren't switched on yet."
+msgstr "Les messages depuis votre numéro Crush ne sont pas encore activés."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "This member's number can't receive WhatsApp messages."
+msgstr "Le numéro de ce membre ne peut pas recevoir de messages WhatsApp."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid ""
+"This member hasn't turned on WhatsApp messages, so you can't write to them "
+"first on WhatsApp. Call or send an SMS instead."
+msgstr ""
+"Ce membre n'a pas activé les messages WhatsApp : vous ne pouvez donc pas lui "
+"écrire en premier sur WhatsApp. Appelez ou envoyez plutôt un SMS."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid ""
+"You sent them a WhatsApp message in the last 24 hours. Their reply will show "
+"in your WhatsApp inbox."
+msgstr ""
+"Vous lui avez envoyé un message WhatsApp au cours des dernières 24 heures. Sa"
+" réponse apparaîtra dans votre boîte de réception WhatsApp."
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "You don't have a Crush WhatsApp number."
+msgstr "Vous n'avez pas de numéro WhatsApp Crush."
+
+#: crush_lu/views_coach_whatsapp.py
+msgid "WhatsApp template sent from the coach's Crush number"
+msgstr "Modèle WhatsApp envoyé depuis le numéro Crush du coach"
+
+#: crush_lu/views_coach_whatsapp.py
+msgid ""
+"Sent from your Crush number. Their reply will show in your WhatsApp inbox."
+msgstr ""
+"Envoyé depuis votre numéro Crush. Sa réponse apparaîtra dans votre boîte de "
+"réception WhatsApp."
+
+#: crush_lu/templates/crush_lu/_screening_tab.html
+msgid "Send from your Crush WhatsApp"
+msgstr "Envoyer depuis votre WhatsApp Crush"
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "Follow-up message (template)"
+msgstr "Message de relance (modèle)"

@@ -1004,6 +1004,15 @@ WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
 WHATSAPP_CONNECT_REQUEST_TEMPLATE = os.environ.get(
     "WHATSAPP_CONNECT_REQUEST_TEMPLATE", ""
 )
+# Name of an APPROVED Meta *Utility* template (en/de/fr variants) a coach with
+# a Crush number sends from the screening tab to a member they can't reach.
+# Empty = button off. Body params: {{1}} member first name, {{2}} coach first
+# name. The template exists only in the production WABA: pin the name
+# slot-sticky (infra/resources.bicep slotConfigNames) before setting it.
+# Runbook: ai-memory-hub/runbooks/crush-coach-whatsapp-numbers.md
+WHATSAPP_COACH_FOLLOWUP_TEMPLATE = os.environ.get(
+    "WHATSAPP_COACH_FOLLOWUP_TEMPLATE", ""
+)
 
 # ============================================================================
 # IN-APP VIDEO CALLS (WebRTC)
