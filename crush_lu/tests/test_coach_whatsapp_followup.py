@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.db import connection
+from django.db.models.query import QuerySet
 from django.test import Client, override_settings
 from django.urls import reverse
 from django.utils import timezone
@@ -395,3 +397,69 @@ def test_inbox_labels_the_followup_instead_of_the_template_name():
     assert outbound == ["Follow-up message (template)"]
     assert conv.last_is_outbound
     assert conv.last_text == "Follow-up message (template)"
+
+
+# --- Two clicks at once ------------------------------------------------------
+
+
+@followup_settings
+def test_a_second_send_while_the_first_is_with_meta_is_refused():
+    """The reservation is committed before Meta is called, so a request that
+    arrives while the first one is still in flight hits the cooldown."""
+    coach, profile = _make_coach(), _make_member()
+    raced = []
+
+    def first_post(*args, **kwargs):
+        with pytest.raises(coach_whatsapp.CoachWhatsAppError):
+            coach_whatsapp.send_followup(coach, profile, coach.user)
+        raced.append(True)
+        return _graph_ok()
+
+    with patch(POST, side_effect=first_post) as mock_post:
+        message = coach_whatsapp.send_followup(coach, profile, coach.user)
+
+    assert raced == [True]
+    assert mock_post.call_count == 1
+    assert message.status == WhatsAppMessage.Status.SENT
+    assert WhatsAppMessage.objects.count() == 1
+
+
+@followup_settings
+def test_lock_check_and_reserve_happen_before_meta_outside_the_lock():
+    """SQLite ignores select_for_update, so assert the order structurally:
+    lock the coach row, check the cooldown, reserve the QUEUED row, and only
+    then (after that transaction ends) call Meta."""
+    coach, profile = _make_coach(), _make_member()
+    calls = []
+    real_lock = QuerySet.select_for_update
+    real_status = coach_whatsapp.followup_status
+    real_queue = coach_whatsapp.queue_whatsapp_template
+
+    def lock(qs, *args, **kwargs):
+        calls.append(("lock", qs.model.__name__))
+        return real_lock(qs, *args, **kwargs)
+
+    def check(*args, **kwargs):
+        calls.append(("check",))
+        return real_status(*args, **kwargs)
+
+    def reserve(**kwargs):
+        calls.append(("reserve", len(connection.atomic_blocks)))
+        return real_queue(**kwargs)
+
+    def post(*args, **kwargs):
+        calls.append(("meta", len(connection.atomic_blocks)))
+        return _graph_ok()
+
+    with (
+        patch.object(QuerySet, "select_for_update", lock),
+        patch.object(coach_whatsapp, "followup_status", side_effect=check),
+        patch.object(coach_whatsapp, "queue_whatsapp_template", side_effect=reserve),
+        patch(POST, side_effect=post),
+    ):
+        coach_whatsapp.send_followup(coach, profile, coach.user)
+
+    assert [c[0] for c in calls] == ["lock", "check", "reserve", "meta"]
+    assert calls[0][1] == "CrushCoach"
+    reserve_depth, meta_depth = calls[2][1], calls[3][1]
+    assert meta_depth < reserve_depth

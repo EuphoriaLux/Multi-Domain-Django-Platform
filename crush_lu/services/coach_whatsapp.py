@@ -44,8 +44,9 @@ from hub.models import WhatsAppInboundMessage, WhatsAppMessage
 from hub.whatsapp_service import (
     GRAPH_BASE,
     TEXT_MAX_LENGTH,
+    deliver_whatsapp_template,
     meta_settings_ok,
-    send_whatsapp_template,
+    queue_whatsapp_template,
     send_whatsapp_text,
 )
 
@@ -452,28 +453,38 @@ def send_followup(coach, profile, sender) -> WhatsAppMessage:
     rejection still returns the FAILED row, like every other send. The
     recipient is stored as ``+<digits>`` so ``_outbound_for`` finds the row
     for the cooldown and, once the member replies, in their conversation.
+
+    Two clicks at once (two tabs, two devices) must not both pass the
+    cooldown and send two billed messages. So the check and a QUEUED
+    reservation row (which the cooldown counts) happen under a lock on the
+    coach row; Meta is called after commit, outside the lock. SQLite ignores
+    the lock, so the tests assert this order structurally.
     """
+    from crush_lu.models import CrushCoach
     from crush_lu.utils.i18n import get_user_preferred_language
 
-    status = followup_status(coach, profile)
-    if not status.ready:
-        raise CoachWhatsAppError(
-            status.reason or _("You don't have a Crush WhatsApp number.")
+    with transaction.atomic():
+        CrushCoach.objects.select_for_update().get(pk=coach.pk)
+        status = followup_status(coach, profile)
+        if not status.ready:
+            raise CoachWhatsAppError(
+                status.reason or _("You don't have a Crush WhatsApp number.")
+            )
+        user = profile.user
+        message = queue_whatsapp_template(
+            sender=sender,
+            recipient=f"+{_digits(profile.phone_number)}",
+            template_name=followup_template(),
+            language=get_user_preferred_language(user=user, default="en"),
+            # Meta fails a send whose body parameter is "" (see
+            # send_connect_week_request_whatsapp), so neither may be blank.
+            parameters={
+                "1": (user.first_name or "").strip() or profile.display_name,
+                "2": (coach.user.first_name or "").strip() or "Crush.lu",
+            },
+            phone_number_id=coach.whatsapp_phone_number_id,
         )
-    user = profile.user
-    return send_whatsapp_template(
-        sender=sender,
-        recipient=f"+{_digits(profile.phone_number)}",
-        template_name=followup_template(),
-        language=get_user_preferred_language(user=user, default="en"),
-        # Meta fails a send whose body parameter is "" (see
-        # send_connect_week_request_whatsapp), so neither may be blank.
-        parameters={
-            "1": (user.first_name or "").strip() or profile.display_name,
-            "2": (coach.user.first_name or "").strip() or "Crush.lu",
-        },
-        phone_number_id=coach.whatsapp_phone_number_id,
-    )
+    return deliver_whatsapp_template(message)
 
 
 def fetch_media(media_id: str) -> tuple[bytes, str]:

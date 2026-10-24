@@ -218,6 +218,50 @@ def _blank_if_erased(message: WhatsAppMessage, recipient: str) -> WhatsAppMessag
     return message
 
 
+def queue_whatsapp_template(
+    *, sender, recipient, template_name, language, parameters, phone_number_id=""
+) -> WhatsAppMessage:
+    """Record a template send as QUEUED without contacting Meta yet.
+
+    For a caller that must reserve the send under a lock (a cooldown check
+    that counts queued rows); it then calls ``deliver_whatsapp_template``
+    outside the lock. ``send_whatsapp_template`` does both in one go.
+    """
+    return WhatsAppMessage.objects.create(
+        user=sender,
+        recipient=recipient,
+        template_name=template_name,
+        language=language,
+        parameters=parameters,
+        business_phone_number_id=phone_number_id or "",
+        status=WhatsAppMessage.Status.QUEUED,
+        status_history=[{"status": "queued", "timestamp": now_iso()}],
+    )
+
+
+def _template_payload(message: WhatsAppMessage) -> dict:
+    return {
+        "messaging_product": "whatsapp",
+        "to": normalize_recipient(message.recipient),
+        "type": "template",
+        "template": {
+            "name": message.template_name,
+            "language": {"code": message.language},
+            "components": build_components(message.parameters),
+        },
+    }
+
+
+def deliver_whatsapp_template(message: WhatsAppMessage) -> WhatsAppMessage:
+    """POST a row from ``queue_whatsapp_template`` to Meta.
+
+    Same return contract as ``send_whatsapp_template``.
+    """
+    recipient = message.recipient
+    message = _post_and_record(message, _template_payload(message))
+    return _blank_if_erased(message, recipient)
+
+
 def _send_whatsapp_template(
     *, sender, recipient, template_name, language, parameters, phone_number_id=""
 ) -> WhatsAppMessage:
@@ -229,27 +273,15 @@ def _send_whatsapp_template(
     ``sender`` is the admin User initiating the send (the model's ``user``
     field is the sender, not the recipient).
     """
-    message = WhatsAppMessage.objects.create(
-        user=sender,
+    message = queue_whatsapp_template(
+        sender=sender,
         recipient=recipient,
         template_name=template_name,
         language=language,
         parameters=parameters,
-        business_phone_number_id=phone_number_id or "",
-        status=WhatsAppMessage.Status.QUEUED,
-        status_history=[{"status": "queued", "timestamp": now_iso()}],
+        phone_number_id=phone_number_id,
     )
-    payload = {
-        "messaging_product": "whatsapp",
-        "to": normalize_recipient(recipient),
-        "type": "template",
-        "template": {
-            "name": template_name,
-            "language": {"code": language},
-            "components": build_components(parameters),
-        },
-    }
-    return _post_and_record(message, payload)
+    return _post_and_record(message, _template_payload(message))
 
 
 def send_whatsapp_template(
