@@ -46779,3 +46779,15 @@ msgstr "Dieser Videoanruf ist gerade nicht geöffnet"
 
 msgid "Your coach may have finished, or the link may have expired. Joining was optional, so nothing changes for you. If your coach would like to try again, they will get in touch."
 msgstr "Dein Coach ist vielleicht schon fertig, oder der Link ist abgelaufen. Die Teilnahme war freiwillig, für dich ändert sich also nichts. Wenn dein Coach es noch einmal versuchen möchte, meldet er oder sie sich bei dir."
+
+msgid "Your microphone"
+msgstr "Dein Mikrofon"
+
+msgid "Your microphone (muted)"
+msgstr "Dein Mikrofon (stumm)"
+
+msgid "Their sound"
+msgstr "Ton der anderen Person"
+
+msgid "If their bar moves but you hear nothing, turn up your device's volume."
+msgstr "Wenn sich der Balken der anderen Person bewegt, du aber nichts hörst, dreh die Lautstärke deines Geräts auf."

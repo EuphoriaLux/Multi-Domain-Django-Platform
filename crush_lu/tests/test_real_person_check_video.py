@@ -911,8 +911,9 @@ class MemberPageTests(VideoCheckTestCase):
             return dict(label.findall(call_tag.search(html).group(0)))
 
         english = labels(self.client.get(self.url).content.decode())
-        # Ten status lines and the four mute / camera button labels.
-        self.assertEqual(len(english), 14)
+        # Ten status lines, the four mute / camera button labels and the two
+        # microphone meter labels.
+        self.assertEqual(len(english), 16)
         for code in ("de", "fr"):
             html = self.client.get(
                 self.url.replace("/en/", f"/{code}/")
@@ -925,6 +926,41 @@ class MemberPageTests(VideoCheckTestCase):
             for text in ("Start video", "Switch camera", "Hang up"):
                 with self.subTest(code=code, button=text):
                     self.assertNotIn(f">{text}<", html)
+
+    def test_the_call_screen_shows_both_sound_meters(self):
+        html = self.client.get(self.url).content.decode()
+        block = re.search(
+            r"<div ([^>]*\bdata-meters\b[^>]*)>(.*?)</p>\s*</div>", html, re.S
+        )
+        self.assertIsNotNone(block, "sound meter block missing")
+        attrs, inner = block.group(1), block.group(2)
+        # Hidden until a call runs and the meters really measure (x-cloak keeps
+        # it hidden before Alpine starts), and hidden from screen readers with
+        # its hint, since the hint describes the bars.
+        self.assertIn('x-show="showMeters"', attrs)
+        self.assertIn("x-cloak", attrs)
+        self.assertIn('aria-hidden="true"', attrs)
+        self.assertIn('data-meter="local"', inner)
+        self.assertIn(':style="localMeterStyle"', inner)
+        self.assertIn('data-meter="remote"', inner)
+        self.assertIn(':style="remoteMeterStyle"', inner)
+        self.assertIn(">Their sound<", inner)
+        self.assertIn("turn up your device", inner)
+        for code, sound, hint in (
+            ("de", ">Ton der anderen Person<", "dreh die Lautstärke deines Geräts auf"),
+            (
+                "fr",
+                ">Son de l'autre personne<",
+                "augmentez le volume de votre appareil",
+            ),
+        ):
+            with self.subTest(code):
+                html = self.client.get(
+                    self.url.replace("/en/", f"/{code}/")
+                ).content.decode()
+                self.assertIn(sound, html)
+                self.assertIn(hint, html)
+                self.assertNotIn(">Their sound<", html)
 
     def test_the_app_notice_is_translated(self):
         for code, text in (

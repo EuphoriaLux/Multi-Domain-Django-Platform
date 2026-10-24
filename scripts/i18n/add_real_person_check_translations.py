@@ -600,6 +600,17 @@ NEW = {
     "Start video": {"de": "Video starten", "fr": "Démarrer la vidéo"},
     "Switch camera": {"de": "Kamera wechseln", "fr": "Changer de caméra"},
     "Hang up": {"de": "Auflegen", "fr": "Raccrocher"},
+    # Sound meters on the call screen (follow-up to #1311).
+    "Your microphone": {"de": "Dein Mikrofon", "fr": "Votre micro"},
+    "Your microphone (muted)": {
+        "de": "Dein Mikrofon (stumm)",
+        "fr": "Votre micro (coupé)",
+    },
+    "Their sound": {"de": "Ton der anderen Person", "fr": "Son de l'autre personne"},
+    "If their bar moves but you hear nothing, turn up your device's volume.": {
+        "de": "Wenn sich der Balken der anderen Person bewegt, du aber nichts hörst, dreh die Lautstärke deines Geräts auf.",
+        "fr": "Si la barre de l'autre personne bouge mais que vous n'entendez rien, augmentez le volume de votre appareil.",
+    },
     "Video calls are not available right now. Use a phone call instead.": {
         "de": "Videoanrufe sind gerade nicht verfügbar. Nutze stattdessen einen Telefonanruf.",
         "fr": "Les appels vidéo ne sont pas disponibles pour le moment. Utilisez plutôt un appel téléphonique.",

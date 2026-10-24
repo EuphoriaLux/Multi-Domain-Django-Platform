@@ -46906,3 +46906,15 @@ msgstr "Cet appel vidéo n'est pas ouvert pour le moment"
 
 msgid "Your coach may have finished, or the link may have expired. Joining was optional, so nothing changes for you. If your coach would like to try again, they will get in touch."
 msgstr "Votre coach a peut-être terminé, ou le lien a expiré. La participation était facultative, rien ne change donc pour vous. Si votre coach souhaite réessayer, il vous contactera."
+
+msgid "Your microphone"
+msgstr "Votre micro"
+
+msgid "Your microphone (muted)"
+msgstr "Votre micro (coupé)"
+
+msgid "Their sound"
+msgstr "Son de l'autre personne"
+
+msgid "If their bar moves but you hear nothing, turn up your device's volume."
+msgstr "Si la barre de l'autre personne bouge mais que vous n'entendez rien, augmentez le volume de votre appareil."
