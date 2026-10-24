@@ -1527,6 +1527,25 @@ def coach_log_failed_call(request, submission_id):
     return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
 
 
+def _screening_outreach_context(coach, profile):
+    """``_build_outreach_context`` for the screening tab, Crush number aware.
+
+    A coach whose WhatsApp number moved into the coach inbox would send a
+    ``wa.me`` link from whatever WhatsApp is left on their phone (a personal
+    account), and the reply would never reach crush.lu. They get the
+    "send from your Crush number" template button instead.
+    """
+    from .services import coach_whatsapp
+
+    context = _build_outreach_context(coach, profile)
+    if coach_whatsapp.has_inbox(coach):
+        context["whatsapp_url"] = ""
+        context["crush_number_followup"] = coach_whatsapp.followup_status(
+            coach, profile
+        )
+    return context
+
+
 @coach_required
 @require_http_methods(["POST"])
 def coach_log_sms_sent(request, submission_id):
@@ -1555,7 +1574,7 @@ def coach_log_sms_sent(request, submission_id):
             "submission": submission,
             "profile": profile,
         }
-        context.update(_build_outreach_context(coach, profile))
+        context.update(_screening_outreach_context(coach, profile))
         return render(request, "crush_lu/_screening_tab.html", context)
 
     return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
@@ -1589,7 +1608,7 @@ def coach_log_whatsapp_sent(request, submission_id):
             "submission": submission,
             "profile": profile,
         }
-        context.update(_build_outreach_context(coach, profile))
+        context.update(_screening_outreach_context(coach, profile))
         return render(request, "crush_lu/_screening_tab.html", context)
 
     return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
@@ -1833,7 +1852,7 @@ def coach_review_profile(request, submission_id):
 
     profile = submission.profile
     prefetch_related_objects([profile], "qualities", "defects", "sought_qualities")
-    outreach = _build_outreach_context(coach, profile)
+    outreach = _screening_outreach_context(coach, profile)
 
     from django.conf import settings as _settings
 
@@ -1891,7 +1910,7 @@ def coach_set_screening_mode(request, submission_id):
         "submission": submission,
         "profile": profile,
     }
-    context.update(_build_outreach_context(coach, profile))
+    context.update(_screening_outreach_context(coach, profile))
     return render(request, "crush_lu/_screening_tab.html", context)
 
 

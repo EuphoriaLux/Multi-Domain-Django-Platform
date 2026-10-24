@@ -15,6 +15,10 @@ number.
 Meta accepts a free-form reply only within 24 hours of the member's last
 message to that number (``REPLY_WINDOW``); after that only an approved
 template can reach them, so the composer closes.
+
+To write first, a coach sends the follow-up template from the screening tab
+(``send_followup``): a business-initiated message, so it needs the member's
+WhatsApp opt-in. Their reply opens a conversation here like any other.
 """
 
 from __future__ import annotations
@@ -41,6 +45,7 @@ from hub.whatsapp_service import (
     GRAPH_BASE,
     TEXT_MAX_LENGTH,
     meta_settings_ok,
+    send_whatsapp_template,
     send_whatsapp_text,
 )
 
@@ -63,6 +68,9 @@ MEDIA_TIMEOUT = 15
 MEDIA_HOST_SUFFIXES = (".fbsbx.com", ".facebook.com", ".fbcdn.net", ".whatsapp.net")
 # Shown inline; anything else (documents, SVG, …) is served as a download.
 INLINE_MEDIA_PREFIXES = ("image/jpeg", "image/png", "image/webp", "audio/", "video/")
+# One follow-up template per member per coach number in this period: each is a
+# billed message the member didn't ask for.
+FOLLOWUP_COOLDOWN = timedelta(hours=24)
 
 
 class CoachWhatsAppError(Exception):
@@ -85,6 +93,14 @@ class Conversation:
     last_is_outbound: bool
     unread: int
     window_open: bool
+
+
+@dataclass
+class FollowupStatus:
+    """Whether the follow-up template can go out now; ``reason`` says why not."""
+
+    ready: bool
+    reason: str = ""
 
 
 @dataclass
@@ -205,6 +221,15 @@ def media_info(row) -> dict | None:
     }
 
 
+def _outbound_text(msg) -> str:
+    """What the coach sees for a sent message: a template row stores no body."""
+    if msg.text:
+        return msg.text
+    if msg.template_name and msg.template_name == followup_template():
+        return _("Follow-up message (template)")
+    return msg.template_name
+
+
 def _outbound_for(coach, from_numbers=None):
     qs = WhatsAppMessage.objects.filter(
         business_phone_number_id=coach.whatsapp_phone_number_id
@@ -261,7 +286,7 @@ def conversations_for(coach) -> list[Conversation]:
                 last_at=out.created_at if outbound_last else last_in.received_at,
                 last_inbound_at=g["last_inbound_at"],
                 last_text=(
-                    out.text
+                    _outbound_text(out)
                     if outbound_last
                     else message_summary(
                         last_in.message_type, last_in.payload, last_in.text
@@ -308,7 +333,7 @@ def thread(coach, from_number: str) -> list[ThreadItem]:
         ThreadItem(
             outbound=True,
             at=msg.created_at,
-            text=msg.text or msg.template_name,
+            text=_outbound_text(msg),
             status=msg.status,
         )
         for msg in _outbound_for(coach, [from_number])
@@ -352,6 +377,101 @@ def send_reply(coach, conv: Conversation, text: str, sender) -> WhatsAppMessage:
         sender=sender,
         recipient=conv.from_number,
         text=text,
+        phone_number_id=coach.whatsapp_phone_number_id,
+    )
+
+
+def followup_template() -> str:
+    """The approved Utility template a coach writes first with ("" = off)."""
+    return getattr(settings, "WHATSAPP_COACH_FOLLOWUP_TEMPLATE", "")
+
+
+def _followup_sent_recently(coach, profile) -> bool:
+    """A follow-up from this coach's number to this member that hasn't failed."""
+    return (
+        _outbound_for(coach, [_digits(profile.phone_number)])
+        .filter(
+            template_name=followup_template(),
+            created_at__gte=timezone.now() - FOLLOWUP_COOLDOWN,
+        )
+        .exclude(status=WhatsAppMessage.Status.FAILED)
+        .exists()
+    )
+
+
+def followup_status(coach, profile) -> FollowupStatus:
+    """Whether ``coach`` may send ``profile`` the follow-up template now.
+
+    A business-initiated message, so the same gate as the Connect Week request
+    alert (``send_connect_week_request_whatsapp``): the member's WhatsApp
+    opt-in, no master unsubscribe, and a verified number Meta hasn't flagged
+    as off-WhatsApp. A coach without a Crush number gets no reason: the
+    button isn't theirs.
+    """
+    from crush_lu.models import EmailPreference
+    from crush_lu.services.whatsapp import can_send_whatsapp
+
+    if not has_inbox(coach):
+        return FollowupStatus(False)
+    if not followup_template() or not meta_settings_ok():
+        return FollowupStatus(
+            False, _("Messages from your Crush number aren't switched on yet.")
+        )
+    if not can_send_whatsapp(profile):
+        return FollowupStatus(
+            False, _("This member's number can't receive WhatsApp messages.")
+        )
+    prefs = (
+        EmailPreference.objects.filter(user_id=profile.user_id)
+        .values("whatsapp_opt_in", "unsubscribed_all")
+        .first()
+    )
+    if not prefs or not prefs["whatsapp_opt_in"] or prefs["unsubscribed_all"]:
+        return FollowupStatus(
+            False,
+            _(
+                "This member hasn't turned on WhatsApp messages, so you can't "
+                "write to them first on WhatsApp. Call or send an SMS instead."
+            ),
+        )
+    if _followup_sent_recently(coach, profile):
+        return FollowupStatus(
+            False,
+            _(
+                "You sent them a WhatsApp message in the last 24 hours. Their "
+                "reply will show in your WhatsApp inbox."
+            ),
+        )
+    return FollowupStatus(True)
+
+
+def send_followup(coach, profile, sender) -> WhatsAppMessage:
+    """Send ``profile`` the follow-up template from the coach's Crush number.
+
+    Raises ``CoachWhatsAppError`` when ``followup_status`` says no. A Meta
+    rejection still returns the FAILED row, like every other send. The
+    recipient is stored as ``+<digits>`` so ``_outbound_for`` finds the row
+    for the cooldown and, once the member replies, in their conversation.
+    """
+    from crush_lu.utils.i18n import get_user_preferred_language
+
+    status = followup_status(coach, profile)
+    if not status.ready:
+        raise CoachWhatsAppError(
+            status.reason or _("You don't have a Crush WhatsApp number.")
+        )
+    user = profile.user
+    return send_whatsapp_template(
+        sender=sender,
+        recipient=f"+{_digits(profile.phone_number)}",
+        template_name=followup_template(),
+        language=get_user_preferred_language(user=user, default="en"),
+        # Meta fails a send whose body parameter is "" (see
+        # send_connect_week_request_whatsapp), so neither may be blank.
+        parameters={
+            "1": (user.first_name or "").strip() or profile.display_name,
+            "2": (coach.user.first_name or "").strip() or "Crush.lu",
+        },
         phone_number_id=coach.whatsapp_phone_number_id,
     )
 

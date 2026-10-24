@@ -1044,6 +1044,11 @@ urlpatterns = [
         name="coach_log_whatsapp_sent",
     ),
     path(
+        "coach/review/<int:submission_id>/whatsapp-followup/",
+        views_coach_whatsapp.coach_whatsapp_followup,
+        name="coach_whatsapp_followup",
+    ),
+    path(
         "coach/review/<int:submission_id>/pre-screening-reminder/",
         views.coach_send_pre_screening_reminder,
         name="coach_send_pre_screening_reminder",

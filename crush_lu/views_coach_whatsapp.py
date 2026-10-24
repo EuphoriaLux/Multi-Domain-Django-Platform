@@ -10,12 +10,12 @@ import logging
 
 from django.contrib import messages
 from django.http import Http404, HttpResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
-from django.views.decorators.http import require_GET, require_http_methods
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from crush_lu.decorators import coach_required, ratelimit
-from crush_lu.models import CrushCoach
+from crush_lu.models import CallAttempt, CrushCoach, ProfileSubmission
 from crush_lu.services import coach_whatsapp
 from hub.models import WhatsAppMessage
 from hub.whatsapp_service import ERROR_OUTSIDE_SERVICE_WINDOW, TEXT_MAX_LENGTH
@@ -160,6 +160,64 @@ def coach_whatsapp_thread(request, conversation_id):
             "message_max_length": TEXT_MAX_LENGTH,
         },
     )
+
+
+@coach_required
+# Each send is a billed template; the 24-hour per-member cooldown is the real
+# limit, this only caps a runaway client.
+@ratelimit(key="user", rate="60/h", method="POST")
+@require_POST
+def coach_whatsapp_followup(request, submission_id):
+    """Screening tab: send the follow-up template from the coach's Crush number.
+
+    The Crush-number counterpart of ``coach_log_whatsapp_sent``, for a coach
+    whose ``wa.me`` link would open a personal WhatsApp. On success it logs the
+    same ``whatsapp_sent`` call attempt, then re-renders the screening tab.
+    """
+    from crush_lu.views_coach import _screening_outreach_context
+
+    coach = request.coach
+    submission = get_object_or_404(
+        ProfileSubmission.objects.select_related("profile__user"),
+        id=submission_id,
+        coach=coach,
+    )
+    profile = submission.profile
+    try:
+        message = coach_whatsapp.send_followup(coach, profile, request.user)
+    except coach_whatsapp.CoachWhatsAppError as exc:
+        feedback = {"ok": False, "text": str(exc)}
+    else:
+        if message.status == WhatsAppMessage.Status.FAILED:
+            feedback = {"ok": False, "text": _failure_text(message)}
+        else:
+            CallAttempt.objects.create(
+                submission=submission,
+                result="whatsapp_sent",
+                coach=coach,
+                notes=_("WhatsApp template sent from the coach's Crush number"),
+            )
+            feedback = {
+                "ok": True,
+                "text": _(
+                    "Sent from your Crush number. Their reply will show in your "
+                    "WhatsApp inbox."
+                ),
+            }
+
+    if request.headers.get("HX-Request"):
+        context = {
+            "submission": submission,
+            "profile": profile,
+            "followup_feedback": feedback,
+        }
+        context.update(_screening_outreach_context(coach, profile))
+        return render(request, "crush_lu/_screening_tab.html", context)
+    if feedback["ok"]:
+        messages.success(request, feedback["text"])
+    else:
+        messages.error(request, feedback["text"])
+    return redirect("crush_lu:coach_review_profile", submission_id=submission.id)
 
 
 @coach_required
