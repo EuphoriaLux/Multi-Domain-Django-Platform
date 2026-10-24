@@ -8,9 +8,11 @@ template has no `download_booking_ics` route, no radio inputs, and slices
 slots to exactly the first ten with plain, unlinked "+N more" text).
 """
 
-from datetime import timedelta
+import re
+from datetime import datetime, timedelta, timezone as dt_timezone
 from uuid import uuid4
 from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
@@ -231,6 +233,170 @@ class BookingConfirmNoJsFallbackTests(BookingBase):
         self.assertEqual(resp.status_code, 302)
         messages = list(get_messages(resp.wsgi_request))
         self.assertTrue(any("Missing slot information" in str(m) for m in messages))
+
+
+# Both 2026 changeovers in Europe/Luxembourg happen at 01:00 UTC. On 29 March
+# 02:00 CET jumps to 03:00 CEST, so 02:00-03:00 local never happens. On 25
+# October 03:00 CEST falls back to 02:00 CET, so 02:00-03:00 happens twice.
+LUXEMBOURG = ZoneInfo("Europe/Luxembourg")
+SPRING_FORWARD_UTC = datetime(2026, 3, 29, 1, 0, tzinfo=dt_timezone.utc)
+FALL_BACK_UTC = datetime(2026, 10, 25, 1, 0, tzinfo=dt_timezone.utc)
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class BookingAcrossDaylightSavingTests(BookingBase):
+    """Coach windows are local wall-clock times, but a booking is two
+    instants. The generator used to step slots on the wall clock, so on a
+    changeover Sunday it never offered the repeated autumn hour, offered the
+    missing spring hour, and made the slot before the autumn fall-back last
+    90 minutes. Worse, `claim_for_submission` compared the posted times with
+    `==`. PEP 495 makes that False between datetimes with different tzinfo
+    whenever either falls in a fold or gap, so no slot touching 02:00-03:00
+    could ever be confirmed. That turned the no-JS test above red for about
+    90 minutes around the 2026-10-25 changeover. Time is frozen here so the
+    changeover days are tested on any date.
+    """
+
+    def _freeze(self, when):
+        patcher = patch("django.utils.timezone.now", return_value=when)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def _offered_choices(self):
+        resp = self.client.get(self._page_url(), HTTP_HOST="crush.lu")
+        self.assertEqual(resp.status_code, 200)
+        return re.findall(
+            r'name="slot_choice"[^>]*value="([^"]+)"', resp.content.decode()
+        )
+
+    def _confirm(self, slot_choice):
+        return self.client.post(
+            f"/en/book/{self.submission.booking_token}/confirm/",
+            {"coach_id": self.coach.id, "slot_choice": slot_choice},
+            HTTP_HOST="crush.lu",
+        )
+
+    def _booked(self):
+        from crush_lu.models import ScreeningSlot
+
+        return ScreeningSlot.objects.filter(
+            submission=self.submission, status="booked"
+        ).first()
+
+    def test_slot_ending_as_the_clocks_fall_back_is_bookable(self):
+        """The case that failed at 01:18 CEST on 2026-10-25: the first slot
+        ends at 02:00 CEST, a wall time that happens again an hour later."""
+        self._freeze(FALL_BACK_UTC - timedelta(minutes=110))  # 01:10 CEST
+
+        choice = "2026-10-25T01:30:00+02:00|2026-10-25T02:00:00+02:00"
+        self.assertEqual(self._offered_choices()[0], choice)
+
+        resp = self._confirm(choice)
+
+        self.assertEqual(resp.status_code, 302)
+        booked = self._booked()
+        self.assertIsNotNone(booked)
+        self.assertEqual(booked.start_at, FALL_BACK_UTC - timedelta(minutes=90))
+        self.assertEqual(booked.end_at, FALL_BACK_UTC - timedelta(minutes=60))
+
+    def test_repeated_autumn_hour_is_offered_twice_and_bookable(self):
+        self._freeze(FALL_BACK_UTC - timedelta(minutes=110))  # 01:10 CEST
+
+        choices = self._offered_choices()
+        self.assertIn("2026-10-25T02:00:00+02:00|2026-10-25T02:30:00+02:00", choices)
+        self.assertIn("2026-10-25T02:30:00+02:00|2026-10-25T02:00:00+01:00", choices)
+        repeat = "2026-10-25T02:00:00+01:00|2026-10-25T02:30:00+01:00"
+        self.assertIn(repeat, choices)
+
+        resp = self._confirm(repeat)
+
+        self.assertEqual(resp.status_code, 302)
+        booked = self._booked()
+        self.assertIsNotNone(booked)
+        self.assertEqual(booked.start_at, FALL_BACK_UTC)
+        self.assertEqual(booked.end_at, FALL_BACK_UTC + timedelta(minutes=30))
+
+    def test_missing_spring_hour_is_never_offered(self):
+        self._freeze(SPRING_FORWARD_UTC - timedelta(minutes=50))  # 01:10 CET
+
+        choices = self._offered_choices()
+        self.assertFalse([c for c in choices if "2026-03-29T02:" in c])
+        # 01:30 CET is followed by 03:00 CEST, 30 real minutes later.
+        choice = "2026-03-29T01:30:00+01:00|2026-03-29T03:00:00+02:00"
+        self.assertEqual(choices[0], choice)
+
+        resp = self._confirm(choice)
+
+        self.assertEqual(resp.status_code, 302)
+        booked = self._booked()
+        self.assertIsNotNone(booked)
+        self.assertEqual(booked.start_at, SPRING_FORWARD_UTC - timedelta(minutes=30))
+        self.assertEqual(booked.end_at, SPRING_FORWARD_UTC)
+
+    def test_changeover_sunday_slots_each_last_thirty_real_minutes(self):
+        """The coach's 00:00-23:30 window spans 22.5 real hours on the spring
+        Sunday and 24.5 on the autumn one."""
+        from crush_lu.services.slot_generator import bookable_slots
+
+        for changeover, expected in ((SPRING_FORWARD_UTC, 45), (FALL_BACK_UTC, 49)):
+            with self.subTest(changeover=changeover.date()):
+                # Saturday afternoon, so all of Sunday's window is ahead.
+                with patch(
+                    "django.utils.timezone.now",
+                    return_value=changeover - timedelta(hours=11),
+                ):
+                    slots = bookable_slots(self.coach, days=3)
+
+                sunday = [
+                    s
+                    for s in slots
+                    if s["start_at"].astimezone(LUXEMBOURG).date() == changeover.date()
+                ]
+                self.assertEqual(len(sunday), expected)
+                # `.timestamp()` honours fold; subtracting two datetimes that
+                # share a tzinfo compares wall clocks and would hide the bug.
+                starts = [s["start_at"].timestamp() for s in sunday]
+                self.assertEqual(starts, sorted(set(starts)))
+                for s in sunday:
+                    self.assertEqual(
+                        s["end_at"].timestamp() - s["start_at"].timestamp(), 1800
+                    )
+
+    def test_claim_matches_an_offered_slot_by_instant(self):
+        """A zone-aware time in the repeated hour must still match the offered
+        slot for the same instant, whatever tzinfo either side carries."""
+        from crush_lu.models import ScreeningSlot
+
+        self._freeze(FALL_BACK_UTC - timedelta(minutes=110))  # 01:10 CEST
+
+        slot, _submission = ScreeningSlot.claim_for_submission(
+            coach_id=self.coach.id,
+            start_at=datetime(2026, 10, 25, 2, 0, fold=1, tzinfo=LUXEMBOURG),
+            end_at=datetime(2026, 10, 25, 2, 30, fold=1, tzinfo=LUXEMBOURG),
+            submission_token=self.submission.booking_token,
+        )
+
+        slot.refresh_from_db()
+        self.assertEqual(slot.status, "booked")
+        self.assertEqual(slot.start_at, FALL_BACK_UTC)
+        self.assertEqual(slot.end_at, FALL_BACK_UTC + timedelta(minutes=30))
+
+    def test_claim_still_rejects_a_naive_time(self):
+        """A time without an offset names no instant, so it matches nothing."""
+        from django.core.exceptions import ValidationError
+
+        from crush_lu.models import ScreeningSlot
+
+        self._freeze(FALL_BACK_UTC - timedelta(hours=12))
+        start_at = datetime(2026, 10, 25, 12, 0)
+
+        with self.assertRaises(ValidationError):
+            ScreeningSlot.claim_for_submission(
+                coach_id=self.coach.id,
+                start_at=start_at,
+                end_at=start_at + timedelta(minutes=30),
+                submission_token=self.submission.booking_token,
+            )
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
