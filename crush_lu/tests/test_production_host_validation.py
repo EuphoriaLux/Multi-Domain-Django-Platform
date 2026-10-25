@@ -30,7 +30,7 @@ _PROBE = textwrap.dedent("""
     from django.test import Client, RequestFactory, override_settings
     from opentelemetry.instrumentation.django import DjangoInstrumentor
 
-    from azureproject.domains import DOMAINS
+    from azureproject.domains import DOMAINS, MOVED_DOMAINS
 
     # The real instrumentation prepends itself to production's actual list.
     # No exporter is configured, so telemetry cannot leave the test process.
@@ -82,7 +82,13 @@ _PROBE = textwrap.dedent("""
         results["readiness_before_valid_probes"] = readiness.call_count
 
         for host in DOMAINS:
-            request("configured:" + host, host)
+            if host not in MOVED_DOMAINS:
+                request("configured:" + host, host)
+        for host in MOVED_DOMAINS:
+            request("moved:" + host, host)
+        request("moved-admin", "arborist.lu", path="/arborist-admin/")
+        request("moved-www-admin", "www.arborist.lu", path="/arborist-admin/")
+        request("moved-staging", "test.arborist.lu")
         for host in ("test.crush.lu", "test-portal.powerup.lu", "extra-staging.example.com"):
             request("staging:" + host, host)
         request("azure", "a2-app.azurewebsites.net")
@@ -147,6 +153,7 @@ _PROBE = textwrap.dedent("""
             "internal": asyncio.run(static_request("169.254.1.2")),
             "internal-transport": asyncio.run(static_request("169.254.1.2", "crush.lu")),
             "redirect-only": asyncio.run(static_request("moonlightdating.lu")),
+            "moved": asyncio.run(static_request("arborist.lu")),
         }
 
     # Run the actual ASGI protocol router with real OriginValidator, session/auth
@@ -305,6 +312,27 @@ def test_configured_sites_and_staging_hosts_keep_their_routes(production_hosts):
     assert responses["internal-transport-www"]["location"] == "https://crush.lu/en/"
 
 
+def test_moved_sites_redirect_except_on_the_paths_they_keep(production_hosts):
+    responses = production_hosts["responses"]
+    for host in ("arborist.lu", "www.arborist.lu"):
+        response = responses["moved:" + host]
+        assert response["status"] == 301, (host, response)
+        assert response["location"] == "https://treleidir.lu/"
+    assert responses["moved-admin"]["status"] == 200
+    assert (
+        responses["moved-admin"]["payload"]["urlconf"] == "azureproject.urls_arborist"
+    )
+    assert responses["moved-www-admin"]["status"] == 301
+    assert (
+        responses["moved-www-admin"]["location"]
+        == "https://arborist.lu/arborist-admin/"
+    )
+    assert responses["moved-staging"]["status"] == 200
+    assert (
+        responses["moved-staging"]["payload"]["urlconf"] == "azureproject.urls_arborist"
+    )
+
+
 def test_forwarded_host_drives_redirects_routing_and_staging_headers(production_hosts):
     for name, urlconf in (
         ("forwarded-staging", "azureproject.urls_crush"),
@@ -351,6 +379,8 @@ def test_asgi_static_shortcut_enforces_the_same_host_boundary(production_hosts):
         # without its own check it would serve the asset with a 200 and the
         # parked domain would never redirect on /static/ paths.
         "redirect-only": 301,
+        # A moved site keeps its admin, and the admin needs its assets.
+        "moved": 200,
     }
 
 
