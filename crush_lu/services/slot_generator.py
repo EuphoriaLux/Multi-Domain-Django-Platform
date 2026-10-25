@@ -13,7 +13,7 @@ the booking view creates a real ScreeningSlot row inside the claim
 transaction.
 """
 
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone as dt_timezone
 
 from django.utils import timezone
 
@@ -95,8 +95,18 @@ def virtual_slots_for(coach, days: int = 14):
 
             window_start_naive = datetime.combine(target_date, w_start)
             window_end_naive = datetime.combine(target_date, w_end)
-            window_start = timezone.make_aware(window_start_naive, tz)
-            window_end = timezone.make_aware(window_end_naive, tz)
+            # Step through the window in UTC. Adding a timedelta to a
+            # zone-aware datetime moves its wall clock, so on a changeover
+            # Sunday the repeated autumn hour was never offered, the slot
+            # before it lasted 90 minutes, and the missing spring hour was
+            # offered. UTC slots also match the real ScreeningSlot rows they
+            # are merged with; templates render both in local time.
+            window_start = timezone.make_aware(window_start_naive, tz).astimezone(
+                dt_timezone.utc
+            )
+            window_end = timezone.make_aware(window_end_naive, tz).astimezone(
+                dt_timezone.utc
+            )
 
             cursor = window_start
             while cursor + SLOT_DURATION <= window_end:

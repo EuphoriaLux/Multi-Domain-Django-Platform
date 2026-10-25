@@ -3,7 +3,7 @@ from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
-from datetime import timedelta
+from datetime import timedelta, timezone as dt_timezone
 import logging
 import os
 import uuid
@@ -2570,11 +2570,21 @@ class ScreeningSlot(models.Model):
 
             from crush_lu.services.slot_generator import bookable_slots
 
-            offered = any(
-                candidate["coach_id"] == coach_id
-                and candidate["start_at"] == start_at
-                and candidate["end_at"] == end_at
-                for candidate in bookable_slots(coach)
+            # Match instants, not datetimes. The view parses a fixed UTC
+            # offset, and PEP 495 makes `==` between datetimes with different
+            # tzinfo False whenever either falls in a DST fold or gap, even
+            # for the same instant. A naive time names no instant at all.
+            offered = (
+                timezone.is_aware(start_at)
+                and timezone.is_aware(end_at)
+                and any(
+                    candidate["coach_id"] == coach_id
+                    and candidate["start_at"].astimezone(dt_timezone.utc)
+                    == start_at.astimezone(dt_timezone.utc)
+                    and candidate["end_at"].astimezone(dt_timezone.utc)
+                    == end_at.astimezone(dt_timezone.utc)
+                    for candidate in bookable_slots(coach)
+                )
             )
             if not offered:
                 raise ValidationError(
