@@ -250,16 +250,15 @@ def test_hub_visibility_follows_current_catalogue_eligibility(
 
 @pytest.mark.django_db
 def test_summary_advances_existing_week_without_generating_cards(settings):
-    from datetime import timedelta
-    from django.utils import timezone
     from crush_lu.models import ConnectCycleCard, ConnectWeekSession
     from crush_lu.services.connect_summary import get_connect_summary
+    from crush_lu.tests.test_connect_week_experience import _local_noon_days_ago
 
     settings.CRUSH_CONNECT_LAUNCHED = True
     member = _make_user(username="returning", premium=False)
     session = ConnectWeekSession.objects.create(user=member)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=7)
+        started_at=_local_noon_days_ago(7)
     )
     summary = get_connect_summary(member)
     assert summary["review_open"] is True

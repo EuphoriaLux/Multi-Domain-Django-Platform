@@ -39,6 +39,7 @@ from crush_lu.models.crush_connect_cycle import (
 )
 from crush_lu.models.profiles import UserDataConsent
 from crush_lu.models.quiz import QuizEvent
+from crush_lu.tests.test_connect_week_experience import _local_noon_days_ago
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
 
@@ -397,7 +398,7 @@ class TestProfilePhotoRefused:
         ben = _member("ben", photo_consent=True)
         session = ConnectWeekSession.objects.create(user=ben)
         ConnectWeekSession.objects.filter(pk=session.pk).update(
-            started_at=timezone.now() - timedelta(days=2)
+            started_at=_local_noon_days_ago(2)
         )
         ConnectCycleCard.objects.create(
             session=session,
