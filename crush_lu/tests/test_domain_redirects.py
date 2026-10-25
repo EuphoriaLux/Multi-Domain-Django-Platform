@@ -9,6 +9,9 @@ and both are easy to break independently:
     every application middleware and would otherwise 400 the request, and
   * the redirect must fire before DomainURLRoutingMiddleware picks a urlconf,
     or the parked domain quietly serves the PRODUCTION_DEFAULT site instead.
+
+The same middleware also redirects moved sites (MOVED_DOMAINS), which are
+tested at the bottom of this module.
 """
 
 from urllib.parse import urlsplit
@@ -18,15 +21,18 @@ from django.http import HttpResponse
 from django.test import Client, RequestFactory
 
 from azureproject.domains import (
+    MOVED_DOMAINS,
     REDIRECT_DOMAINS,
     get_all_hosts,
     get_domain_config,
+    get_moved_target,
     get_redirect_target,
 )
 from azureproject.redirect_www_middleware import RedirectWWWToRootDomainMiddleware
 
 SENTINEL = "served by the application"
 POWER_UP_SOLUTIONS = "https://power-up.lu/solutions/"
+TRELEIDIR = "https://treleidir.lu/"
 
 
 def _response(request):
@@ -136,3 +142,83 @@ def test_get_redirect_target_normalises_the_host():
     assert get_redirect_target("MoonlightDating.LU:443") == POWER_UP_SOLUTIONS
     assert get_redirect_target("moonlightdating.lu.") == POWER_UP_SOLUTIONS
     assert get_redirect_target("crush.lu") is None
+
+
+# Moved sites (MOVED_DOMAINS): still routed, but every path the site does not
+# keep is handed to its new domain.
+
+
+@pytest.mark.parametrize("host", ["arborist.lu", "www.arborist.lu"])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/",
+        "/en/",
+        "/de/termin/",
+        "/booking/?utm_source=flyer",
+        "/sitemap.xml",
+        "/admin/",
+        "/arborist-administrator/",
+    ],
+)
+def test_moved_site_redirects_every_public_path_to_its_new_domain(host, path):
+    response = _get(path, host)
+
+    assert response.status_code == 301
+    assert response["Location"] == TRELEIDIR
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/arborist-admin/",
+        "/arborist-admin/login/?next=/arborist-admin/",
+        "/arborist-admin/arborist/arboristbooking/1/change/",
+        "/arborist-admin",
+        "/static/admin/css/base.css",
+    ],
+)
+def test_moved_site_keeps_serving_its_admin(path):
+    """The existing bookings are only readable in the arborist admin."""
+    response = _get(path, "arborist.lu")
+
+    assert response.status_code == 200
+    assert response.content.decode() == SENTINEL
+
+
+def test_moved_site_admin_on_www_goes_to_the_apex_not_the_new_domain():
+    response = _get("/arborist-admin/", "www.arborist.lu")
+
+    assert response.status_code == 301
+    assert response["Location"] == "https://arborist.lu/arborist-admin/"
+
+
+def test_moved_site_staging_host_keeps_the_whole_site():
+    response = _get("/en/", "test.arborist.lu")
+
+    assert response.status_code == 200
+    assert response.content.decode() == SENTINEL
+
+
+def test_moved_site_health_probes_are_not_redirected():
+    response = _get("/healthz/", "arborist.lu")
+
+    assert response.status_code == 200
+
+
+def test_moved_sites_stay_routed_and_out_of_redirect_domains():
+    """A moved site still serves its kept paths, so it needs a urlconf.
+
+    It must also stay out of REDIRECT_DOMAINS: the ASGI static shortcut 301s
+    those on every path, which would strip the admin of its stylesheets.
+    """
+    for host in MOVED_DOMAINS:
+        assert get_domain_config(host) is not None
+        assert host not in REDIRECT_DOMAINS
+        assert host in get_all_hosts()
+
+
+def test_get_moved_target_normalises_the_host():
+    assert get_moved_target("Arborist.LU:443", "/") == TRELEIDIR
+    assert get_moved_target("arborist.lu.", "/") == TRELEIDIR
+    assert get_moved_target("crush.lu", "/") is None

@@ -42,7 +42,14 @@ SITES = [
     },
     {"prod": "vinsdelux.com", "staging": "test.vinsdelux.com"},
     {"prod": "tableau.lu", "staging": "test.tableau.lu"},
-    {"prod": "arborist.lu", "staging": "test.arborist.lu"},
+    # arborist.lu moved to treleidir.lu (MOVED_DOMAINS): its public pages 301
+    # off the platform, so "/" would only smoke the new host. Probe the admin
+    # it keeps (an anonymous request lands on the admin login page).
+    {
+        "prod": "arborist.lu",
+        "staging": "test.arborist.lu",
+        "home_path": "/arborist-admin/",
+    },
     {"prod": "delegations.lu", "staging": "test.delegations.lu"},
 ]
 TIMEOUT = 30

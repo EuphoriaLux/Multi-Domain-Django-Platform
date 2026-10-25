@@ -128,6 +128,29 @@ REDIRECT_DOMAINS = {
     "www.moonlightdating.lu": "https://power-up.lu/solutions/",
 }
 
+# Sites that moved to a domain outside this platform. Unlike REDIRECT_DOMAINS,
+# the host keeps its DOMAINS entry and is still routed: the path prefixes in
+# "keep" go on serving, and every other path is answered with a 301 to
+# "target" by RedirectWWWToRootDomainMiddleware. As with REDIRECT_DOMAINS the
+# request path is not carried over -- the new site has pages of its own.
+#
+# Keys are exact hostnames (list the www. name too, so it does not take two
+# hops); a kept path on www. still gets the ordinary www. -> apex redirect.
+# test.* hosts are never redirected, so staging keeps the whole site.
+#
+# arborist.lu now lives at treleidir.lu. Its admin stays, because that is where
+# the existing bookings are read. /static/ is listed for its stylesheets and
+# scripts: azureproject.asgi serves those before Django runs, so this only
+# keeps a missing asset a 404 instead of a cached 301.
+_ARBORIST_MOVED = {
+    "target": "https://treleidir.lu/",
+    "keep": ("/arborist-admin/", "/static/"),
+}
+MOVED_DOMAINS = {
+    "arborist.lu": _ARBORIST_MOVED,
+    "www.arborist.lu": _ARBORIST_MOVED,
+}
+
 
 def get_domain_config(host):
     """
@@ -245,3 +268,26 @@ def get_redirect_target(host):
     """
     host = host.split(":")[0].lower().rstrip(".")
     return REDIRECT_DOMAINS.get(host)
+
+
+def get_moved_target(host, path):
+    """
+    Get the external redirect target for a request to a moved site.
+
+    Args:
+        host: The HTTP host (may include port)
+        path: The request path
+
+    Returns:
+        Absolute target URL string, or None if the host has not moved or the
+        path is one the old host keeps serving
+    """
+    host = host.split(":")[0].lower().rstrip(".")
+    moved = MOVED_DOMAINS.get(host)
+    if moved is None:
+        return None
+    for prefix in moved["keep"]:
+        # The bare prefix too, so /arborist-admin reaches APPEND_SLASH.
+        if path == prefix.rstrip("/") or path.startswith(prefix):
+            return None
+    return moved["target"]

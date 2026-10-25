@@ -11,7 +11,7 @@ This module handles:
 
 from django.http import HttpResponsePermanentRedirect
 
-from .domains import DOMAINS, PRODUCTION_DEFAULT, get_redirect_target
+from .domains import DOMAINS, PRODUCTION_DEFAULT, get_moved_target, get_redirect_target
 
 
 def is_staging_subdomain(host):
@@ -68,6 +68,7 @@ class RedirectWWWToRootDomainMiddleware:
 
     Redirects:
     - moonlightdating.lu -> power-up.lu/solutions/ (REDIRECT_DOMAINS, redirect-only domains)
+    - arborist.lu -> treleidir.lu, except its admin (MOVED_DOMAINS, sites that moved away)
     - www.crush.lu -> crush.lu
     - www.vinsdelux.com -> vinsdelux.com
     - www.entreprinder.lu -> entreprinder.lu
@@ -104,6 +105,12 @@ class RedirectWWWToRootDomainMiddleware:
         # whose whole job is to hand the visitor to another site. The path is
         # not carried over -- see REDIRECT_DOMAINS in domains.py.
         target = get_redirect_target(host)
+        if target:
+            return HttpResponsePermanentRedirect(target)
+
+        # A site that moved off the platform hands every visitor to its new
+        # domain, apart from the paths it keeps serving -- see MOVED_DOMAINS.
+        target = get_moved_target(host, request.path)
         if target:
             return HttpResponsePermanentRedirect(target)
 
