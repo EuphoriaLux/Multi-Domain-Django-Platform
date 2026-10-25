@@ -46785,3 +46785,15 @@ msgstr "Vorschau"
 
 msgid "Preview: the groups the projector would form if you generated them now. Nothing is saved until “Generate fair curated groups” runs."
 msgstr "Vorschau: Diese Gruppen würde der Projektor bilden, wenn du sie jetzt erstellst. Gespeichert wird erst, wenn „Generate fair curated groups“ ausgeführt wird."
+
+msgid "Your microphone"
+msgstr "Dein Mikrofon"
+
+msgid "Your microphone (muted)"
+msgstr "Dein Mikrofon (stumm)"
+
+msgid "Their sound"
+msgstr "Ton der anderen Person"
+
+msgid "If their bar moves but you hear nothing, turn up your device's volume."
+msgstr "Wenn sich der Balken der anderen Person bewegt, du aber nichts hörst, dreh die Lautstärke deines Geräts auf."

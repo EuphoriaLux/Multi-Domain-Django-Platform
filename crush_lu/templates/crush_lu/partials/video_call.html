@@ -30,7 +30,9 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
      data-label-mute="{% trans 'Mute' %}"
      data-label-unmute="{% trans 'Unmute' %}"
      data-label-camera-off="{% trans 'Camera off' %}"
-     data-label-camera-on="{% trans 'Camera on' %}">
+     data-label-camera-on="{% trans 'Camera on' %}"
+     data-label-meter-mine="{% trans 'Your microphone' %}"
+     data-label-meter-mine-muted="{% trans 'Your microphone (muted)' %}">
     <div class="relative overflow-hidden rounded-2xl bg-gray-900 aspect-[3/4] sm:aspect-video">
         <video x-ref="remote" autoplay playsinline class="h-full w-full object-cover"></video>
         <video x-ref="local" autoplay playsinline muted
@@ -38,6 +40,24 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
         <p class="absolute left-3 top-3 right-3 text-sm font-medium text-white drop-shadow"
            :class="statusClass"
            role="status" aria-live="polite" x-text="statusLabel"></p>
+    </div>
+    {# Sound meters: decorative and updated ten times a second, so hidden from screen readers, hint included. Shown only while the meters really run. #}
+    <div class="mt-3" x-show="showMeters" x-cloak aria-hidden="true" data-meters>
+        <div class="grid grid-cols-2 gap-3">
+            <div class="min-w-0">
+                <p class="mb-1 truncate text-xs font-medium text-gray-600 dark:text-gray-300" x-text="localMeterLabel"></p>
+                <div class="h-2 overflow-hidden rounded-full bg-gray-300 dark:bg-gray-600">
+                    <div class="h-full rounded-full bg-crush-purple dark:bg-crush-purple-light transition-[width] duration-100" :style="localMeterStyle" data-meter="local"></div>
+                </div>
+            </div>
+            <div class="min-w-0">
+                <p class="mb-1 truncate text-xs font-medium text-gray-600 dark:text-gray-300">{% trans "Their sound" %}</p>
+                <div class="h-2 overflow-hidden rounded-full bg-gray-300 dark:bg-gray-600">
+                    <div class="h-full rounded-full bg-emerald-600 dark:bg-emerald-400 transition-[width] duration-100" :style="remoteMeterStyle" data-meter="remote"></div>
+                </div>
+            </div>
+        </div>
+        <p class="mt-2 mb-0 text-xs text-gray-500 dark:text-gray-400">{% trans "If their bar moves but you hear nothing, turn up your device's volume." %}</p>
     </div>
     <div class="mt-4 flex flex-wrap justify-center gap-2">
         <button type="button" class="btn-crush-solid" x-show="canStart" @click="start">{% trans "Start video" %}</button>

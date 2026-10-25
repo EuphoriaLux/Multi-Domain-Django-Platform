@@ -25,6 +25,10 @@ const CONNECT_TIMEOUT_MS = 30000;
 // consumers_video_call.CLOSE_REPLACED: a newer socket took this person's role.
 const CLOSE_REPLACED = 4000;
 const ACTIVE = ["waiting", "connecting", "connected", "reconnecting"];
+// Sound meters: sampled ten times a second; speech RMS sits around 0.02-0.2,
+// so it is scaled up before being shown as a 0-100% bar.
+const METER_INTERVAL_MS = 100;
+const METER_GAIN = 4;
 
 function randomId() {
     const bytes = new Uint8Array(8);
@@ -58,6 +62,18 @@ function makeVideoCall() {
         reconnectTimer: null,
         connectTimer: null,
         restartTimer: null,
+        // Sound meters. The analysers only read the audio: nothing is
+        // connected to the speakers, so the meters add no sound or echo.
+        audioContext: null,
+        localSource: null,
+        localAnalyser: null,
+        remoteSource: null,
+        remoteAnalyser: null,
+        meterBuffer: null,
+        meterTimer: null,
+        // Bumped by every start() and by leaving the page, so a start() that
+        // resumes after an await can tell it was abandoned meanwhile.
+        attempt: 0,
     };
 
     return {
@@ -65,6 +81,9 @@ function makeVideoCall() {
         microphoneOn: true,
         cameraOn: true,
         canSwitchCamera: false,
+        localLevel: 0,
+        remoteLevel: 0,
+        metersActive: false,
 
         init() {
             const configEl = document.getElementById(this.$el.dataset.configId);
@@ -87,14 +106,24 @@ function makeVideoCall() {
                 unmute: data.labelUnmute,
                 cameraOff: data.labelCameraOff,
                 cameraOn: data.labelCameraOn,
+                meterMine: data.labelMeterMine,
+                meterMineMuted: data.labelMeterMineMuted,
             };
-            this._onPageHide = () => this.hangUp();
+            this._onPageHide = () => this._abandon();
             window.addEventListener("pagehide", this._onPageHide);
         },
 
         destroy() {
             window.removeEventListener("pagehide", this._onPageHide);
+            this._abandon();
+        },
+
+        // Leaving the page: end a live call, and make a start() that is still
+        // waiting (relay credentials, camera prompt) give up when it resumes.
+        _abandon() {
+            call.attempt += 1;
             this.hangUp();
+            this._stopMeters();
         },
 
         get statusLabel() {
@@ -119,31 +148,71 @@ function makeVideoCall() {
         get cameraLabel() {
             return this.cameraOn ? call.labels.cameraOff : call.labels.cameraOn;
         },
+        // Hidden unless the meters really run, so a browser that cannot
+        // measure never shows a microphone bar stuck at zero.
+        get showMeters() {
+            return this.inCall && this.metersActive;
+        },
+        get localMeterLabel() {
+            return this.microphoneOn ? call.labels.meterMine : call.labels.meterMineMuted;
+        },
+        get localMeterStyle() {
+            return "width:" + Math.round(this.localLevel * 100) + "%";
+        },
+        get remoteMeterStyle() {
+            return "width:" + Math.round(this.remoteLevel * 100) + "%";
+        },
 
         async start() {
+            const attempt = ++call.attempt;
             this.status = "starting";
+            // Created inside the Start tap, before any await: iOS Safari only
+            // runs an AudioContext that a user gesture created or resumed.
+            this._createAudioContext();
             // Fresh relay credentials for this call, before the camera turns on.
             const ice = await this._fetchIceServers();
+            if (attempt !== call.attempt) {
+                return; // the page was left meanwhile; _abandon cleaned up
+            }
             if (!ice) {
+                this._stopMeters();
                 this.status = "failed";
                 return;
             }
             call.iceServers = ice.iceServers;
             call.iceTransportPolicy = ice.iceTransportPolicy;
+            let stream;
             try {
-                call.stream = await navigator.mediaDevices.getUserMedia({
+                stream = await navigator.mediaDevices.getUserMedia({
                     audio: true,
                     video: { facingMode: call.facingMode },
                 });
             } catch (error) {
+                if (attempt !== call.attempt) {
+                    return;
+                }
+                this._stopMeters();
                 this.status =
                     error && error.name === "NotAllowedError" ? "denied" : "failed";
                 return;
             }
+            if (attempt !== call.attempt) {
+                stream.getTracks().forEach((t) => t.stop());
+                return;
+            }
+            call.stream = stream;
             this.microphoneOn = true;
             this.cameraOn = true;
             this.$refs.local.srcObject = call.stream;
-            this.canSwitchCamera = await this._hasSeveralCameras();
+            this._startMeters();
+            const severalCameras = await this._hasSeveralCameras();
+            if (attempt !== call.attempt) {
+                stream.getTracks().forEach((t) => t.stop());
+                call.stream = null;
+                this._stopMeters();
+                return;
+            }
+            this.canSwitchCamera = severalCameras;
             call.ended = false;
             call.reconnectAttempt = 0;
             this.status = "waiting";
@@ -203,6 +272,7 @@ function makeVideoCall() {
         _stop(status) {
             call.ended = true;
             this._closePeer();
+            this._stopMeters();
             clearTimeout(call.reconnectTimer);
             if (call.socket) {
                 call.socket.onclose = null;
@@ -344,6 +414,11 @@ function makeVideoCall() {
                     remote.srcObject = event.streams[0];
                     remote.play().catch(() => {});
                 }
+                // Keep this after the srcObject line: Chrome passes remote
+                // WebRTC audio to Web Audio only while an element plays it.
+                if (event.track.kind === "audio") {
+                    this._attachRemoteMeter(event.track);
+                }
             };
             pc.onconnectionstatechange = () => this._onConnectionState(pc);
             // Only the impolite side offers: the polite side adds its tracks
@@ -364,7 +439,11 @@ function makeVideoCall() {
             }, ICE_RESTART_AFTER_MS);
             call.connectTimer = setTimeout(() => {
                 if (call.pc === pc && pc.connectionState !== "connected") {
-                    this.status = "failed";
+                    // End the attempt fully, so "Start video" begins a clean
+                    // one: a retry on a still-open socket would be closed by
+                    // the server as a replaced socket and leave the camera on.
+                    this._send({ type: "bye", id: call.myId });
+                    this._stop("failed");
                 }
             }, CONNECT_TIMEOUT_MS);
         },
@@ -461,9 +540,133 @@ function makeVideoCall() {
                 call.pc.close();
                 call.pc = null;
             }
+            this._detachRemoteMeter();
             if (this.$refs.remote) {
                 this.$refs.remote.srcObject = null;
             }
+        },
+
+        // ---- sound meters ----
+
+        _createAudioContext() {
+            // No webkitAudioContext fallback: browsers that only have it
+            // (Safari <= 14.0) lack getFloatTimeDomainData, and cannot run
+            // the call itself anyway. Without a context the meters stay hidden.
+            if (call.audioContext || typeof window.AudioContext !== "function") {
+                return;
+            }
+            try {
+                call.audioContext = new window.AudioContext();
+            } catch (error) {
+                call.audioContext = null;
+            }
+        },
+
+        _makeAnalyser(stream) {
+            const analyser = call.audioContext.createAnalyser();
+            // About 43 ms of audio per reading at 48 kHz: long enough to catch
+            // short sounds between the ten readings a second.
+            analyser.fftSize = 2048;
+            const source = call.audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            return { source, analyser };
+        },
+
+        _startMeters() {
+            if (!call.audioContext || !call.stream || !call.stream.getAudioTracks().length) {
+                return;
+            }
+            // Never two timers or two local sources at once.
+            clearInterval(call.meterTimer);
+            if (call.localSource) {
+                call.localSource.disconnect();
+                call.localSource = null;
+            }
+            try {
+                // A context created before the camera prompt may be suspended.
+                call.audioContext.resume().catch(() => {});
+                const local = this._makeAnalyser(call.stream);
+                if (typeof local.analyser.getFloatTimeDomainData !== "function") {
+                    throw new Error("analyser cannot read samples");
+                }
+                call.localSource = local.source;
+                call.localAnalyser = local.analyser;
+                call.meterBuffer = new Float32Array(local.analyser.fftSize);
+                call.meterTimer = setInterval(() => this._sampleMeters(), METER_INTERVAL_MS);
+                this.metersActive = true;
+            } catch (error) {
+                // Meters are a nicety: a browser that refuses them still calls.
+                this._stopMeters();
+            }
+        },
+
+        _attachRemoteMeter(track) {
+            if (!call.audioContext || !call.meterBuffer) {
+                return;
+            }
+            this._detachRemoteMeter();
+            try {
+                const remote = this._makeAnalyser(new MediaStream([track]));
+                call.remoteSource = remote.source;
+                call.remoteAnalyser = remote.analyser;
+            } catch (error) {
+                this._detachRemoteMeter();
+            }
+        },
+
+        _detachRemoteMeter() {
+            if (call.remoteSource) {
+                call.remoteSource.disconnect();
+            }
+            call.remoteSource = null;
+            call.remoteAnalyser = null;
+            this.remoteLevel = 0;
+        },
+
+        _stopMeters() {
+            clearInterval(call.meterTimer);
+            call.meterTimer = null;
+            this._detachRemoteMeter();
+            if (call.localSource) {
+                call.localSource.disconnect();
+            }
+            call.localSource = null;
+            call.localAnalyser = null;
+            call.meterBuffer = null;
+            if (call.audioContext) {
+                call.audioContext.close().catch(() => {});
+                call.audioContext = null;
+            }
+            this.localLevel = 0;
+            this.metersActive = false;
+        },
+
+        _sampleMeters() {
+            try {
+                this.localLevel = this._levelOf(call.localAnalyser, this.localLevel);
+                this.remoteLevel = this._levelOf(call.remoteAnalyser, this.remoteLevel);
+            } catch (error) {
+                // Stop measuring rather than throw ten times a second.
+                this._stopMeters();
+            }
+        },
+
+        // RMS of the latest samples, scaled to 0-1, rising fast and falling
+        // gently so speech reads as a steady bar rather than a flicker.
+        _levelOf(analyser, previous) {
+            if (!analyser || !call.meterBuffer) {
+                return 0;
+            }
+            analyser.getFloatTimeDomainData(call.meterBuffer);
+            let sum = 0;
+            for (let i = 0; i < call.meterBuffer.length; i += 1) {
+                sum += call.meterBuffer[i] * call.meterBuffer[i];
+            }
+            const level = Math.min(1, Math.sqrt(sum / call.meterBuffer.length) * METER_GAIN);
+            const next = level > previous ? level : previous * 0.7 + level * 0.3;
+            // Shown in 2% steps; below one step it is silence, so the fade
+            // reaches zero instead of settling on the first step.
+            return next < 0.02 ? 0 : Math.round(next * 50) / 50;
         },
 
         _setTracksEnabled(kind, enabled) {
