@@ -27,6 +27,7 @@ from crush_lu.tests.test_connect_chat_flows import _make_open_chat
 from crush_lu.tests.test_connect_week_experience import (
     WEEK_REVIEW_URL,
     _answer_all,
+    _local_noon_days_ago,
     _make_cycle_user,
     _reviewable_session_with_card,
     _seed_cycle_pool,
@@ -281,7 +282,7 @@ def test_review_dialog_confirm_is_the_solid_variant(client, settings):
     for card in get_or_create_todays_cards(session):
         _answer_all(card)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
+        started_at=_local_noon_days_ago(CYCLE_LENGTH_DAYS)
     )
     _login_eligible(client, me)
 
