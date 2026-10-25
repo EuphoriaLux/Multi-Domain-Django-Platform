@@ -10,7 +10,8 @@ and reuses the ``CrushConnectMembership`` / gate-question fixtures from
 convention already used by the other ``test_crush_connect_*`` suites).
 """
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
+from datetime import timezone as dt_timezone
 
 import pytest
 from django.contrib.messages import get_messages
@@ -98,6 +99,20 @@ def _answer_all(card):
     membership = card.target_user.crush_connect_membership
     guesses = {gq.question_id: True for gq in membership.active_gate_questions}
     return record_card_answer(card, guesses)
+
+
+def _local_noon_days_ago(days):
+    """Local noon ``days`` calendar days before today, for backdating
+    ``ConnectWeekSession.started_at``.
+
+    ``sync_session_state`` counts local calendar days, while
+    ``timezone.now() - timedelta(days=n)`` is n x 24 hours. For n nights
+    after a clock change the two disagree for an hour (23:00-24:00 after the
+    autumn change, 00:00-01:00 after the spring one), and the session lands a
+    day short or a day long. Noon is never skipped or repeated.
+    """
+    day = timezone.localdate() - timedelta(days=days)
+    return timezone.make_aware(datetime.combine(day, time(12)))
 
 
 @pytest.mark.django_db(transaction=True)
@@ -305,7 +320,7 @@ def test_highlight_tracks_visible_completed_cards(client, settings, when, loss):
     targets = _seed_cycle_pool(viewer, n=2)
     session = ConnectWeekSession.objects.create(user=viewer)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
+        started_at=_local_noon_days_ago(CYCLE_LENGTH_DAYS)
     )
     for index, target in enumerate(targets):
         ConnectCycleCard.objects.create(
@@ -510,7 +525,7 @@ def test_sync_session_state_advances_day_and_expires_missed_cards(settings):
 
     # 2 full days elapse without answering — day 1's cards expire, unreachable.
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=2)
+        started_at=_local_noon_days_ago(2)
     )
     session.refresh_from_db()
     session = sync_session_state(session)
@@ -532,7 +547,7 @@ def test_sync_session_state_opens_review_after_last_day(settings):
         _answer_all(card)
 
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
+        started_at=_local_noon_days_ago(CYCLE_LENGTH_DAYS)
     )
     session.refresh_from_db()
     session = sync_session_state(session)
@@ -572,6 +587,71 @@ def test_sync_session_state_is_idempotent_for_terminal_sessions():
     )
     returned = sync_session_state(session)
     assert returned.status == ConnectWeekSession.Status.COMPLETED
+
+
+# ---------------------------------------------------------------------------
+# Backdating across daylight-saving changes
+# ---------------------------------------------------------------------------
+
+# Instants where n x 24 hours back is not n local calendar days back (see
+# ``_local_noon_days_ago``): 23:30 CET on the 25-hour 2026-10-25, and 00:30
+# CEST on 2027-03-29, after the 23-hour day. Backdating with ``timedelta``
+# failed 12 Connect Week tests on the first of those evenings. Time is
+# frozen so both changeovers are tested on any date.
+DST_WINDOW_INSTANTS = [
+    pytest.param(datetime(2026, 10, 25, 22, 30, tzinfo=dt_timezone.utc), id="autumn"),
+    pytest.param(datetime(2027, 3, 28, 22, 30, tzinfo=dt_timezone.utc), id="spring"),
+]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("now", DST_WINDOW_INSTANTS)
+def test_backdated_session_advances_by_calendar_days_across_dst(settings, mocker, now):
+    mocker.patch("django.utils.timezone.now", return_value=now)
+    two_days_ago = timezone.localdate() - timedelta(days=2)
+    # The frozen instant really sits in the window.
+    assert timezone.localtime(now - timedelta(days=2)).date() != two_days_ago
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("me")
+    _seed_cycle_pool(me, n=5)
+    session = get_or_create_active_session(me)
+    cards = get_or_create_todays_cards(session)
+
+    ConnectWeekSession.objects.filter(pk=session.pk).update(
+        started_at=_local_noon_days_ago(2)
+    )
+    session.refresh_from_db()
+    assert timezone.localtime(session.started_at).date() == two_days_ago
+    session = sync_session_state(session)
+
+    assert session.status == ConnectWeekSession.Status.ACTIVE
+    assert session.current_day_number == 3
+    for card in cards:
+        card.refresh_from_db()
+        assert card.is_expired is True
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("now", DST_WINDOW_INSTANTS)
+def test_backdated_session_opens_review_page_across_dst(client, settings, mocker, now):
+    mocker.patch("django.utils.timezone.now", return_value=now)
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("me")
+    _seed_cycle_pool(me, n=3)
+    session = get_or_create_active_session(me)
+    for card in get_or_create_todays_cards(session):
+        _answer_all(card)
+    ConnectWeekSession.objects.filter(pk=session.pk).update(
+        started_at=_local_noon_days_ago(CYCLE_LENGTH_DAYS)
+    )
+    _login_eligible(client, me)
+
+    resp = client.get(WEEK_REVIEW_URL)
+
+    assert resp.status_code == 200
+    assert "Suggested connection" in resp.content.decode()
+    session.refresh_from_db()
+    assert session.status == ConnectWeekSession.Status.REVIEW_OPEN
 
 
 # ---------------------------------------------------------------------------
@@ -998,7 +1078,7 @@ def test_week_review_renders_highlight_after_day_seven(client, settings):
     for card in get_or_create_todays_cards(session):
         _answer_all(card)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS)
+        started_at=_local_noon_days_ago(CYCLE_LENGTH_DAYS)
     )
     _login_eligible(client, me)
 
@@ -1303,7 +1383,7 @@ def test_in_flight_longer_cycle_lands_in_review_with_late_cards_settled(settings
     targets = _seed_cycle_pool(me, n=2)
     session = ConnectWeekSession.objects.create(user=me)
     ConnectWeekSession.objects.filter(pk=session.pk).update(
-        started_at=timezone.now() - timedelta(days=CYCLE_LENGTH_DAYS + 3),
+        started_at=_local_noon_days_ago(CYCLE_LENGTH_DAYS + 3),
         current_day_number=CYCLE_LENGTH_DAYS + 2,
     )
     late_day = CYCLE_LENGTH_DAYS + 1
