@@ -410,8 +410,9 @@ SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 # Override session settings from base settings.py for PWA
 SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
 # OPTIMIZATION: Changed from True to False (90% reduction in database writes)
-# Sessions now only save when actually modified, not on every request
-# PWA will still work - 14-day timeout is sufficient without extending on every pageview
+# Sessions now only save when actually modified, not on every request.
+# SessionRenewalMiddleware (settings.py) slides a logged-in session's expiry
+# once per SESSION_RENEWAL_INTERVAL, so an active member's window keeps restarting.
 SESSION_SAVE_EVERY_REQUEST = False  # Only save when session data changes
 SESSION_EXPIRE_AT_BROWSER_CLOSE = (
     False  # Keep session alive after browser close (critical for PWA)

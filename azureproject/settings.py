@@ -364,6 +364,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "azureproject.middleware.CookieConsentFlagSyncMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # Slides a logged-in session's expiry at most once a day. Must come after
+    # SessionMiddleware and AuthenticationMiddleware.
+    "azureproject.middleware.SessionRenewalMiddleware",
     "crush_lu.oauth_recovery.OAuthRecoveryCookieMiddleware",
     "crush_lu.middleware.UserActivityMiddleware",  # Track user activity and PWA usage
     "crush_lu.consent_middleware.CrushConsentMiddleware",  # Enforce Crush.lu GDPR consent
@@ -591,9 +594,12 @@ SOCIALACCOUNT_ONLY = False
 # Session Configuration for PWA
 SESSION_COOKIE_AGE = 1209600  # 14 days (2 weeks) - longer session for PWA
 # OPTIMIZATION: Changed from True to False (90% reduction in database writes)
-# Sessions now only save when actually modified, not on every request
-# PWA will still work - 14-day timeout is sufficient without extending on every pageview
+# Sessions now only save when actually modified, not on every request.
+# On its own that fixed the expiry at login. SessionRenewalMiddleware re-saves
+# a logged-in session once per SESSION_RENEWAL_INTERVAL, so an active member's
+# 14 days keep restarting instead of running out.
 SESSION_SAVE_EVERY_REQUEST = False  # Only save when session data changes
+SESSION_RENEWAL_INTERVAL = 24 * 60 * 60  # seconds; at most one renewal per day
 SESSION_COOKIE_HTTPONLY = True  # Security: prevent JavaScript access
 # SEC-01: secure in production (HTTPS via Azure Front Door), relaxed for local HTTP dev.
 SESSION_COOKIE_SECURE = not DEBUG

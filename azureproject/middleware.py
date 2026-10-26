@@ -7,6 +7,7 @@ This module contains middleware for:
 - Safe site detection (auto-creates missing Site objects)
 - Domain-based URL routing
 - Admin language forcing
+- Sliding session renewal
 - Custom CSRF failure handling
 """
 
@@ -14,9 +15,10 @@ import logging
 import threading
 
 from django.conf import settings
+from django.contrib.auth import SESSION_KEY
 from django.core.cache import cache
 from django.db import IntegrityError, router
-from django.utils import translation
+from django.utils import timezone, translation
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.contrib.sites.models import Site
 
@@ -875,6 +877,62 @@ class OAuthCallbackProtectionMiddleware:
                     )
 
         response = self.get_response(request)
+        return response
+
+
+class SessionRenewalMiddleware:
+    """
+    Slide a logged-in session's expiry forward while its owner keeps using it.
+
+    SESSION_SAVE_EVERY_REQUEST is off to save writes, so a session used to be
+    saved only when its data changed. Its expiry and the cookie's Max-Age were
+    therefore fixed at login: a member who came back every day was still
+    logged out exactly SESSION_COOKIE_AGE (14 days) later. App Insights showed
+    the re-login cliff at 336 h — ai-memory-hub/memories/crush-session-expiry.md
+
+    This stamps the session at most once per SESSION_RENEWAL_INTERVAL. The
+    stamp marks it modified, so SessionMiddleware saves it with a fresh expiry
+    and re-sends the cookie: one extra write per member per day. Each save
+    recomputes the expiry from now because every session here has a relative
+    one (allauth's set_expiry(SESSION_COOKIE_AGE), or none at all). A
+    browser-close session stays one: its cookie never gets a Max-Age.
+
+    It acts on the response, after the view. A logout has by then flushed the
+    session and swapped in AnonymousUser, so it is never renewed. A request
+    with no stored session is skipped as well: stamping it would create a new
+    session row and cookie, e.g. on every JWT-authenticated hub API call.
+
+    Must be placed AFTER SessionMiddleware and AuthenticationMiddleware.
+    """
+
+    SKIP_PATHS = ("/static/", "/media/", "/healthz/", "/readyz/")
+    STAMP_KEY = "_session_renewed_at"
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+
+        session = getattr(request, "session", None)
+        if (
+            session is None
+            or request.path.startswith(self.SKIP_PATHS)
+            or not session.session_key
+            or not request.user.is_authenticated
+            # A session emptied without a flush must stay empty.
+            or SESSION_KEY not in session
+        ):
+            return response
+
+        now = int(timezone.now().timestamp())
+        try:
+            renewed_at = int(session.get(self.STAMP_KEY, 0))
+        except (TypeError, ValueError):
+            renewed_at = 0
+        # A session that is saved anyway gets its fresh expiry for free.
+        if session.modified or now - renewed_at >= settings.SESSION_RENEWAL_INTERVAL:
+            session[self.STAMP_KEY] = now
         return response
 
 
