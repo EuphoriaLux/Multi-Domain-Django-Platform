@@ -16,7 +16,7 @@ django-htmx==1.29.0  # HTMX server-side integration
 psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.19.7  # Updated from 65.1.0 (latest stable)
+django-allauth==65.20.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.15.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.2  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
 google-auth==2.62.0  # Required for Google Wallet API authentication
@@ -59,7 +59,7 @@ whitenoise==6.12.0  # Updated from 6.7.0 (security fix for autorefresh mode)
 requests==2.34.2
 httpx[http2]==0.28.1
 qrcode[pil]==8.2  # QR code generation for Journey Gifts
-reportlab==5.0.1  # Printable QR sheets (Advent + Crush Cache)
+reportlab==5.1.0  # Printable QR sheets (Advent + Crush Cache)
 
 
 # Push Notifications
@@ -81,5 +81,5 @@ polib==1.2.0  # .po file parsing for check_translations command and scripts/i18n
 pytest==9.1.1
 pytest-django==4.14.0
 pytest-playwright==0.10.0
-pytest-mock==3.16.0  # Provides 'mocker' fixture for mocking
-playwright==1.64.0
+pytest-mock==3.17.0  # Provides 'mocker' fixture for mocking
+playwright==1.64.1
