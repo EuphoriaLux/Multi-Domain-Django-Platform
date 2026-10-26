@@ -101,3 +101,12 @@ def test_conditional_middlewares_follow_their_anchors(production_middleware):
 
     assert force_english == domain_routing + 1
     assert oauth == auth + 1
+
+
+def test_session_renewal_runs_inside_session_and_auth(production_middleware):
+    """Its stamp is only saved if SessionMiddleware's response phase runs after it."""
+    session = _index(production_middleware, "sessions.middleware.SessionMiddleware")
+    auth = _index(production_middleware, "auth.middleware.AuthenticationMiddleware")
+    renewal = _index(production_middleware, "SessionRenewalMiddleware")
+
+    assert session < auth < renewal
