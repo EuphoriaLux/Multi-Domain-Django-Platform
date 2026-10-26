@@ -16,11 +16,13 @@ How it works:
 4. This allows OAuth to work even when sessions don't persist across browser contexts
 """
 
+import inspect
 import ipaddress
 import json
 import logging
 from typing import Any, Dict, Optional
 
+from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -94,8 +96,30 @@ def patch_allauth_statekit():
     _original_unstash_state = statekit.unstash_state
     _original_unstash_last_state = statekit.unstash_last_state
 
+    # allauth 65.20 binds every stashed state to the provider that stashed it:
+    # the statekit functions became keyword-only and take provider_id (plus
+    # raises= when unstashing). The wrappers accept both call styles, so the
+    # allauth version on either side of that change keeps social login working.
+    binds_provider = (
+        "provider_id" in inspect.signature(_original_stash_state).parameters
+    )
+
+    def _provider_kwargs(provider_id: Optional[str]) -> Dict[str, Any]:
+        """The provider_id argument for the original functions, if they take it."""
+        if not binds_provider:
+            return {}
+        if provider_id is None:
+            # allauth reads a missing provider as "any provider", so a caller
+            # that forgot it must fail like allauth's own keyword-only argument.
+            raise TypeError("missing required keyword argument: 'provider_id'")
+        return {"provider_id": provider_id}
+
     def db_stash_state(
-        request, state: Dict[str, Any], state_id: Optional[str] = None
+        request,
+        state: Optional[Dict[str, Any]] = None,
+        state_id: Optional[str] = None,
+        *,
+        provider_id: Optional[str] = None,
     ) -> str:
         """
         Enhanced stash_state that stores in both session AND database.
@@ -104,10 +128,13 @@ def patch_allauth_statekit():
             request: Django request object
             state: State dictionary to store
             state_id: Optional state ID (generated if not provided)
+            provider_id: The provider's sub_id (allauth 65.20+ passes it)
 
         Returns:
             state_id: The state identifier to pass to OAuth provider
         """
+        provider_kwargs = _provider_kwargs(provider_id)
+
         # Check for popup mode parameter and store in session
         # This happens BEFORE the redirect to the OAuth provider
         is_popup = request.GET.get("popup") == "1"
@@ -135,7 +162,9 @@ def patch_allauth_statekit():
 
         # First, use original session-based storage (for compatibility)
         try:
-            state_id = _original_stash_state(request, state, state_id)
+            state_id = _original_stash_state(
+                request, state=state, state_id=state_id, **provider_kwargs
+            )
             logger.debug(f"[OAUTH] State {state_id[:8]}... stored in session")
         except Exception as e:
             logger.error(f"[OAUTH] Session state storage failed: {e}")
@@ -151,8 +180,10 @@ def patch_allauth_statekit():
             user_agent = request.META.get("HTTP_USER_AGENT", "")
             ip_address = get_client_ip(request)
 
-            # Determine provider from state or request
-            provider = state.get("provider", "")
+            # The provider the state is bound to. allauth 65.20+ names it (its
+            # sub_id, which the DB fallback checks); older versions leave it
+            # to the state or the request path.
+            provider = provider_id or state.get("provider", "")
             if not provider:
                 # Try to get from request path (e.g., /accounts/facebook/login/)
                 path = request.path
@@ -200,19 +231,41 @@ def patch_allauth_statekit():
         except Exception as e:
             logger.error(f"[OAUTH] Failed to restore native-app handoff: {e}")
 
-    def db_unstash_state(request, state_id: str) -> Optional[Dict[str, Any]]:
+    def db_unstash_state(
+        request,
+        state_id: Optional[str] = None,
+        *,
+        provider_id: Optional[str] = None,
+        raises: bool = False,
+    ) -> Optional[Dict[str, Any]]:
         """
         Enhanced unstash_state that tries session first, then database.
 
         Args:
             request: Django request object
             state_id: The state identifier from OAuth callback
+            provider_id: The provider's sub_id (allauth 65.20+ passes it)
+            raises: Raise PermissionDenied instead of returning None
 
         Returns:
             State dictionary, or None if not found/expired/used
         """
+        provider_kwargs = _provider_kwargs(provider_id)
+        # raises= is never forwarded: the original would raise before the
+        # database fallback below had a chance to find the state.
+        state = _unstash_state(request, state_id, provider_id, provider_kwargs)
+        if state is None and raises:
+            raise PermissionDenied()
+        return state
+
+    def _unstash_state(
+        request,
+        state_id: str,
+        provider_id: Optional[str],
+        provider_kwargs: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
         # First, try original session-based lookup (fast path)
-        state = _original_unstash_state(request, state_id)
+        state = _original_unstash_state(request, state_id=state_id, **provider_kwargs)
         if state is not None:
             logger.debug(f"[OAUTH] State {state_id[:8]}... found in session")
             # Session and cross-browser callbacks share a single consume gate.
@@ -242,8 +295,9 @@ def patch_allauth_statekit():
                     "[OAUTH] Missing callback browser proof; restart sign-in"
                 )
                 return None
+            # Only the provider that stashed the state may consume it.
             state = OAuthState.get_and_consume_state(
-                state_id, browser_hash=browser_hash
+                state_id, browser_hash=browser_hash, provider=provider_id
             )
             if state:
                 logger.info(
@@ -268,22 +322,22 @@ def patch_allauth_statekit():
 
         return None
 
-    def db_unstash_last_state(request) -> Optional[Dict[str, Any]]:
+    def db_unstash_last_state(
+        request, *, provider_id: Optional[str] = None, raises: bool = False
+    ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a session-bound state for providers without a state parameter.
 
         Used for providers that don't support state parameter.
         """
-        # First try session
-        state = _original_unstash_last_state(request)
-        if state is not None:
-            return state
-
-        # An IP address is not proof of client possession (shared NAT, proxies).
-        # Providers without state must retain their session rather than select
-        # another browser's most recent flow from the database.
-
-        return None
+        # Session only. An IP address is not proof of client possession
+        # (shared NAT, proxies). Providers without state must retain their
+        # session rather than select another browser's most recent flow from
+        # the database.
+        state = _original_unstash_last_state(request, **_provider_kwargs(provider_id))
+        if state is None and raises:
+            raise PermissionDenied()
+        return state
 
     # Apply patches
     statekit.stash_state = db_stash_state
@@ -298,6 +352,8 @@ def patch_allauth_statekit():
         logger.error("[OAUTH] CRITICAL: stash_state patch not applied!")
     if statekit.unstash_state != db_unstash_state:
         logger.error("[OAUTH] CRITICAL: unstash_state patch not applied!")
+    if statekit.unstash_last_state != db_unstash_last_state:
+        logger.error("[OAUTH] CRITICAL: unstash_last_state patch not applied!")
 
 
 def cleanup_expired_states():

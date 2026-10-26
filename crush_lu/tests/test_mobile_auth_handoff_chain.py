@@ -298,7 +298,10 @@ def test_lost_session_callback_restores_the_ios_marker(crush_client, google_user
     )
     assert not is_ios_tracking_suppressed(request)
 
-    assert statekit.unstash_state(request, state_id) is not None
+    assert (
+        statekit.unstash_state(request, state_id=state_id, provider_id="google")
+        is not None
+    )
 
     data = request.session[SESSION_KEY]
     assert data["platform"] == "ios"
@@ -328,7 +331,10 @@ def test_session_callback_restores_an_expired_ios_marker(crush_client, google_us
     request.session = session
     assert not is_ios_tracking_suppressed(request)
 
-    assert statekit.unstash_state(request, state_id) is not None
+    assert (
+        statekit.unstash_state(request, state_id=state_id, provider_id="google")
+        is not None
+    )
 
     assert request.session[SESSION_KEY]["expires"] > time.time()
     assert is_ios_tracking_suppressed(request)
@@ -350,7 +356,10 @@ def test_lost_session_callback_without_a_handoff_stays_a_web_login(
     request = _callback_request_without_session(
         state_id, crush_client.cookies[BROWSER_COOKIE].value
     )
-    assert statekit.unstash_state(request, state_id) is not None
+    assert (
+        statekit.unstash_state(request, state_id=state_id, provider_id="google")
+        is not None
+    )
 
     assert SESSION_KEY not in request.session
     assert not is_ios_tracking_suppressed(request)

@@ -153,7 +153,9 @@ class OAuthState(models.Model):
         )
 
     @classmethod
-    def get_and_consume_state(cls, state_id: str, browser_hash=None) -> dict:
+    def get_and_consume_state(
+        cls, state_id: str, browser_hash=None, provider=None
+    ) -> dict:
         """
         Retrieve and consume an OAuth state.
 
@@ -162,6 +164,9 @@ class OAuthState(models.Model):
 
         Args:
             state_id: The state identifier
+            browser_hash: Only consume a state bound to this browser
+            provider: Only consume a state stashed for this provider; a
+                state stashed for another provider stays unconsumed
 
         Returns:
             State data dictionary, or None if invalid/expired/used
@@ -175,6 +180,8 @@ class OAuthState(models.Model):
         )
         if browser_hash is not None:
             candidates = candidates.filter(auth_origin_hash=browser_hash)
+        if provider is not None:
+            candidates = candidates.filter(provider=provider)
         row = candidates.first()
         if row is None:
             return None
