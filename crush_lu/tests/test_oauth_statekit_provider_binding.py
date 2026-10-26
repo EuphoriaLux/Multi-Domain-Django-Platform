@@ -124,6 +124,28 @@ def test_session_copy_refuses_another_providers_state(crush_client, google_user)
 
 
 @binding_only
+def test_state_stashed_before_the_upgrade_survives_in_its_browser(
+    crush_client, google_user
+):
+    """allauth refuses its own pre-65.20 (state, timestamp) session entries. A
+    login that spans the deploy still finishes through the database fallback
+    in the browser that started it, because the row names the provider."""
+    statekit = _statekit()
+    state = _start_provider_login(crush_client, "/accounts/google/login/")
+
+    session = crush_client.session
+    states = session["socialaccount_states"]
+    states[state] = states[state][:2]  # the pre-65.20 shape
+    session["socialaccount_states"] = states
+    session.save()
+
+    request = _lost_session_callback(crush_client, state)
+    request.session = crush_client.session
+    assert statekit.unstash_state(request, state_id=state, provider_id="google")
+    assert OAuthState.objects.get(pk=state).used
+
+
+@binding_only
 def test_missing_provider_is_an_error_not_a_wildcard(crush_client, google_user):
     statekit = _statekit()
     state = _start_provider_login(crush_client, "/accounts/google/login/")
