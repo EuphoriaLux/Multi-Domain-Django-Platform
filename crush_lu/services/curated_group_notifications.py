@@ -291,14 +291,49 @@ def _deliver_selection_notice(notice):
 
     if not registration_has_certified_payable_group(registration):
         return "stale", "The selected group is no longer certified."
+
+    from crush_lu import email_helpers
+    from crush_lu.notification_service import NotificationService, NotificationType
+
+    # Selection hands the member a seat, like a waitlist promotion, so it is
+    # announced the same way. On a free event the only notice used to be the
+    # registration confirmation behind the "Event Reminders" toggle, so a
+    # selected member who had switched it off was never told.
+    notification_type = NotificationType.EVENT_CURATED_SELECTED
+    # Bell and push once per notice: the bell row is claimed with this
+    # notice's dedupe key, so a retried email repeats neither. Best-effort, so
+    # a failure here never costs the member the email.
+    try:
+        NotificationService.notify(
+            user=registration.user,
+            notification_type=notification_type,
+            context={"registration": registration, "event": registration.event},
+            dedupe_key=notice.dedupe_key,
+            send_email=False,
+        )
+    except Exception:  # noqa: BLE001 - the email below must still go out
+        logger.exception(
+            "Curated selection bell/push failed for registration %s",
+            registration.pk,
+        )
+
+    # Transactional: ignores the reminders toggle, honours the ban and the
+    # master unsubscribe. A retry cannot change either, so a refused email
+    # closes the notice instead of retrying it forever.
+    if not email_helpers.can_send_email(
+        registration.user, notification_type.email_preference_key
+    ):
+        return (
+            "sent",
+            "Email not allowed (unsubscribed from all email, or banned); "
+            "bell and push only.",
+        )
     if registration.status == "pending":
-        from crush_lu.email_helpers import send_event_payment_pending_notification
-
-        delivered = send_event_payment_pending_notification(registration)
+        delivered = email_helpers.send_event_payment_pending_notification(registration)
     else:
-        from crush_lu.email_helpers import send_event_registration_confirmation
-
-        delivered = send_event_registration_confirmation(registration)
+        delivered = email_helpers.send_event_registration_confirmation(
+            registration, email_type=notification_type.email_preference_key
+        )
     return ("sent", "") if delivered else ("retry", "Mail delivery returned false.")
 
 
