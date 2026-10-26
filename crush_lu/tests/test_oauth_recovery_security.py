@@ -228,7 +228,7 @@ def test_session_copy_cannot_revive_state_consumed_in_another_browser(
     assert response.status_code == 302
     request = _callback_request_without_session(state)
     request.session = crush_client.session
-    assert statekit.unstash_state(request, state) is None
+    assert statekit.unstash_state(request, state_id=state, provider_id="google") is None
 
 
 def test_no_state_fallback_does_not_select_another_browser_by_shared_ip(
@@ -238,7 +238,7 @@ def test_no_state_fallback_does_not_select_another_browser_by_shared_ip(
 
     state = _start_provider_login(crush_client, "/accounts/google/login/")
     request = _callback_request_without_session(state)
-    assert statekit.unstash_last_state(request) is None
+    assert statekit.unstash_last_state(request, provider_id="google") is None
     assert not OAuthState.objects.get(pk=state).used
 
 
