@@ -8237,6 +8237,19 @@ msgstr "Ein Platz ist frei geworden: Du bist bei {title} dabei"
 msgid "You were on the waitlist and your spot is now confirmed. If you can't come any more, please cancel so the next person gets it."
 msgstr "Du warst auf der Warteliste und dein Platz ist jetzt bestätigt. Wenn du nicht mehr kommen kannst, sag bitte ab, damit die nächste Person nachrücken kann."
 
+#, python-brace-format
+msgid "Good news: you have a place at {title}"
+msgstr "Gute Nachricht: Du hast einen Platz bei {title}"
+
+msgid "You were selected for one of the evening's groups and your place is reserved. Please pay in cash at the door."
+msgstr "Du wurdest für eine der Gruppen des Abends ausgewählt und dein Platz ist reserviert. Bitte bezahle in bar an der Tür."
+
+msgid "You were selected for one of the evening's groups and your place is reserved. Complete payment to confirm it."
+msgstr "Du wurdest für eine der Gruppen des Abends ausgewählt und dein Platz ist reserviert. Schließe die Zahlung ab, um ihn zu bestätigen."
+
+msgid "You were selected for one of the evening's groups and your place is confirmed. If you can't come any more, please cancel so someone else can take it."
+msgstr "Du wurdest für eine der Gruppen des Abends ausgewählt und dein Platz ist bestätigt. Wenn du nicht mehr kommen kannst, sag bitte ab, damit jemand anderes nachrücken kann."
+
 #: notification_service.py:393
 msgid "We'll notify you if a spot opens up."
 msgstr "Wir benachrichtigen dich, wenn ein Platz frei wird."
