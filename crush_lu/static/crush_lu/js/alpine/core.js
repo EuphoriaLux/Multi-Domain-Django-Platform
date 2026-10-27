@@ -9683,6 +9683,45 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
+    // Copy button for one bank-transfer detail on the support card
+    // (components/_bank_transfer_row.html). The value and both labels arrive
+    // as data- attributes, like donationCard above. `supported` hides the
+    // button where there is no Clipboard API (plain-HTTP pages, old WebViews):
+    // the value next to it stays selectable.
+    Alpine.data("copyValue", function () {
+        return {
+            value: "",
+            restingLabel: "",
+            copiedLabel: "",
+            copied: false,
+            supported: false,
+
+            init: function () {
+                var el = this.$el;
+                this.value = el.getAttribute("data-value") || "";
+                this.restingLabel = el.getAttribute("data-label") || "";
+                this.copiedLabel = el.getAttribute("data-label-copied") || "";
+                this.supported = !!(
+                    navigator.clipboard && navigator.clipboard.writeText
+                );
+            },
+
+            get label() {
+                return this.copied ? this.copiedLabel : this.restingLabel;
+            },
+
+            copy: function () {
+                var self = this;
+                navigator.clipboard.writeText(this.value).then(function () {
+                    self.copied = true;
+                    setTimeout(function () {
+                        self.copied = false;
+                    }, 2000);
+                });
+            },
+        };
+    });
+
     // Named component behind the SumUp "Pay with Card" / "Pay with Crush
     // Credit" buttons on event_detail.html, _event_registration_success.html
     // and my_events.html (UX Wave 3 WP8 · finding 4-05). The three templates

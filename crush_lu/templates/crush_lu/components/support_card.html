@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load static %}
+{% load donation_tags %}
 
 <div class="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-pink-200 dark:border-purple-500/30 p-6 shadow-sm dark:shadow-xl mb-6 transition-colors">
     <!-- Ambient Glow Effects (Dark Mode) -->
@@ -46,9 +47,14 @@
         purchase surface may be offered. The header and the earned badge above
         still render -- it is only the paying half that goes. views_payments
         enforces the same condition, because hiding a button does not close an
-        endpoint a webview can still reach.
+        endpoint a webview can still reach. Bank details are a purchase surface
+        too, so they sit behind the same gate.
+
+        `bank` is None unless DONATION_BANK_IBAN and DONATION_BANK_BENEFICIARY
+        are set and the IBAN is valid; its QR is only built if rendered.
         {% endcomment %}
-        {% if online_payments_paused %}
+        {% donation_bank_transfer profile as bank %}
+        {% if online_payments_paused and not bank %}
         {# No payment provider: views_payments refuses donations with a 503. #}
         <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
             {% trans "Online contributions are paused for now. Thank you for your support!" %}
@@ -74,6 +80,12 @@
             {# not land in the same place.                                       #}
             <a href="{% url 'crush_lu:create_profile' %}" class="text-pink-600 dark:text-pink-300 font-semibold underline">{% trans "Complete your profile to support the project." %}</a>
         </p>
+        {% elif online_payments_paused %}
+        {# No card checkout: the bank transfer takes its place. #}
+        <div class="mt-4">
+            <p class="text-xs font-bold uppercase tracking-wider mb-2.5 text-gray-700 dark:text-purple-200">{% trans "Support us by bank transfer" %}</p>
+            {% include "crush_lu/components/_bank_transfer_details.html" %}
+        </div>
         {% else %}
         {% comment %}
         Behaviour lives in the named `donationCard` component in
@@ -157,6 +169,15 @@
             </svg>
             <span>{% trans "Secure checkout · Apple Pay, Google Pay & Cards" %}</span>
         </div>
-        {% endif %}{# suppress_native_commerce #}
+
+        {% if bank %}
+        <details class="mt-4 rounded-xl border border-gray-200 dark:border-white/20 p-3">
+            <summary class="text-xs font-semibold cursor-pointer text-gray-700 dark:text-purple-200">{% trans "Prefer a bank transfer?" %}</summary>
+            <div class="mt-3">
+                {% include "crush_lu/components/_bank_transfer_details.html" %}
+            </div>
+        </details>
+        {% endif %}
+        {% endif %}{# payment surface #}
     </div>
 </div>

@@ -1072,6 +1072,13 @@ SUMUP_API_KEY = os.environ.get("SUMUP_API_KEY", "")
 # cash payments keep working. Set False while there is no payment provider
 # (SumUp refused the platform in 2026-10).
 ONLINE_PAYMENTS_ENABLED = _env_bool("ONLINE_PAYMENTS_ENABLED", default=True)
+# Bank-transfer donations on the support card (with an EPC "scan to pay" QR):
+# shown only when both the IBAN and the beneficiary name are set and the IBAN
+# passes its checksum. The BIC is optional for SEPA transfers inside the EEA.
+# See crush_lu/services/donation_bank_transfer.py.
+DONATION_BANK_IBAN = os.environ.get("DONATION_BANK_IBAN", "")
+DONATION_BANK_BENEFICIARY = os.environ.get("DONATION_BANK_BENEFICIARY", "")
+DONATION_BANK_BIC = os.environ.get("DONATION_BANK_BIC", "")
 # Event sign-ups may bring a guest only when this is on AND the event allows it
 # (MeetupEvent.guests_open). Off since 2026-10-17: guests took seats the
 # capacity checks never counted, so the feature is dropped for now. Decision:
