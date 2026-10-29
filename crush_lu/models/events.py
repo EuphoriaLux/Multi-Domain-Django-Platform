@@ -47,6 +47,15 @@ CURATED_MAX_PROJECTED_GROUP_SIZE = 42
 # application from consuming a place or minting a ticket. Selection is a move
 # from "applied" into a seat-holding status, and that single transition is what
 # grants all of the above at once.
+#
+# "not_selected" is the other end of the same decision: the selection is
+# closed and this application did not get a place. It holds no seat either,
+# is no grouping candidate, and is not a cancellation (the member did not
+# cancel). Spec: ai-memory-hub/specs/2026-10-29-crush-curated-auto-selection.md
+
+# Statuses that only make sense on a curated event; see
+# EventRegistration.applied_status_message.
+CURATED_ONLY_STATUSES = ("applied", "not_selected")
 
 # Luxembourg's 12 cantons, stored as display names rather than slugs.
 #
@@ -1577,6 +1586,9 @@ class EventRegistration(models.Model):
         # Curated speed dating only: an application awaiting organiser
         # selection. Holds no seat (see SEAT_HOLDING_STATUSES).
         ("applied", _("Applied — awaiting selection")),
+        # Curated speed dating only: the selection is closed and this
+        # application did not get a place. Holds no seat.
+        ("not_selected", _("Not selected")),
         ("pending", _("Pending Payment")),
         ("confirmed", _("Confirmed")),
         ("waitlist", _("Waitlist")),
@@ -1895,8 +1907,11 @@ class EventRegistration(models.Model):
         )
 
     @staticmethod
-    def applied_status_message(event):
+    def applied_status_message(event, status="applied"):
         """Why "applied" is wrong for ``event``, or None when it is allowed.
+
+        ``status`` may be any of ``CURATED_ONLY_STATUSES``: "not_selected"
+        releases a seat exactly the same way.
 
         ``applied`` is deliberately outside ``SEAT_HOLDING_STATUSES``, so
         setting it releases the member's seat, voids their door ticket and
@@ -1922,6 +1937,13 @@ class EventRegistration(models.Model):
         """
         if event is None or event.uses_curated_registration:
             return None
+        if status == "not_selected":
+            return _(
+                "“Not selected” belongs to speed-dating events whose "
+                "registration mode is Curated. “%(title)s” admits members on "
+                "arrival, so this status would release the seat without telling "
+                "anyone. Choose another status."
+            ) % {"title": event.title}
         return _(
             "“Applied” belongs to speed-dating events whose registration "
             "mode is Curated. “%(title)s” admits members on arrival, so an "
@@ -1949,8 +1971,8 @@ class EventRegistration(models.Model):
             event = self.event
         except ObjectDoesNotExist:
             event = None
-        if self.status == "applied":
-            message = self.applied_status_message(event)
+        if self.status in CURATED_ONLY_STATUSES:
+            message = self.applied_status_message(event, self.status)
             if message is not None:
                 raise ValidationError({"status": message})
 
@@ -3521,6 +3543,7 @@ class CuratedGroupNotification(models.Model):
         REMEDY = "remedy", _("Unavailable-group payment remedy")
         WITHDRAWAL = "withdrawal", _("Unpaid-group withdrawal")
         RESERVE = "reserve", _("Not selected — application stays in the pool")
+        NOT_SELECTED = "not_selected", _("Selection closed — no place this time")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")

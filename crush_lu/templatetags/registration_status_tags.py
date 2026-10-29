@@ -40,6 +40,8 @@ def registration_tone(user_registration, event):
 
     if status == "applied":
         return "applied"
+    if status == "not_selected":
+        return "not_selected"
     if status == "waitlist":
         return "waitlist"
     if event.registration_fee > 0 and not user_registration.payment_confirmed:

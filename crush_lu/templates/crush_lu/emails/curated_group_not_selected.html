@@ -1,0 +1,23 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "The groups are complete" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "The groups are complete" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hello {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Thank you for applying to <strong>{{ title }}</strong>. The groups for this evening are now complete, and this time we could not offer you a place.{% endblocktrans %}</p>
+
+<div class="info-box">
+    <p>{% trans "Groups are put together so that everyone meets at least five people they are compatible with. That depends on who applies for the same evening, so it says nothing about you." %}</p>
+</div>
+
+<p>{% trans "No payment was taken." %}</p>
+
+<p>{% trans "We would love to see you at one of our next evenings." %}</p>
+
+<p><a href="{{ events_url }}" class="button">{% trans "See upcoming events" %}</a></p>
+
+<p>{% trans "Best," %}<br><strong>{% trans "The Crush.lu Team" %}</strong></p>
+{% endblock %}

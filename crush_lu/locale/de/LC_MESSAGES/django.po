@@ -46836,3 +46836,43 @@ msgstr "Event öffnen"
 
 msgid "A member left this group. Everyone else keeps their place and can be checked in as usual. Run “Reproject or compensate degraded groups” only if you want the group rebuilt: anyone it cannot place loses their seat."
 msgstr "Ein Mitglied hat diese Gruppe verlassen. Alle anderen behalten ihren Platz und können wie gewohnt eingecheckt werden. Führe „Reproject or compensate degraded groups“ nur aus, wenn die Gruppe neu gebildet werden soll: Wer dabei nicht untergebracht werden kann, verliert seinen Platz."
+
+msgid "No place at {title} this time"
+msgstr "Diesmal kein Platz bei {title}"
+
+msgid "The groups for this evening are complete and we could not offer you a place. Thank you for applying. We hope to see you at one of our next evenings."
+msgstr "Die Gruppen für diesen Abend sind vollständig, und wir konnten dir keinen Platz anbieten. Danke für deine Bewerbung. Wir hoffen, dich bei einem unserer nächsten Abende zu sehen."
+
+msgid "Your application for {title}"
+msgstr "Deine Bewerbung für {title}"
+
+msgid "The groups are complete"
+msgstr "Die Gruppen sind vollständig"
+
+#, python-format
+msgid "Thank you for applying to <strong>%(title)s</strong>. The groups for this evening are now complete, and this time we could not offer you a place."
+msgstr "Danke für deine Bewerbung für <strong>%(title)s</strong>. Die Gruppen für diesen Abend sind jetzt vollständig, und diesmal konnten wir dir keinen Platz anbieten."
+
+msgid "Groups are put together so that everyone meets at least five people they are compatible with. That depends on who applies for the same evening, so it says nothing about you."
+msgstr "Die Gruppen werden so zusammengestellt, dass alle mindestens fünf Menschen treffen, die zu ihnen passen. Das hängt davon ab, wer sich für denselben Abend bewirbt, und sagt nichts über dich aus."
+
+msgid "No payment was taken."
+msgstr "Es wurde keine Zahlung eingezogen."
+
+msgid "We would love to see you at one of our next evenings."
+msgstr "Wir würden uns freuen, dich bei einem unserer nächsten Abende zu sehen."
+
+msgid "See upcoming events"
+msgstr "Kommende Events ansehen"
+
+msgid "No place this time"
+msgstr "Diesmal kein Platz"
+
+msgid "Not selected (selection closed)"
+msgstr "Nicht ausgewählt (Auswahl abgeschlossen)"
+
+msgid "Run “Close the selection: everyone else is Not selected” so the applicants without a place are told."
+msgstr "Führe „Close the selection: everyone else is Not selected“ aus, damit alle ohne Platz Bescheid bekommen."
+
+msgid "The selection for this evening is closed, so there is nothing to cancel."
+msgstr "Die Auswahl für diesen Abend ist abgeschlossen, es gibt also nichts zu stornieren."

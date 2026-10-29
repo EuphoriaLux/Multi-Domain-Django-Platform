@@ -37,7 +37,11 @@ from crush_lu.models import (
     MeetupEvent,
     PresentationQueue,
 )
-from crush_lu.models.events import SEAT_HOLDING_STATUSES, normalize_lu_postcode
+from crush_lu.models.events import (
+    CURATED_ONLY_STATUSES,
+    SEAT_HOLDING_STATUSES,
+    normalize_lu_postcode,
+)
 from crush_lu.models.payments import PaymentTransaction
 
 from .filters import EventCapacityFilter
@@ -456,8 +460,8 @@ class EventRegistrationAdminForm(forms.ModelForm):
         # instead -- BaseInlineFormSet.add_fields puts an InlineForeignKeyField
         # there whose value is the parent object, saved or not. That is the
         # same fallback the age gate above already depends on.
-        if status == "applied":
-            applied_message = EventRegistration.applied_status_message(event)
+        if status in CURATED_ONLY_STATUSES:
+            applied_message = EventRegistration.applied_status_message(event, status)
             if applied_message is not None:
                 raise forms.ValidationError(
                     {"status": applied_message}
@@ -982,6 +986,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "generate_curated_groups",
         "approve_curated_groups",
         "invite_approved_curated_groups",
+        "close_curated_selection",
         "lock_curated_groups",
         "start_curated_round_one",
         "repair_degraded_curated_groups",
@@ -1397,6 +1402,58 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 status="applied",
             ),
         )
+
+    @admin.action(
+        description=_("🏁 Close the selection: everyone else is Not selected")
+    )
+    def close_curated_selection(self, request, queryset):
+        """Tell every applicant without a place that the selection is closed."""
+
+        from crush_lu.services.curated_group_workflow import (
+            close_curated_selection,
+        )
+
+        event = self._single_curated_event(request, queryset)
+        if event is None:
+            return
+        try:
+            closed = close_curated_selection(event.pk, actor=request.user)
+        except ValidationError as error:
+            django_messages.error(
+                request,
+                _("“%(title)s”: the selection was not closed (%(reason)s).")
+                % {"title": event.title, "reason": "; ".join(error.messages)},
+            )
+            return
+        django_messages.success(
+            request,
+            _("“%(title)s”: %(count)d application(s) marked Not selected.")
+            % {"title": event.title, "count": len(closed.not_selected_ids)},
+        )
+        if closed.placed_uninvited_ids:
+            django_messages.warning(
+                request,
+                _(
+                    "%(count)d applicant(s) sit in a group without a seat and "
+                    "were left as they are. Run Invite so they are seated and "
+                    "told."
+                )
+                % {"count": len(closed.placed_uninvited_ids)},
+            )
+        if closed.delivery is not None:
+            django_messages.info(
+                request,
+                _(
+                    "Not selected emails: %(sent)d sent, %(failed)d failed and "
+                    "remain retryable, %(remaining)d still queued for “Deliver "
+                    "pending curated emails”."
+                )
+                % {
+                    "sent": closed.delivery.sent,
+                    "failed": closed.delivery.failed,
+                    "remaining": closed.delivery.remaining,
+                },
+            )
 
     @admin.action(description=_("🔒 Lock checked-in curated groups"))
     def lock_curated_groups(self, request, queryset):

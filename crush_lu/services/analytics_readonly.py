@@ -1257,6 +1257,7 @@ def definitions() -> dict:
             + ["under-18", UNKNOWN, SUPPRESSED],
             "registration_status": [
                 "applied",
+                "not_selected",
                 "pending",
                 "confirmed",
                 "waitlist",
