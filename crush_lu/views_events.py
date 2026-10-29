@@ -478,6 +478,7 @@ _LIST_CARD_STATUS_TONES = {
     "pending": ("warning", _("Payment due")),
     "waitlist": ("info", _("Waitlist")),
     "applied": ("info", _("Applied")),
+    "not_selected": ("info", _("Not selected")),
 }
 
 
@@ -1070,6 +1071,11 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
         "already_applied": bool(
             registration is not None and registration.status == "applied"
         ),
+        # This viewer was told the selection closed without a place for them,
+        # so "the organiser is reviewing group options" would contradict it.
+        "selection_closed": bool(
+            registration is not None and registration.status == "not_selected"
+        ),
         "group_size": configured_group_size,
         "planned_groups": event.planned_groups,
         "max_groups": configured_max_groups if configured_group_size else None,
@@ -1459,7 +1465,8 @@ def event_detail(request, event_id):
     is_past = event.end_time < now
     can_cancel = bool(
         registration
-        and registration.status not in ("attended", "cancelled", "no_show")
+        and registration.status
+        not in ("attended", "cancelled", "no_show", "not_selected")
         and event.date_time > now
     )
 
@@ -2404,6 +2411,18 @@ def _event_cancel_refusal(request, event, registration):
     if registration.status in ("cancelled", "no_show"):
         messages.info(request, _("Your registration was already cancelled."))
         return redirect("crush_lu:dashboard")
+
+    # The selection closed without a place for this application: there is
+    # nothing to cancel, and cancelling would send the member-cancellation
+    # email and run the waitlist promotion for a seat that never existed.
+    if registration.status == "not_selected":
+        messages.info(
+            request,
+            _(
+                "The selection for this evening is closed, so there is nothing to cancel."
+            ),
+        )
+        return redirect("crush_lu:event_detail", event_id=event.id)
 
     # Crush.lu has cancelled this event, so there is nothing for the
     # member to cancel and a great deal for them to lose by trying.

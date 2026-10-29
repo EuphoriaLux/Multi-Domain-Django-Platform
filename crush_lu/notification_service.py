@@ -46,6 +46,8 @@ class NotificationType(Enum):
     EVENT_WAITLIST = "event_waitlist"
     EVENT_WAITLIST_PROMOTED = "event_waitlist_promoted"
     EVENT_CURATED_SELECTED = "event_curated_selected"
+    # The selection closed and this application did not get a place.
+    EVENT_CURATED_NOT_SELECTED = "event_curated_not_selected"
     # To the event's coaches: an automatic curated-group repair needs a person.
     CURATED_GROUP_COACH_ALERT = "curated_group_coach_alert"
     SPARK_COACH_ASSIGNMENT = "spark_coach_assignment"
@@ -79,6 +81,7 @@ class NotificationType(Enum):
             "event_waitlist": "event_reminders",
             "event_waitlist_promoted": "event_reminders",
             "event_curated_selected": "event_reminders",
+            "event_curated_not_selected": "event_reminders",
             "curated_group_coach_alert": "event_reminders",
             "spark_coach_assignment": "event_reminders",
             "spark_recipient_assigned": "new_connections",
@@ -102,6 +105,9 @@ class NotificationType(Enum):
             NotificationType.EVENT_CURATED_SELECTED,
         ):
             return "event_seat_granted"
+        if self is NotificationType.EVENT_CURATED_NOT_SELECTED:
+            # The outcome of the member's own application, not a reminder.
+            return "event_application_outcome"
         if self is NotificationType.CURATED_GROUP_COACH_ALERT:
             # Staff work, not a member reminder: a coach who switched event
             # reminders off must still hear that a group needs a decision.
@@ -834,6 +840,33 @@ class NotificationService:
                 }
 
             if (
+                notification_type == NotificationType.EVENT_CURATED_NOT_SELECTED
+                and event
+            ):
+                registration = context.get("registration")
+                return {
+                    "title": _("No place at {title} this time").format(
+                        title=event.title
+                    ),
+                    "body": _(
+                        "The groups for this evening are complete and we could "
+                        "not offer you a place. Thank you for applying. We hope "
+                        "to see you at one of our next evenings."
+                    ),
+                    "link_url": get_user_language_url(
+                        user,
+                        "crush_lu:event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
+                    ),
+                    "metadata": {
+                        "registration_id": (
+                            registration.pk if registration is not None else None
+                        )
+                    },
+                }
+
+            if (
                 notification_type == NotificationType.CURATED_GROUP_COACH_ALERT
                 and event
             ):
@@ -992,6 +1025,24 @@ class NotificationService:
                             body=payload["body"],
                             url=payload["link_url"],
                             tag=f"curated-selected-{registration.pk}",
+                            preference_key=notification_type.preference_key,
+                        )
+                        or {}
+                    )
+
+            elif notification_type == NotificationType.EVENT_CURATED_NOT_SELECTED:
+                registration = context.get("registration")
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                if registration and payload:
+                    return (
+                        push_notifications.send_push_notification(
+                            user=user,
+                            title=payload["title"],
+                            body=payload["body"],
+                            url=payload["link_url"],
+                            tag=f"curated-not-selected-{registration.pk}",
                             preference_key=notification_type.preference_key,
                         )
                         or {}

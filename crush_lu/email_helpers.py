@@ -193,8 +193,15 @@ FINANCIAL_EMAIL_TYPES = frozenset({"crush_credit_expiry"})
 # event reminders. The coach alert for a curated group that needs a decision is
 # staff work, not a reminder, so a coach's own event-reminders switch must not
 # silence it either.
+# "event_application_outcome" tells a curated applicant that the selection
+# closed without a place for them: the answer to their own application.
 TRANSACTIONAL_EMAIL_TYPES = frozenset(
-    {"event_seat_granted", "event_attendance_check", "coach_curated_group_alert"}
+    {
+        "event_seat_granted",
+        "event_attendance_check",
+        "coach_curated_group_alert",
+        "event_application_outcome",
+    }
 )
 
 
@@ -1477,6 +1484,47 @@ def send_curated_group_coach_alert(user, event, *, reason, count=0, request=None
         context["alert_body"] = body
         html_message = render_to_string(
             "crush_lu/emails/curated_group_coach_alert.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_curated_group_not_selected_notice(registration, request=None):
+    """Tell an applicant that the selection closed without a place for them.
+
+    Like the reserve notice it gives no reason specific to the member: no
+    headcount, no gender or preference shortage.
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    user = registration.user
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    context = {
+        "user": user,
+        "registration": registration,
+        "event": registration.event,
+        "events_url": get_user_language_url(user, "crush_lu:event_list", request),
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **get_email_base_urls(user, request),
+    }
+
+    with translation.override(lang):
+        subject = _("Your application for {title}").format(
+            title=registration.event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/curated_group_not_selected.html", context
         )
         plain_message = html_to_plain_text(html_message)
 

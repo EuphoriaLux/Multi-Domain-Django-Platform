@@ -24,7 +24,7 @@ viewer has applied.
     {% endif %}
     <p class="text-sm sm:text-base text-gray-700 dark:text-gray-200">
         {% if not outlook.application_open %}
-            {% if outlook.group or event.is_cancelled %}
+            {% if outlook.group or event.is_cancelled or outlook.selection_closed %}
                 {% trans "Applications closed" %}
             {% else %}
                 {% trans "Applications have closed. The organiser is reviewing group options." %}

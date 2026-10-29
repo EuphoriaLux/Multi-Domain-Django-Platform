@@ -43,7 +43,10 @@
                     <h4 class="font-semibold dark:text-white leading-tight">
                         <a href="{% url 'crush_lu:event_detail' entry.event.id %}" class="hover:text-crush-purple dark:hover:text-crush-pink transition-colors">{{ entry.event.title }}</a>
                     </h4>
-                    {% if entry.registration.status == 'applied' %}
+                    {% if entry.registration.status == 'not_selected' %}
+                    {# Ahead of the fall-through too: the selection closed without a place. #}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full whitespace-nowrap">{% trans "Not selected" %}</span>
+                    {% elif entry.registration.status == 'applied' %}
                     {# Ahead of the fall-through, which would label an unselected applicant "Confirmed". #}
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 rounded-full whitespace-nowrap">{% trans "Applied" %}</span>
                     {% elif entry.is_waitlist %}
@@ -106,7 +109,7 @@
                       would hand an applicant a QR button that only 403s. A waitlisted
                       registration holds no seat either, so it gets no link too.
                     {% endcomment %}
-                    {% if entry.registration.status != 'applied' and entry.registration.status != 'waitlist' %}
+                    {% if entry.registration.status != 'applied' and entry.registration.status != 'waitlist' and entry.registration.status != 'not_selected' %}
                     <a href="{% url 'crush_lu:event_ticket' entry.event.id %}" class="inline-flex items-center justify-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors" aria-label="{% trans 'Ticket' %}">
                         {% include "shared/icons/qr-code.html" with class="w-4 h-4" %}
                     </a>
