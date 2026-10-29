@@ -46955,14 +46955,11 @@ msgstr[1] "Une annulation a reconstitué un groupe pour {title}. {count} membres
 msgid "A curated group needs you"
 msgstr "Un groupe a besoin de vous"
 
-msgid "Nobody was removed and no email went to the members. “Reproject or compensate degraded groups” is still available, but it releases everyone it cannot place."
-msgstr "Personne n’a été retiré et aucun e-mail n’est parti aux membres. « Reproject or compensate degraded groups » reste disponible, mais libère toutes les personnes qu’il ne peut pas placer."
+msgid "Nobody was removed and no email went to the members. To run the evening with the people who are left, use “Keep the held group and run the evening (fewer dates)” in the admin. “Reproject or compensate degraded groups” instead releases everyone it cannot place."
+msgstr "Personne n’a été retiré et aucun e-mail n’est parti aux membres. Pour organiser la soirée avec les personnes restantes, utilisez « Keep the held group and run the evening (fewer dates) » dans l’admin. « Reproject or compensate degraded groups » libère au contraire toutes les personnes qu’il ne peut pas placer."
 
 msgid "Open the event"
 msgstr "Ouvrir l’événement"
-
-msgid "A member left this group. Everyone else keeps their place and can be checked in as usual. Run “Reproject or compensate degraded groups” only if you want the group rebuilt: anyone it cannot place loses their seat."
-msgstr "Un membre a quitté ce groupe. Tous les autres gardent leur place et peuvent être enregistrés à l’entrée comme d’habitude. Lancez « Reproject or compensate degraded groups » uniquement si vous voulez reconstituer le groupe : toute personne qu’il ne peut pas placer perd sa place."
 
 msgid "No place at {title} this time"
 msgstr "Pas de place à {title} cette fois-ci"
@@ -47003,3 +47000,10 @@ msgstr "Lancez « Close the selection: everyone else is Not selected » pour pr�
 
 msgid "The selection for this evening is closed, so there is nothing to cancel."
 msgstr "La sélection pour cette soirée est close : il n’y a donc rien à annuler."
+
+msgid "A member left this group. Everyone else keeps their place and can be checked in as usual. To run the evening with them, run “Keep the held group and run the evening (fewer dates)”. “Reproject or compensate degraded groups” instead releases anyone it cannot place."
+msgstr "Un membre a quitté ce groupe. Tous les autres gardent leur place et peuvent être enregistrés à l’entrée comme d’habitude. Pour organiser la soirée avec eux, lancez « Keep the held group and run the evening (fewer dates) ». « Reproject or compensate degraded groups » libère au contraire toute personne qu’il ne peut pas placer."
+
+#, python-format
+msgid "coach accepted fewer dates (at least %(minimum)s)"
+msgstr "le coach a accepté moins de rencontres (au moins %(minimum)s)"

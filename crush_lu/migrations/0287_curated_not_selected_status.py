@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0285_connect_real_person_check"),
+        ("crush_lu", "0286_curated_group_coach_accepted_min_dates"),
     ]
 
     operations = [
