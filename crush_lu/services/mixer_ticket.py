@@ -27,11 +27,24 @@ Affinity
 --------
 Built only from Event Identity fields every member fills in for events
 (``interests_new``, ``event_languages``, ``date_of_birth``, ``event_vibe``,
-``ask_me_about``) — never Connect traits, zodiac or gender/age preferences:
-this is a social evening, not a matching product. The pair score is symmetric,
-so A sees B at the same percentage B sees A. Raw scores are mapped to a
-35-98 % display by their percentile among all pairs of the room, which spreads
-the list without inventing precision.
+``ask_me_about``) — never Connect traits, zodiac or age preferences: this is a
+social evening, not a matching product. The pair score is symmetric, so A sees
+B at the same percentage B sees A. Raw scores are mapped to a 35-98 % display
+by their percentile among all pairs of the room, which spreads the list
+without inventing precision.
+
+Who is listed
+-------------
+The score ignores gender, but the list does not: a guest only sees people of a
+gender they want to meet, and only people who want to meet theirs (guests
+complained when a man found men on his list). The wanted genders come from the
+same sources as an event application, in the same order: the registration's
+own answer, an onboarded Connect membership, then the profile's ideal-crush
+preference. Empty means open to all, and a guest with no gender is never
+filtered out, as in ``matching.passes_event_hard_filters``; "prefer not to
+say" is a gender nobody can seek, so it is listed only for guests open to
+all. The percentile scale still spans every pair of the room, so the filter
+never moves a percentage already on paper.
 """
 
 from __future__ import annotations
@@ -263,6 +276,8 @@ class _Guest:
         "dob",
         "vibe",
         "removed",
+        "gender",
+        "wants",
     )
 
     def __init__(self, registration: EventRegistration):
@@ -289,13 +304,45 @@ class _Guest:
         if profile is None:
             self.interests, self.ask, self.langs = set(), set(), set()
             self.dob, self.vibe = None, ""
+            self.gender, self.wants = "", set()
             return
+        self.gender = profile.gender or ""
+        self.wants = _wanted_genders(registration, user, profile)
         self.interests = {i.pk for i in profile.interests_new.all()}
         # Only ids still selected, as CrushProfile.ask_me_about_interests does.
         self.ask = {x for x in (profile.ask_me_about or []) if x in self.interests}
         self.langs = set(profile.event_languages or [])
         self.dob = profile.date_of_birth
         self.vibe = profile.event_vibe or ""
+
+
+def _wanted_genders(registration, user, profile) -> set[str]:
+    """Gender codes this guest wants to meet; empty = open to all.
+
+    Same precedence as the event application (``_registration_outlook`` in
+    views_events.py and ``EventPreferenceForm.initial_for``). A mixer
+    registration never asks, so the Connect or profile answer usually decides.
+    'P' is dropped as the form drops it: it describes one's own gender, not a
+    group anyone can ask to meet.
+    """
+    from crush_lu.forms import EventPreferenceForm
+
+    pref = getattr(registration, "preference", None)
+    if pref is not None:
+        source = pref.preferred_genders
+    else:
+        membership = getattr(user, "crush_connect_membership", None)
+        if membership is not None and membership.onboarded_at is not None:
+            source = membership.preferred_genders
+        else:
+            source = profile.preferred_genders
+    allowed = {code for code, _label in EventPreferenceForm.TARGET_GENDER_CHOICES}
+    return {code for code in (source or []) if code in allowed}
+
+
+def _wants_to_meet(a: _Guest, b: _Guest) -> bool:
+    """A's stated preference admits B; a guest with no gender never blocks."""
+    return not a.wants or not b.gender or b.gender in a.wants
 
 
 def _interest_score(a: _Guest, b: _Guest) -> float | None:
@@ -350,7 +397,12 @@ def affinity_list(
     numbers = event_numbers(event)
     regs = list(
         EventRegistration.objects.filter(event=event, pk__in=list(numbers))
-        .select_related("user__crushprofile", "user__data_consent")
+        .select_related(
+            "user__crushprofile",
+            "user__data_consent",
+            "user__crush_connect_membership",
+            "preference",
+        )
         .prefetch_related("user__crushprofile__interests_new")
         .order_by("pk")
     )
@@ -380,6 +432,9 @@ def affinity_list(
         and g.status in LISTED_STATUSES
         and g.user_id not in blocked
         and not g.removed
+        # Mutual, as at a speed-dating table: listing someone who does not
+        # want to meet you sends you looking for them for nothing.
+        and _wants_to_meet(me, g) and _wants_to_meet(g, me)
     ]
     # A banned or deactivated owner is hidden from everyone else's list, so
     # their own ticket must not point them at anyone either.
