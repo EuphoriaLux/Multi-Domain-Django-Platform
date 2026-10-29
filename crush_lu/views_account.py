@@ -3851,12 +3851,13 @@ def _export_account(user):
                 ),
             }
             # Speed-dating applications carry a preference snapshot (preferred
-            # genders / age range / languages). It is the member's own answer
-            # and Art. 9-adjacent, so it belongs in an export that promises
-            # "all of your personal data"; nested under its registration
-            # because that is the only context in which it means anything.
-            # Absent for every other event type, and gone from later exports
-            # once the retention sweep prunes the row.
+            # genders / age range / languages), mixer registrations the genders
+            # alone. It is the member's own answer and Art. 9-adjacent, so it
+            # belongs in an export that promises "all of your personal data";
+            # nested under its registration because that is the only context in
+            # which it means anything. The key keeps its speed-dating name for
+            # both. Absent for every other event type, and gone from later
+            # exports once the retention sweep prunes the row.
             pref = getattr(reg, "preference", None)
             if pref is not None:
                 entry["speed_dating_preferences"] = {

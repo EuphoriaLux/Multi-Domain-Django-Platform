@@ -964,6 +964,9 @@ class EventPreferenceForm(forms.ModelForm):
         (code, label) for code, label in CrushProfile.GENDER_CHOICES if code != "P"
     ]
 
+    # The shared template shows the age and language questions unless set.
+    gender_only = False
+
     preferred_genders = forms.MultipleChoiceField(
         choices=TARGET_GENDER_CHOICES,
         required=False,  # empty = open to all
@@ -1096,6 +1099,51 @@ class EventPreferenceForm(forms.ModelForm):
                 ],
             }
         return {}
+
+
+class MixerPreferenceForm(forms.ModelForm):
+    """Who a Social Mixer guest wants to meet: the only question a mixer asks.
+
+    The answer filters the guest's affinity list on the check-in ticket, both
+    ways (services/mixer_ticket.py). It is stored on EventRegistrationPreference
+    like the speed-dating answers, so the same retention sweep prunes it. Same
+    surface as EventPreferenceForm, which event_register calls either way.
+    """
+
+    gender_only = True
+
+    preferred_genders = forms.MultipleChoiceField(
+        choices=EventPreferenceForm.TARGET_GENDER_CHOICES,
+        required=False,  # empty = open to all
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Who would you like to meet?"),
+    )
+
+    class Meta:
+        model = EventRegistrationPreference
+        fields = ("preferred_genders",)
+
+    def __init__(self, *args, event=None, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def preference_defaults(self):
+        """cleaned_data shaped for update_or_create(defaults=...).
+
+        Age and languages are written as the open defaults: a mixer never asks
+        them, and a row reused from a cancelled application must not keep them.
+        """
+        return {
+            "preferred_genders": self.cleaned_data.get("preferred_genders") or [],
+            "preferred_age_min": 18,
+            "preferred_age_max": 99,
+            "languages": [],
+        }
+
+    @staticmethod
+    def initial_for(user, profile, event):
+        """The speed-dating prefill (Connect, then profile), genders only."""
+        initial = EventPreferenceForm.initial_for(user, profile, event) or {}
+        return {"preferred_genders": initial.get("preferred_genders", [])}
 
 
 class CrushCoachForm(forms.ModelForm):

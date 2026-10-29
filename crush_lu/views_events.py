@@ -29,7 +29,12 @@ from .models.events import (
 )
 from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
-from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
+from .forms import (
+    EventRegistrationForm,
+    EventPreferenceForm,
+    EventFeedbackForm,
+    MixerPreferenceForm,
+)
 from .decorators import crush_login_required, ratelimit
 from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
@@ -1978,9 +1983,14 @@ def event_register(request, event_id):
     template = "crush_lu/event_register.html"
 
     # Speed-dating registrations also collect per-application dating
-    # preferences (age range / languages / gender preference). Scoped by event
-    # type so every other event's registration form stays byte-identical.
-    collect_preferences = event.event_type == "speed_dating"
+    # preferences (age range / languages / gender preference); a Social Mixer
+    # asks only who the guest wants to meet, which filters their ticket's
+    # affinity list. Scoped by event type so every other event's registration
+    # form stays byte-identical.
+    pref_form_class = {
+        "speed_dating": EventPreferenceForm,
+        "mixer": MixerPreferenceForm,
+    }.get(event.event_type)
 
     if request.method == "POST":
         form = EventRegistrationForm(
@@ -1990,9 +2000,7 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
         pref_form = (
-            EventPreferenceForm(request.POST, event=event)
-            if collect_preferences
-            else None
+            pref_form_class(request.POST, event=event) if pref_form_class else None
         )
         # Evaluate both unconditionally so an invalid re-render carries the
         # error messages of each form, not just the first.
@@ -2298,11 +2306,11 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
         pref_form = (
-            EventPreferenceForm(
+            pref_form_class(
                 event=event,
-                initial=EventPreferenceForm.initial_for(request.user, profile, event),
+                initial=pref_form_class.initial_for(request.user, profile, event),
             )
-            if collect_preferences
+            if pref_form_class
             else None
         )
 

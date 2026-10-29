@@ -2,9 +2,9 @@
 
 Speed-dating registrations collect a per-application preference snapshot
 (age range / languages / gender preference) into EventRegistrationPreference,
-a side row mirroring CrushConnectMembership's field names. Every other event
-type's registration form must stay byte-identical — the section renders only
-when ``event.event_type == "speed_dating"``.
+a side row mirroring CrushConnectMembership's field names. A Social Mixer asks
+only the genders (MixerPreferenceForm), for its ticket. Every other event
+type's registration form must stay byte-identical.
 
 Paths are literal because the host middleware swaps the urlconf per domain --
 ``reverse("crush_lu:event_register")`` builds a ``/crush/...`` path that 404s
@@ -24,7 +24,7 @@ User = get_user_model()
 
 
 class EventPreferenceTestBase(TestCase):
-    """Shared fixtures: one speed-dating event, one mixer, a verified member."""
+    """Shared fixtures: speed dating, a mixer, an activity, a verified member."""
 
     def setUp(self):
         from django.core.cache import cache
@@ -52,8 +52,20 @@ class EventPreferenceTestBase(TestCase):
         )
         self.mixer = MeetupEvent.objects.create(
             title="Social Mixer",
-            description="Control event",
+            description="Genders only",
             event_type="mixer",
+            date_time=timezone.now() + timedelta(days=7),
+            location="Luxembourg",
+            address="123 Test Street",
+            max_participants=10,
+            registration_deadline=timezone.now() + timedelta(days=5),
+            is_published=True,
+            profile_requirement="none",
+        )
+        self.activity = MeetupEvent.objects.create(
+            title="Activity Meetup",
+            description="Control event",
+            event_type="activity",
             date_time=timezone.now() + timedelta(days=7),
             location="Luxembourg",
             address="123 Test Street",
@@ -106,7 +118,7 @@ class PreferenceSectionRenderingTests(EventPreferenceTestBase):
 
     def test_section_absent_for_other_event_types(self):
         self._login(self.user)
-        response = self.client.get(self._register_url(self.mixer))
+        response = self.client.get(self._register_url(self.activity))
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.context["pref_form"])
         self.assertNotContains(response, 'name="preferred_genders"')
@@ -206,18 +218,20 @@ class PreferenceSubmissionTests(EventPreferenceTestBase):
             ).exists()
         )
 
-    def test_mixer_post_creates_no_preference_row(self):
+    def test_activity_post_creates_no_preference_row(self):
         from crush_lu.models import EventRegistration, EventRegistrationPreference
 
         self._login(self.user)
         response = self.client.post(
-            self._register_url(self.mixer),
-            # Preference keys on a non-speed-dating event are simply ignored.
+            self._register_url(self.activity),
+            # Preference keys on an event that asks none are simply ignored.
             {"preferred_genders": ["F"], "preferred_age_min": "20"},
         )
         self.assertEqual(response.status_code, 302)
         self.assertTrue(
-            EventRegistration.objects.filter(event=self.mixer, user=self.user).exists()
+            EventRegistration.objects.filter(
+                event=self.activity, user=self.user
+            ).exists()
         )
         self.assertEqual(EventRegistrationPreference.objects.count(), 0)
 
@@ -326,6 +340,114 @@ class PreferencePrefillTests(EventPreferenceTestBase):
         self.assertEqual(initial["preferred_age_min"], 22)
         self.assertEqual(initial["preferred_age_max"], 33)
         self.assertEqual(initial["languages"], ["fr"])
+
+
+class MixerPreferenceTests(EventPreferenceTestBase):
+    """A Social Mixer asks only who the guest wants to meet, for its ticket."""
+
+    def test_mixer_form_asks_genders_only(self):
+        self._login(self.user)
+        response = self.client.get(self._register_url(self.mixer))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="preferred_genders"')
+        self.assertNotContains(response, 'name="preferred_age_min"')
+        self.assertNotContains(response, 'name="languages"')
+        self.assertContains(response, "Your Social Mixer ticket")
+        self.assertNotContains(response, "Your speed-dating preferences")
+
+    def test_mixer_answer_is_stored_with_open_age_and_languages(self):
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        self._login(self.user)
+        response = self.client.post(
+            self._register_url(self.mixer),
+            # Age and language keys are not mixer questions: ignored.
+            {
+                "preferred_genders": ["F"],
+                "preferred_age_min": "25",
+                "languages": ["fr"],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        registration = EventRegistration.objects.get(event=self.mixer, user=self.user)
+        pref = EventRegistrationPreference.objects.get(registration=registration)
+        self.assertEqual(pref.preferred_genders, ["F"])
+        self.assertEqual((pref.preferred_age_min, pref.preferred_age_max), (18, 99))
+        self.assertEqual(pref.languages, [])
+
+    def test_mixer_without_an_answer_stores_open_to_all(self):
+        from crush_lu.models import EventRegistrationPreference
+
+        self._login(self.user)
+        self.client.post(self._register_url(self.mixer), {})
+        pref = EventRegistrationPreference.objects.get(registration__event=self.mixer)
+        self.assertEqual(pref.preferred_genders, [])
+
+    def test_mixer_rejects_prefer_not_to_say_as_a_target(self):
+        from crush_lu.models import EventRegistration
+
+        self._login(self.user)
+        response = self.client.post(
+            self._register_url(self.mixer), {"preferred_genders": ["P"]}
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=self.mixer, user=self.user).exists()
+        )
+
+    def test_mixer_prefill_is_the_saved_genders_only(self):
+        from crush_lu.models import CrushProfile
+
+        profile = CrushProfile.objects.get(user=self.user)
+        profile.preferred_genders = ["F"]
+        profile.preferred_age_min = 30
+        profile.save(update_fields=["preferred_genders", "preferred_age_min"])
+        self._login(self.user)
+        response = self.client.get(self._register_url(self.mixer))
+        self.assertEqual(
+            response.context["pref_form"].initial, {"preferred_genders": ["F"]}
+        )
+
+    def test_a_reused_row_drops_an_older_age_range(self):
+        from crush_lu.models import EventRegistration, EventRegistrationPreference
+
+        registration = EventRegistration.objects.create(
+            event=self.mixer, user=self.user, status="cancelled"
+        )
+        EventRegistrationPreference.objects.create(
+            registration=registration,
+            preferred_genders=["M"],
+            preferred_age_min=25,
+            preferred_age_max=35,
+            languages=["fr"],
+        )
+        self._login(self.user)
+        self.client.post(self._register_url(self.mixer), {"preferred_genders": ["F"]})
+        pref = EventRegistrationPreference.objects.get(registration=registration)
+        self.assertEqual(pref.preferred_genders, ["F"])
+        self.assertEqual((pref.preferred_age_min, pref.preferred_age_max), (18, 99))
+        self.assertEqual(pref.languages, [])
+
+    def test_the_answer_filters_the_ticket(self):
+        from crush_lu.models import EventRegistration
+        from crush_lu.services.mixer_ticket import affinity_list, event_numbers
+
+        man = self._create_member("other-man@example.com", gender="M")
+        woman = self._create_member("woman@example.com", gender="F")
+        for guest in (man, woman):
+            EventRegistration.objects.create(
+                event=self.mixer, user=guest, status="confirmed"
+            )
+        self._login(self.user)
+        self.client.post(self._register_url(self.mixer), {"preferred_genders": ["F"]})
+
+        registration = EventRegistration.objects.get(event=self.mixer, user=self.user)
+        _, rows, others = affinity_list(registration, self.mixer)
+        woman_reg = EventRegistration.objects.get(event=self.mixer, user=woman)
+        self.assertEqual(
+            [n for n, _ in rows], [event_numbers(self.mixer)[woman_reg.pk]]
+        )
+        self.assertEqual(others, 1)
 
 
 class PreferenceDisplayHelperTests(EventPreferenceTestBase):
@@ -552,7 +674,7 @@ class PreferenceExportTests(EventPreferenceTestBase):
         from crush_lu.models import EventRegistration
 
         EventRegistration.objects.create(
-            event=self.mixer, user=self.user, status="confirmed"
+            event=self.activity, user=self.user, status="confirmed"
         )
         exported = self._export(self.user)
 

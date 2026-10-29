@@ -320,10 +320,11 @@ def _wanted_genders(registration, user, profile) -> set[str]:
     """Gender codes this guest wants to meet; empty = open to all.
 
     Same precedence as the event application (``_registration_outlook`` in
-    views_events.py and ``EventPreferenceForm.initial_for``). A mixer
-    registration never asks, so the Connect or profile answer usually decides.
-    'P' is dropped as the form drops it: it describes one's own gender, not a
-    group anyone can ask to meet.
+    views_events.py and ``EventPreferenceForm.initial_for``). A mixer asks at
+    registration (``MixerPreferenceForm``); registrations made before it did,
+    or by another path (invitation, door, coach), fall back to Connect or the
+    profile. 'P' is dropped as the form drops it: it describes one's own
+    gender, not a group anyone can ask to meet.
     """
     from crush_lu.forms import EventPreferenceForm
 
