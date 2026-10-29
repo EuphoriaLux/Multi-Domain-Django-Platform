@@ -42,7 +42,10 @@ from crush_lu.services.curated_group_workflow import (
     approve_current_generation,
     automatic_remedy_must_hold,
     generate_group_projection,
+    lock_current_generation,
+    registration_has_certified_payable_group,
     repair_degraded_event_groups,
+    start_curated_rounds,
 )
 
 User = get_user_model()
@@ -312,3 +315,110 @@ class AutomaticRemedyHoldTests(TestCase):
         alert = self._coach_alerts().get()
         self.assertIn("needs inviting", alert.title)
         self.assertIn("1 member", alert.body)
+
+    # -- the coach's "keep the held group" decision (#1323 review) ----------
+
+    def _staff(self):
+        return User.objects.create_superuser(
+            username="keeper@example.com", email="keeper@example.com", password="x"
+        )
+
+    def test_kept_group_can_be_locked_and_started(self):
+        event, group, invited, _ = self._invited_group(starts_in=timedelta(minutes=27))
+        self._cancel(invited[0])
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+
+        remedy = repair_degraded_event_groups(
+            event, actor=self._staff(), explicit=True, keep_seats=True
+        )
+
+        self.assertEqual(remedy.action, "reprojected")
+        staying = [r.pk for r in invited[1:]]
+        self.assertEqual(
+            set(
+                EventRegistration.objects.filter(pk__in=staying).values_list(
+                    "status", flat=True
+                )
+            ),
+            {"confirmed"},
+        )
+        kept = CuratedEventGroup.objects.filter(
+            event=event, generation=remedy.replacement_generation
+        )
+        self.assertEqual(
+            set(
+                CuratedEventGroupMembership.objects.filter(
+                    group__in=kept, released_at__isnull=True
+                ).values_list("registration_id", flat=True)
+            ),
+            set(staying),
+        )
+        self.assertFalse(
+            CuratedGroupNotification.objects.filter(
+                event=event, kind=CuratedGroupNotification.Kind.WITHDRAWAL
+            ).exists()
+        )
+        # Five people cannot each get five dates: the coach accepted the
+        # highest minimum that keeps everyone, and who did it is on record.
+        kept_group = kept.get()
+        self.assertEqual(kept_group.coach_accepted_min_dates, 4)
+        self.assertEqual(kept_group.coach_accepted_by.username, "keeper@example.com")
+        self.assertEqual(kept_group.status, CuratedEventGroup.STATUS_PROVISIONAL)
+        # The evening can now run through the supported workflow.
+        EventRegistration.objects.filter(pk__in=staying).update(status="attended")
+        lock_current_generation(event)
+        start_curated_rounds(event)
+        event.refresh_from_db()
+        self.assertIsNotNone(event.curated_rounds_started_at)
+
+    def test_kept_paid_group_stays_payable_and_issues_no_credit(self):
+        from crush_lu.models.credits import CrushCredit
+
+        event, group, invited, _ = self._invited_group(
+            fee="15.00", starts_in=timedelta(hours=5)
+        )
+        self._cancel(invited[0])
+
+        repair_degraded_event_groups(
+            event, actor=self._staff(), explicit=True, keep_seats=True
+        )
+
+        for registration in invited[1:]:
+            registration.refresh_from_db()
+            self.assertEqual(registration.status, "pending")
+            self.assertTrue(registration_has_certified_payable_group(registration))
+        self.assertFalse(CrushCredit.objects.exists())
+
+    def test_keep_seats_is_a_staff_decision(self):
+        event, group, invited, _ = self._invited_group(starts_in=timedelta(hours=3))
+        with self.assertRaises(ValueError):
+            repair_degraded_event_groups(event, keep_seats=True)
+
+    def test_keep_refuses_when_a_seat_holder_would_have_no_date(self):
+        from django.core.exceptions import ValidationError
+
+        from crush_lu.models.events import EventRegistrationPreference
+
+        event, group, invited, _ = self._invited_group(starts_in=timedelta(hours=3))
+        self._cancel(invited[0])
+        # Nobody left matches this member any more.
+        EventRegistrationPreference.objects.filter(registration=invited[1]).update(
+            preferred_genders=["F"]
+        )
+
+        with self.assertRaisesMessage(ValidationError, "no compatible date"):
+            repair_degraded_event_groups(
+                event, actor=self._staff(), explicit=True, keep_seats=True
+            )
+
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+        self.assertEqual(
+            set(
+                EventRegistration.objects.filter(
+                    pk__in=[r.pk for r in invited[1:]]
+                ).values_list("status", flat=True)
+            ),
+            {"confirmed"},
+        )

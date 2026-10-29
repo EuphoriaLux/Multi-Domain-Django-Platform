@@ -30,6 +30,9 @@ and `event`. Coach-only, like the panel that includes it.
             {% if group.minimum_dates %}
                 · {% blocktrans with minimum=group.minimum_dates %}at least {{ minimum }} dates each{% endblocktrans %}
             {% endif %}
+            {% if group.coach_accepted_min_dates %}
+                · <span class="text-amber-700 dark:text-amber-300" data-coach-accepted-min>{% blocktrans with minimum=group.coach_accepted_min_dates %}coach accepted fewer dates (at least {{ minimum }}){% endblocktrans %}</span>
+            {% endif %}
             {% if group.one_drop_resilient %}
                 · {% trans "survives one drop-out" %}
             {% elif group.one_drop_resilient == False %}

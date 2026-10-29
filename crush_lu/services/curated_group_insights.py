@@ -109,9 +109,9 @@ NEXT_ACTION_LABELS = {
     NEXT_DELIVERED: _("Round one has been marked as started. Nothing left to do here."),
     NEXT_REPAIR: _(
         "A member left this group. Everyone else keeps their place and can be "
-        "checked in as usual. Run “Reproject or compensate degraded groups” "
-        "only if you want the group rebuilt: anyone it cannot place loses "
-        "their seat."
+        "checked in as usual. To run the evening with them, run “Keep the held "
+        "group and run the evening (fewer dates)”. “Reproject or compensate "
+        "degraded groups” instead releases anyone it cannot place."
     ),
     NEXT_CANCELLED: _("The event is cancelled; no group action applies."),
     NEXT_PROJECTOR_REFUSED: _(
@@ -568,6 +568,8 @@ def _group_card(group, memberships, participants):
         "projected_size": projected_size,
         "rounds": rounds,
         "minimum_dates": minimum_dates,
+        # Set when a coach kept a held group below the five-date guarantee.
+        "coach_accepted_min_dates": group.coach_accepted_min_dates,
         "target_dates": target_dates,
         "members_meeting_target": members_meeting_target,
         "target_achieved": bool(target_achieved),

@@ -821,6 +821,9 @@ class CuratedEventGroupAdmin(admin.ModelAdmin):
         "cancelled_by",
         "cancelled_at",
         "cancellation_reason",
+        "coach_accepted_min_dates",
+        "coach_accepted_by",
+        "coach_accepted_at",
         "updated_at",
     )
     fields = readonly_fields
@@ -984,6 +987,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "invite_approved_curated_groups",
         "lock_curated_groups",
         "start_curated_round_one",
+        "keep_held_curated_group",
         "repair_degraded_curated_groups",
         "cancel_events",
         "mark_unattended_as_no_show",
@@ -1450,6 +1454,47 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "locked group(s)."
             )
             % {"title": event.title, "groups": len(group_ids)},
+        )
+
+    @admin.action(
+        description=_("✅ Keep the held group and run the evening (fewer dates)")
+    )
+    def keep_held_curated_group(self, request, queryset):
+        """Rebuild a held group around the people who still hold a seat."""
+
+        from crush_lu.services.curated_group_workflow import (
+            repair_degraded_event_groups,
+        )
+
+        event = self._single_curated_event(request, queryset)
+        if event is None:
+            return
+        try:
+            remedy = repair_degraded_event_groups(
+                event.pk, actor=request.user, explicit=True, keep_seats=True
+            )
+        except ValidationError as error:
+            django_messages.error(
+                request,
+                _("“%(title)s”: the group was not kept (%(reason)s).")
+                % {"title": event.title, "reason": "; ".join(error.messages)},
+            )
+            return
+        if remedy.action != "reprojected":
+            django_messages.info(
+                request,
+                _("“%(title)s”: nothing to keep (%(action)s).")
+                % {"title": event.title, "action": remedy.action},
+            )
+            return
+        django_messages.success(
+            request,
+            _(
+                "“%(title)s”: the group was rebuilt around everyone who holds a "
+                "seat (generation %(generation)d). It can be locked and started "
+                "as usual; some members may have fewer than five dates."
+            )
+            % {"title": event.title, "generation": remedy.replacement_generation},
         )
 
     @admin.action(description=_("🛟 Reproject or compensate degraded groups"))
