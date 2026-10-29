@@ -14,8 +14,10 @@ payment/cancellation path.
 
 import logging
 from dataclasses import dataclass
+from datetime import timedelta
 from functools import partial
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q
@@ -49,6 +51,35 @@ REPLACEABLE_GROUP_STATUSES = (
     CuratedEventGroup.STATUS_DEGRADED,
 )
 
+# Same boundary as a late member cancellation (CRUSH_CREDIT_LATE_CANCELLATION_HOURS).
+DEFAULT_AUTOMATIC_REMEDY_HOLD_HOURS = 48
+
+# "Keep the held group": a coach's explicit choice to run the evening with the
+# people who still hold a seat (Tom, 2026-10-29: free and paid events). The
+# guarantee is lowered only as far as the evening needs, never below one date.
+KEEP_SEATS_MIN_DATES = 1
+
+
+def automatic_remedy_must_hold(event, now=None):
+    """Whether a remedy nobody asked for must keep every seat and ask a coach.
+
+    On a free event nobody counts as paid, so the unpaid-withdrawal branch
+    drops the whole group. Close to the start nobody can be found in time to
+    replace them. Event 26 (2026-10-28) lost all 11 remaining invitees to one
+    cancellation 27 minutes before the start, and the evening ran anyway.
+    Once the evening is over there is nobody left to seat, so the remedy runs
+    as before. Incident: ai-memory-hub/memories/crush-curated-auto-withdrawal.md
+    """
+    now = now or timezone.now()
+    if now >= event.end_time:
+        return False
+    hours = getattr(
+        settings,
+        "CURATED_AUTOMATIC_REMEDY_HOLD_HOURS",
+        DEFAULT_AUTOMATIC_REMEDY_HOLD_HOURS,
+    )
+    return not event.registration_fee or event.date_time - now < timedelta(hours=hours)
+
 
 @dataclass(frozen=True, slots=True)
 class StoredProjection:
@@ -78,6 +109,9 @@ class DegradedEventRemedy:
     replacement_generation: int | None = None
     compensated_registration_ids: tuple[int, ...] = ()
     credit_ids: tuple[int, ...] = ()
+    # Members a reprojection placed in the new groups who hold no seat yet.
+    # Only Invite seats and tells them, so a coach has to run it.
+    uninvited_registration_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -383,6 +417,8 @@ def _generate_group_projection(
     actor=None,
     deterministic_seed=None,
     allow_degraded_replacement,
+    seat_holders_only=False,
+    minimum_dates=None,
 ):
     """Publish a projection; degraded replacement is repair-only."""
 
@@ -422,11 +458,18 @@ def _generate_group_projection(
     # After the scheduled start a repair may only reshuffle the people who
     # were invited. An open applicant recruited at that point is not in the
     # room, cannot be invited any more, and would block the lock.
+    # An automatic repair that must not place anyone new passes
+    # ``seat_holders_only`` itself, so the generation it stores is the one it
+    # checked.
     past_start = allow_degraded_replacement and timezone.now() >= event.date_time
+    projection_kwargs = {}
+    if minimum_dates is not None:
+        projection_kwargs["minimum_dates"] = minimum_dates
     projection = project_event_groups(
         event,
         deterministic_seed=deterministic_seed,
-        seat_holders_only=past_start,
+        seat_holders_only=past_start or seat_holders_only,
+        **projection_kwargs,
     )
     if not projection.viable_groups:
         capacity_suffix = (
@@ -492,6 +535,13 @@ def _generate_group_projection(
             seed=projection.deterministic_seed,
             created_by=actor,
         )
+        if (
+            minimum_dates is not None
+            and minimum_dates < CuratedEventGroup.MIN_GUARANTEED_DATES
+        ):
+            group.coach_accepted_min_dates = minimum_dates
+            group.coach_accepted_by = actor
+            group.coach_accepted_at = now
         group.audit_data = _projection_audit(projected_group)
         group.save()
         _store_group_schedule(group, projected_group, actor=actor)
@@ -783,7 +833,9 @@ def registration_has_certified_payable_group(registration, *, event=None):
     return summary["schedule_digest"] == membership.group.schedule_digest
 
 
-def repair_degraded_event_groups(event_or_id, *, actor=None):
+def repair_degraded_event_groups(
+    event_or_id, *, actor=None, explicit=False, keep_seats=False
+):
     """Reproject a degraded pre-round-one generation or compensate its payers.
 
     Provider I/O deliberately sits between short atomic phases. The first phase
@@ -791,7 +843,19 @@ def repair_degraded_event_groups(event_or_id, *, actor=None):
     -> roster -> claim lock order. The final phase revalidates that same state
     and releases the roster only after every still-pending SumUp checkout is
     proven non-payable. Locked/started groups are never reassigned.
+
+    ``explicit`` is True only for the staff action that asks for this repair.
+    Every other caller (a member's cancellation, a waitlist move) holds instead
+    of releasing seats when ``automatic_remedy_must_hold`` says so.
+
+    ``keep_seats`` (explicit only) is the coach's decision to run the evening
+    with the people who still hold a seat: it reprojects them alone, accepting
+    fewer than five dates each (``KEEP_SEATS_MIN_DATES``), and refuses rather
+    than release, withdraw or compensate anyone. The new generation is
+    certified, so it can be locked, started and paid for.
     """
+    if keep_seats and not explicit:
+        raise ValueError("keep_seats is a staff decision; pass explicit=True.")
 
     from crush_lu.services.sumup import SumUpClient
 
@@ -810,6 +874,8 @@ def repair_degraded_event_groups(event_or_id, *, actor=None):
             result = _repair_degraded_event_groups_locked(
                 event_id,
                 actor=actor,
+                explicit=explicit,
+                keep_seats=keep_seats,
                 retirement_proofs=retirement_proofs,
                 leased_claims=leased_claims,
             )
@@ -918,7 +984,13 @@ def _reconcile_owned_checkout_leases(
 
 
 def _repair_degraded_event_groups_locked(
-    event_id, *, actor=None, retirement_proofs=None, leased_claims=None
+    event_id,
+    *,
+    actor=None,
+    explicit=False,
+    keep_seats=False,
+    retirement_proofs=None,
+    leased_claims=None,
 ):
     """Run one locked repair phase without making provider network calls."""
 
@@ -1013,18 +1085,79 @@ def _repair_degraded_event_groups_locked(
     # many people were still in the room. The explicit round-one marker
     # (checked above) is the delivery boundary; ``end_time`` is the backstop
     # for an evening nobody ever marked as started.
-    may_reproject = not had_locked_roster and timezone.now() < event.end_time
-    replacement_projection = None
-    if may_reproject:
-        # Before the start the pool may still be drawn on (a re-run of Invite
-        # handles anyone newly placed). After it, only invited people count:
-        # see load_grouping_candidates(seat_holders_only=True).
-        projection = project_event_groups(
-            event,
-            seat_holders_only=timezone.now() >= event.date_time,
+    now = timezone.now()
+    hold = not explicit and automatic_remedy_must_hold(event, now)
+    may_reproject = not had_locked_roster and now < event.end_time
+    # Before the start the pool may still be drawn on (a re-run of Invite
+    # handles anyone newly placed). After it, only invited people count: see
+    # load_grouping_candidates(seat_holders_only=True). An automatic repair
+    # that would hold also reshuffles only the invited, so it never places
+    # someone in a group without anyone telling them.
+    seat_holders_only = hold or keep_seats or now >= event.date_time
+    minimum_dates = None
+    if keep_seats and not may_reproject:
+        return _CheckoutRetirementBlocked(
+            reason=(
+                "This group can no longer be kept as it is: its roster was "
+                "locked, or the event has ended."
+            )
         )
+    replacement_projection = None
+    if keep_seats:
+        # The smallest exception the evening allows: the highest minimum at
+        # which every seat holder still fits.
+        for candidate in range(
+            CuratedEventGroup.MIN_GUARANTEED_DATES, KEEP_SEATS_MIN_DATES - 1, -1
+        ):
+            projection = project_event_groups(
+                event, seat_holders_only=True, minimum_dates=candidate
+            )
+            if projection.viable_groups and projection.retains_all_pinned:
+                replacement_projection = projection
+                minimum_dates = candidate
+                break
+    elif may_reproject:
+        projection = project_event_groups(event, seat_holders_only=seat_holders_only)
         if projection.viable_groups and projection.retains_all_pinned:
             replacement_projection = projection
+        else:
+            logger.warning(
+                "Curated event %s: degraded groups %s cannot be reprojected (%s).",
+                event.pk,
+                degraded_ids,
+                (
+                    "no viable group"
+                    if not projection.viable_groups
+                    else "%d invited member(s) could not be placed"
+                    % len(projection.pinned_unassigned_registration_ids)
+                ),
+            )
+
+    if replacement_projection is None and keep_seats:
+        # Never fall through to the compensate branch: keeping the seats was
+        # the whole point of the coach's choice.
+        return _CheckoutRetirementBlocked(
+            reason=(
+                "The group cannot be kept as it is: at least one member who "
+                "holds a seat would have no compatible date left. Nothing was "
+                "changed."
+            )
+        )
+
+    if replacement_projection is None and hold:
+        # Nothing is released, cancelled, credited or withdrawn: the group
+        # stays degraded (non-payable, flagged on the coach page) and the
+        # caller alerts the event's coaches. "Reproject or compensate degraded
+        # groups" remains the explicit staff decision.
+        logger.warning(
+            "Curated event %s: automatic remedy held for a coach; degraded "
+            "groups %s keep every seat.",
+            event.pk,
+            degraded_ids,
+        )
+        return DegradedEventRemedy(
+            action="held_for_coach", degraded_group_ids=degraded_ids
+        )
 
     affected_generations = {}
     for registration_id, generation in (
@@ -1206,6 +1339,8 @@ def _repair_degraded_event_groups_locked(
                 actor=actor,
                 deterministic_seed=replacement_projection.deterministic_seed,
                 allow_degraded_replacement=True,
+                seat_holders_only=seat_holders_only,
+                minimum_dates=minimum_dates,
             )
         except ValidationError:
             logger.warning(
@@ -1224,6 +1359,15 @@ def _repair_degraded_event_groups_locked(
             action="reprojected",
             degraded_group_ids=degraded_ids,
             replacement_generation=stored.generation,
+            uninvited_registration_ids=tuple(
+                CuratedEventGroupMembership.objects.filter(
+                    group_id__in=stored.group_ids,
+                    released_at__isnull=True,
+                    registration__status="applied",
+                )
+                .order_by("registration_id")
+                .values_list("registration_id", flat=True)
+            ),
         )
 
     latest_paid = {}

@@ -46,6 +46,8 @@ class NotificationType(Enum):
     EVENT_WAITLIST = "event_waitlist"
     EVENT_WAITLIST_PROMOTED = "event_waitlist_promoted"
     EVENT_CURATED_SELECTED = "event_curated_selected"
+    # To the event's coaches: an automatic curated-group repair needs a person.
+    CURATED_GROUP_COACH_ALERT = "curated_group_coach_alert"
     SPARK_COACH_ASSIGNMENT = "spark_coach_assignment"
     SPARK_RECIPIENT_ASSIGNED = "spark_recipient_assigned"
     SPARK_JOURNEY_READY = "spark_journey_ready"
@@ -77,6 +79,7 @@ class NotificationType(Enum):
             "event_waitlist": "event_reminders",
             "event_waitlist_promoted": "event_reminders",
             "event_curated_selected": "event_reminders",
+            "curated_group_coach_alert": "event_reminders",
             "spark_coach_assignment": "event_reminders",
             "spark_recipient_assigned": "new_connections",
             "spark_journey_ready": "new_connections",
@@ -99,6 +102,10 @@ class NotificationType(Enum):
             NotificationType.EVENT_CURATED_SELECTED,
         ):
             return "event_seat_granted"
+        if self is NotificationType.CURATED_GROUP_COACH_ALERT:
+            # Staff work, not a member reminder: a coach who switched event
+            # reminders off must still hear that a group needs a decision.
+            return "coach_curated_group_alert"
         return self.preference_key
 
 
@@ -139,6 +146,37 @@ class NotificationResult:
     def any_delivered(self) -> bool:
         """Returns True if notification was delivered via any channel."""
         return self.push_success or self.email_sent or self.inapp_created
+
+
+def curated_group_coach_alert_text(event, reason, count):
+    """Title and body of the coach alert, in the active language.
+
+    ``held``: an automatic repair kept every seat and left the group degraded.
+    ``uninvited``: a repair rebuilt the group with ``count`` members who hold
+    no seat yet, and only Invite seats and tells them.
+    """
+    from django.utils.translation import gettext as _
+    from django.utils.translation import ngettext
+
+    if reason == "uninvited":
+        return (
+            _("A group for {title} needs inviting").format(title=event.title),
+            ngettext(
+                "A cancellation rebuilt a group for {title}. {count} member in "
+                "it has not been invited yet: run Invite so they are told.",
+                "A cancellation rebuilt a group for {title}. {count} members in "
+                "it have not been invited yet: run Invite so they are told.",
+                count,
+            ).format(title=event.title, count=count),
+        )
+    return (
+        _("A group for {title} needs a decision").format(title=event.title),
+        _(
+            "A member left a group for {title} and it could not be rebuilt "
+            "automatically. Everyone else keeps their place and can be checked "
+            "in as usual. Open the event to decide what to do."
+        ).format(title=event.title),
+    )
 
 
 class NotificationService:
@@ -479,6 +517,12 @@ class NotificationService:
                 and kwargs.get("event_id")
             ):
                 return f"/events/{kwargs['event_id']}/"
+            if (
+                url_name == "crush_lu:coach_event_detail"
+                and kwargs
+                and kwargs.get("event_id")
+            ):
+                return f"/coach/events/{kwargs['event_id']}/?status=groups"
             # Sane fallback so we always have *somewhere* to send the user
             return "/dashboard/"
 
@@ -789,6 +833,28 @@ class NotificationService:
                     },
                 }
 
+            if (
+                notification_type == NotificationType.CURATED_GROUP_COACH_ALERT
+                and event
+            ):
+                title, body = curated_group_coach_alert_text(
+                    event, context.get("reason"), context.get("count", 0)
+                )
+                return {
+                    "title": title,
+                    "body": body,
+                    "link_url": get_user_language_url(
+                        user,
+                        "crush_lu:coach_event_detail",
+                        request,
+                        kwargs={"event_id": event.id},
+                    ),
+                    "metadata": {
+                        "reason": context.get("reason"),
+                        "count": context.get("count", 0),
+                    },
+                }
+
             # Generic fallback — record the type even if we don't have a
             # bespoke render path. Better to surface "something happened" than
             # silently drop.
@@ -926,6 +992,24 @@ class NotificationService:
                             body=payload["body"],
                             url=payload["link_url"],
                             tag=f"curated-selected-{registration.pk}",
+                            preference_key=notification_type.preference_key,
+                        )
+                        or {}
+                    )
+
+            elif notification_type == NotificationType.CURATED_GROUP_COACH_ALERT:
+                event = context.get("event")
+                payload = NotificationService._render_inapp_payload(
+                    user, notification_type, context, None
+                )
+                if event and payload:
+                    return (
+                        push_notifications.send_push_notification(
+                            user=user,
+                            title=payload["title"],
+                            body=payload["body"],
+                            url=payload["link_url"],
+                            tag=f"curated-coach-alert-{event.pk}",
                             preference_key=notification_type.preference_key,
                         )
                         or {}
@@ -1163,6 +1247,18 @@ class NotificationService:
                             request,
                             email_type=notification_type.email_preference_key,
                         )
+                    return result == 1
+
+            elif notification_type == NotificationType.CURATED_GROUP_COACH_ALERT:
+                event = context.get("event")
+                if event:
+                    result = email_helpers.send_curated_group_coach_alert(
+                        user,
+                        event,
+                        reason=context.get("reason"),
+                        count=context.get("count", 0),
+                        request=request,
+                    )
                     return result == 1
 
             elif notification_type == NotificationType.CONNECT_WEEK_REQUEST:

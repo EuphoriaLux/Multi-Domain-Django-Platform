@@ -2421,6 +2421,26 @@ class CuratedEventGroup(models.Model):
         related_name="+",
     )
     cancellation_reason = models.TextField(blank=True, default="")
+    # A coach's explicit decision to run the evening below the five-date
+    # guarantee ("Keep the held group"): certification then checks this
+    # minimum instead. Set only by that admin action, never automatically.
+    coach_accepted_min_dates = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text=_(
+            "Lower minimum of dates per person a coach accepted for this "
+            "group. Blank means the five-date guarantee applies."
+        ),
+    )
+    coach_accepted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    coach_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2813,6 +2833,13 @@ class CuratedEventGroup(models.Model):
             self.pk = None
             return result
 
+    @property
+    def effective_min_dates(self):
+        """The guarantee, or the lower minimum a coach knowingly accepted."""
+        if self.coach_accepted_min_dates:
+            return min(self.coach_accepted_min_dates, self.MIN_GUARANTEED_DATES)
+        return self.MIN_GUARANTEED_DATES
+
     def schedule_viability(
         self, *, require_checked_in=False, evaluate_preferences=True
     ):
@@ -2865,15 +2892,15 @@ class CuratedEventGroup(models.Model):
             raise ValidationError(
                 _("The active roster is larger than the configured group size.")
             )
-        if len(member_ids) <= self.MIN_GUARANTEED_DATES:
+        if len(member_ids) <= self.effective_min_dates:
             raise ValidationError(
                 _(
                     "A viable group needs at least %(minimum)d members so each "
                     "person can receive %(dates)d different dates."
                 )
                 % {
-                    "minimum": self.MIN_GUARANTEED_DATES + 1,
-                    "dates": self.MIN_GUARANTEED_DATES,
+                    "minimum": self.effective_min_dates + 1,
+                    "dates": self.effective_min_dates,
                 }
             )
 
@@ -3023,7 +3050,7 @@ class CuratedEventGroup(models.Model):
 
         date_counts = [len(partners) for partners in partner_ids.values()]
         minimum_dates = min(date_counts)
-        if minimum_dates < self.MIN_GUARANTEED_DATES:
+        if minimum_dates < self.effective_min_dates:
             raise ValidationError(
                 _(
                     "This schedule gives someone only %(actual)d different "
@@ -3031,7 +3058,7 @@ class CuratedEventGroup(models.Model):
                 )
                 % {
                     "actual": minimum_dates,
-                    "minimum": self.MIN_GUARANTEED_DATES,
+                    "minimum": self.effective_min_dates,
                 }
             )
         proof_payload = {
@@ -3154,7 +3181,7 @@ class CuratedEventGroup(models.Model):
                 .count()
             )
             derived_fairness_metrics = {
-                "min_required": self.MIN_GUARANTEED_DATES,
+                "min_required": group.effective_min_dates,
                 "min_achieved": summary["minimum_dates"],
                 "target_requested": self.TARGET_DATES,
                 "target_achieved": (
