@@ -1920,8 +1920,10 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         # Exercise the real post-commit signal chain while suppressing only
         # delivery.  The generic late-cancellation callback runs first, then
-        # the degraded-group callback decides that five people cannot form a
-        # viable group and compensates only the innocent payers.
+        # the degraded-group callback finds that five people cannot form a
+        # viable group. A day before the start it holds for a coach instead of
+        # releasing anyone; the staff repair then compensates only the
+        # innocent payers.
         with (
             patch("crush_lu.views_payments._send_member_cancellation_safely"),
             patch(
@@ -1932,6 +1934,10 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 departing.status = "cancelled"
                 departing.save(update_fields=["status"])
+            group.refresh_from_db()
+            self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+            self.assertFalse(CrushCredit.objects.exists())
+            repair_degraded_event_groups(event, explicit=True)
         group.refresh_from_db()
         self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
 
@@ -2024,6 +2030,11 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         ):
             with self.captureOnCommitCallbacks(execute=True):
                 departing.delete()
+            # During the evening the automatic remedy holds for a coach.
+            group.refresh_from_db()
+            self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+            self.assertFalse(CrushCredit.objects.exists())
+            repair_degraded_event_groups(event, explicit=True)
 
         group.refresh_from_db()
         self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
@@ -2175,6 +2186,11 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
             with self.captureOnCommitCallbacks(execute=True):
                 no_show.status = "no_show"
                 no_show.save(update_fields=["status"])
+            # During the evening the automatic remedy holds for a coach.
+            group.refresh_from_db()
+            self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+            self.assertFalse(CrushCredit.objects.exists())
+            repair_degraded_event_groups(event, explicit=True)
 
         group.refresh_from_db()
         innocent_ids = {registration.pk for registration in registrations[1:]}

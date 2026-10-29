@@ -1181,6 +1181,12 @@ class AdminSelectionAndVisibilityTests(CuratedGroupPersistenceBase):
             registration.save()
 
     def test_waitlist_action_remedies_a_provisional_group_immediately(self):
+        # Paid and a week out: the remedy runs as before. A free event or one
+        # close to the start holds instead (test_curated_auto_remedy_hold.py).
+        MeetupEvent.objects.filter(pk=self.event.pk).update(
+            registration_fee=Decimal("15.00")
+        )
+        self.event.refresh_from_db()
         group, registrations, _ = self.make_viable_group()
         group.mark_provisional(audit_data=self.fairness_audit())
         admin_object = EventRegistrationAdmin(EventRegistration, AdminSite())
@@ -1195,6 +1201,27 @@ class AdminSelectionAndVisibilityTests(CuratedGroupPersistenceBase):
         self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
         self.assertFalse(group.memberships.filter(released_at__isnull=True).exists())
         self.assertEqual(registrations[0].status, "waitlist")
+
+    def test_waitlist_action_on_a_free_event_holds_the_rest_of_the_group(self):
+        group, registrations, _ = self.make_viable_group()
+        group.mark_provisional(audit_data=self.fairness_audit())
+        admin_object = EventRegistrationAdmin(EventRegistration, AdminSite())
+        request = self.admin_request()
+
+        admin_object.move_to_waitlist(
+            request,
+            EventRegistration.objects.filter(pk=registrations[0].pk),
+        )
+
+        group.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_DEGRADED)
+        self.assertEqual(
+            group.memberships.filter(released_at__isnull=True).count(),
+            len(registrations),
+        )
+        self.assertTrue(
+            any("was not rebuilt" in str(message) for message in request._messages)
+        )
 
     def test_waitlist_action_cannot_change_a_locked_group_member(self):
         group, registrations, _ = self.make_viable_group()
