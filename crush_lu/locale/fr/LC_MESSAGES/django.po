@@ -46937,3 +46937,29 @@ msgstr "Son de l'autre personne"
 
 msgid "If their bar moves but you hear nothing, turn up your device's volume."
 msgstr "Si la barre de l'autre personne bouge mais que vous n'entendez rien, augmentez le volume de votre appareil."
+
+msgid "A group for {title} needs inviting"
+msgstr "Un groupe pour {title} doit être invité"
+
+msgid "A group for {title} needs a decision"
+msgstr "Un groupe pour {title} attend une décision"
+
+msgid "A member left a group for {title} and it could not be rebuilt automatically. Everyone else keeps their place and can be checked in as usual. Open the event to decide what to do."
+msgstr "Un membre a quitté un groupe pour {title} et le groupe n’a pas pu être reconstitué automatiquement. Tous les autres gardent leur place et peuvent être enregistrés à l’entrée comme d’habitude. Ouvrez l’événement pour décider de la suite."
+
+msgid "A cancellation rebuilt a group for {title}. {count} member in it has not been invited yet: run Invite so they are told."
+msgid_plural "A cancellation rebuilt a group for {title}. {count} members in it have not been invited yet: run Invite so they are told."
+msgstr[0] "Une annulation a reconstitué un groupe pour {title}. {count} membre de ce groupe n’a pas encore été invité : lancez « Invite » pour qu’il soit prévenu."
+msgstr[1] "Une annulation a reconstitué un groupe pour {title}. {count} membres de ce groupe n’ont pas encore été invités : lancez « Invite » pour qu’ils soient prévenus."
+
+msgid "A curated group needs you"
+msgstr "Un groupe a besoin de vous"
+
+msgid "Nobody was removed and no email went to the members. “Reproject or compensate degraded groups” is still available, but it releases everyone it cannot place."
+msgstr "Personne n’a été retiré et aucun e-mail n’est parti aux membres. « Reproject or compensate degraded groups » reste disponible, mais libère toutes les personnes qu’il ne peut pas placer."
+
+msgid "Open the event"
+msgstr "Ouvrir l’événement"
+
+msgid "A member left this group. Everyone else keeps their place and can be checked in as usual. Run “Reproject or compensate degraded groups” only if you want the group rebuilt: anyone it cannot place loses their seat."
+msgstr "Un membre a quitté ce groupe. Tous les autres gardent leur place et peuvent être enregistrés à l’entrée comme d’habitude. Lancez « Reproject or compensate degraded groups » uniquement si vous voulez reconstituer le groupe : toute personne qu’il ne peut pas placer perd sa place."

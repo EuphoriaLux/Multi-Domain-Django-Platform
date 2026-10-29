@@ -1,0 +1,21 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "A curated group needs you" %} - Crush.lu{% endblock %}
+{% block header_title %}{% trans "A curated group needs you" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=user.first_name %}Hello {{ first_name }},{% endblocktrans %}</h2>
+
+<p>{{ alert_body }}</p>
+
+{% if reason == "held" %}
+<div class="info-box">
+    <p>{% trans "Nobody was removed and no email went to the members. “Reproject or compensate degraded groups” is still available, but it releases everyone it cannot place." %}</p>
+</div>
+{% endif %}
+
+<p><a href="{{ coach_event_url }}" class="button">{% trans "Open the event" %}</a></p>
+
+<p>{% trans "The Crush.lu Team" %}</p>
+{% endblock %}

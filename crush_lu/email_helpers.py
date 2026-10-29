@@ -190,8 +190,12 @@ FINANCIAL_EMAIL_TYPES = frozenset({"crush_credit_expiry"})
 # honour the ban and the master unsubscribe. The attendance check belongs here
 # too (Tom, 2026-10-16): it is about a seat the member holds and is the only
 # way they are asked to confirm it, so it reaches members who switched off
-# event reminders.
-TRANSACTIONAL_EMAIL_TYPES = frozenset({"event_seat_granted", "event_attendance_check"})
+# event reminders. The coach alert for a curated group that needs a decision is
+# staff work, not a reminder, so a coach's own event-reminders switch must not
+# silence it either.
+TRANSACTIONAL_EMAIL_TYPES = frozenset(
+    {"event_seat_granted", "event_attendance_check", "coach_curated_group_alert"}
+)
 
 
 def can_send_email(user, email_type):
@@ -1431,6 +1435,48 @@ def send_curated_group_withdrawal_notice(registration, request=None):
         )
         html_message = render_to_string(
             "crush_lu/emails/curated_group_withdrawal.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_curated_group_coach_alert(user, event, *, reason, count=0, request=None):
+    """Tell one of the event's coaches that a curated group needs a decision."""
+    from django.utils import translation
+
+    from .notification_service import curated_group_coach_alert_text
+
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    context = {
+        "user": user,
+        "event": event,
+        "reason": reason,
+        "coach_event_url": get_user_language_url(
+            user,
+            "crush_lu:coach_event_detail",
+            request,
+            kwargs={"event_id": event.pk},
+        )
+        + "?status=groups",
+        "LANGUAGE_CODE": lang,
+        "social_links": get_social_links(),
+        **get_email_base_urls(user, request),
+    }
+
+    with translation.override(lang):
+        subject, body = curated_group_coach_alert_text(event, reason, count)
+        context["alert_body"] = body
+        html_message = render_to_string(
+            "crush_lu/emails/curated_group_coach_alert.html", context
         )
         plain_message = html_to_plain_text(html_message)
 

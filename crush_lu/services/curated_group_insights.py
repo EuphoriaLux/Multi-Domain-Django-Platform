@@ -107,7 +107,12 @@ NEXT_ACTION_LABELS = {
     ),
     NEXT_START: _("Run “Mark curated round one as started” as the first round begins."),
     NEXT_DELIVERED: _("Round one has been marked as started. Nothing left to do here."),
-    NEXT_REPAIR: _("Run “Reproject or compensate degraded groups”."),
+    NEXT_REPAIR: _(
+        "A member left this group. Everyone else keeps their place and can be "
+        "checked in as usual. Run “Reproject or compensate degraded groups” "
+        "only if you want the group rebuilt: anyone it cannot place loses "
+        "their seat."
+    ),
     NEXT_CANCELLED: _("The event is cancelled; no group action applies."),
     NEXT_PROJECTOR_REFUSED: _(
         "The projector refused this pool, so groups can be neither generated nor "

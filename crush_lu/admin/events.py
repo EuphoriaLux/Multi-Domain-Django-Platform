@@ -621,6 +621,29 @@ def _forget_reassigned_promotion(registration, changed_fields):
         registration.promotion_notice = ""
 
 
+def _warn_uninvited_after_remedy(request, event_id, remedy):
+    """Say what a curated-group remedy left for staff to do, in words."""
+    if remedy.action == "held_for_coach":
+        django_messages.warning(
+            request,
+            _(
+                "Event %(event)d: the group lost a member and was not rebuilt. "
+                "Everyone else keeps their place; run “Reproject or compensate "
+                "degraded groups” only if you want it rebuilt."
+            )
+            % {"event": event_id},
+        )
+    elif remedy.uninvited_registration_ids:
+        django_messages.warning(
+            request,
+            _(
+                "Event %(event)d: the rebuilt group holds %(count)d member(s) "
+                "with no seat yet. Run Invite so they are seated and told."
+            )
+            % {"event": event_id, "count": len(remedy.uninvited_registration_ids)},
+        )
+
+
 # Inline admin for Event Registrations
 class EventRegistrationInline(admin.TabularInline):
     model = EventRegistration
@@ -1441,7 +1464,9 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         if event is None:
             return
         try:
-            remedy = repair_degraded_event_groups(event.pk, actor=request.user)
+            remedy = repair_degraded_event_groups(
+                event.pk, actor=request.user, explicit=True
+            )
         except ValidationError as error:
             django_messages.error(
                 request,
@@ -1454,6 +1479,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             _("“%(title)s”: curated-group remedy result: %(action)s.")
             % {"title": event.title, "action": remedy.action},
         )
+        _warn_uninvited_after_remedy(request, event.pk, remedy)
 
     @admin.action(description=_("✅ Publish selected events"))
     def publish_events(self, request, queryset):
@@ -4159,6 +4185,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                         _("Event %(event)d curated-group remedy: %(action)s.")
                         % {"event": event_id, "action": remedy.action},
                     )
+                    _warn_uninvited_after_remedy(request, event_id, remedy)
 
 
 class EventInvitationAdmin(admin.ModelAdmin):
