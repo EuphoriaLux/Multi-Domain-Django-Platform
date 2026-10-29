@@ -607,3 +607,76 @@ def deliver_curated_group_notifications(
         cancelled=counts["stale"],
         remaining=remaining,
     )
+
+
+# Long enough for a handful of coaches' email and push, short enough that the
+# member's own cancellation request, which this runs inside, stays fast.
+COACH_ALERT_BUDGET_SECONDS = 20
+
+
+def alert_coaches_about_automatic_remedy(event_id, remedy):
+    """Tell the event's active coaches that an automatic repair needs a person.
+
+    ``held_for_coach``: every seat was kept and the group stays degraded.
+    ``reprojected`` with uninvited members: the new group holds people who have
+    no seat yet, and only Invite seats and tells them. Any other result needs
+    nobody. Called after the remedy committed; one coach's failing push or
+    email never reaches the next coach or the cancelling member.
+    """
+    import time
+
+    from crush_lu.models.events import MeetupEvent
+    from crush_lu.notification_service import NotificationService, NotificationType
+
+    if remedy.action == "held_for_coach":
+        reason, count = "held", 0
+        generation = (
+            CuratedEventGroup.objects.filter(pk__in=remedy.degraded_group_ids)
+            .order_by("-generation")
+            .values_list("generation", flat=True)
+            .first()
+        )
+    elif remedy.action == "reprojected" and remedy.uninvited_registration_ids:
+        reason = "uninvited"
+        count = len(remedy.uninvited_registration_ids)
+        generation = remedy.replacement_generation
+    else:
+        return 0
+
+    event = MeetupEvent.objects.filter(pk=event_id).first()
+    if event is None:
+        return 0
+    coaches = list(
+        event.coaches.filter(is_active=True).select_related("user").order_by("pk")
+    )
+    if not coaches:
+        logger.warning(
+            "Curated event %s needs a coach (%s) but has no active coach.",
+            event_id,
+            reason,
+        )
+        return 0
+
+    deadline = time.monotonic() + COACH_ALERT_BUDGET_SECONDS
+    alerted = 0
+    for coach in coaches:
+        try:
+            result = NotificationService.notify(
+                coach.user,
+                NotificationType.CURATED_GROUP_COACH_ALERT,
+                {"event": event, "reason": reason, "count": count},
+                # One alert per coach per generation and reason, however often
+                # the remedy runs again on the same degraded groups.
+                dedupe_key=f"curated-coach:{reason}:{event_id}:{generation}",
+                deadline=deadline,
+            )
+        except Exception:
+            logger.exception(
+                "Coach alert for curated event %s failed for coach %s.",
+                event_id,
+                coach.pk,
+            )
+            continue
+        if result.any_delivered:
+            alerted += 1
+    return alerted

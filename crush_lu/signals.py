@@ -3923,12 +3923,15 @@ def promote_waitlist_on_cancellation(sender, instance, created, **kwargs):
 def _repair_degraded_curated_event_safely(event_id):
     """Run the durable reproject-or-compensate phase after a roster exit."""
 
+    from crush_lu.services.curated_group_notifications import (
+        alert_coaches_about_automatic_remedy,
+    )
     from crush_lu.services.curated_group_workflow import (
         repair_degraded_event_groups,
     )
 
     try:
-        repair_degraded_event_groups(event_id)
+        remedy = repair_degraded_event_groups(event_id)
     except Exception:
         # DEGRADED is deliberately non-payable and visible in admin, so a
         # failed callback leaves a safe, retryable state rather than reopening
@@ -3936,6 +3939,15 @@ def _repair_degraded_curated_event_safely(event_id):
         logger.exception(
             "Automatic curated-group remedy failed for event %s; group remains "
             "DEGRADED and non-payable.",
+            event_id,
+        )
+        return
+    try:
+        alert_coaches_about_automatic_remedy(event_id, remedy)
+    except Exception:
+        logger.exception(
+            "Coach alert after the automatic curated-group remedy failed for "
+            "event %s.",
             event_id,
         )
 
