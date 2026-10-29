@@ -2,7 +2,9 @@
 {% comment %}
 Speed-dating preference section, shared by event_register.html and the HTMX
 partial _event_registration_form.html so a validation-error re-render cannot
-drop it. Only rendered when the view provides pref_form (speed-dating events).
+drop it. Only rendered when the view provides pref_form (speed-dating events,
+and Social Mixers, whose MixerPreferenceForm sets gender_only: no age or
+language question, and copy about the ticket instead of the tables).
 
 Gender/language tiles take the visual idiom from Connect step 6, but the
 keyboard-safe wiring from partials/edit_event_identity.html: the real checkbox
@@ -20,10 +22,14 @@ choices, so this template renders whatever the field offers.
             <svg class="w-5 h-5 text-crush-purple" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                 <path d="M9.653 16.915l-.005-.003-.019-.01a20.759 20.759 0 01-1.162-.682 22.045 22.045 0 01-2.582-1.9C4.045 12.733 2 10.352 2 7.5a4.5 4.5 0 018-2.828A4.5 4.5 0 0118 7.5c0 2.852-2.044 5.233-3.885 6.82a22.049 22.049 0 01-3.744 2.582l-.019.01-.005.003h-.002a.739.739 0 01-.69.001l-.002-.001z"/>
             </svg>
-            {% trans "Your speed-dating preferences" %}
+            {% if pref_form.gender_only %}{% trans "Your Social Mixer ticket" %}{% else %}{% trans "Your speed-dating preferences" %}{% endif %}
         </p>
         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            {% if pref_form.gender_only %}
+            {% trans "On the evening, your ticket lists the numbers of the guests you want to meet who also want to meet you. Your answer is never shown to other members." %}
+            {% else %}
             {% trans "Used only by the organiser team to compose the tables — never shown to other members." %}
+            {% endif %}
         </p>
     </div>
 
@@ -48,6 +54,7 @@ choices, so this template renders whatever the field offers.
         {% if pref_form.preferred_genders.errors %}<p class="text-sm text-red-600 dark:text-red-300 mt-1" role="alert">{{ pref_form.preferred_genders.errors.0 }}</p>{% endif %}
     </fieldset>
 
+    {% if not pref_form.gender_only %}
     <fieldset>
         <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">{% trans "Preferred age range" %}</legend>
         <div class="flex items-start gap-3">
@@ -82,5 +89,6 @@ choices, so this template renders whatever the field offers.
         <p class="text-gray-400 dark:text-gray-500 text-xs mt-2">{% trans "Leave empty if any language works for you." %}</p>
         {% if pref_form.languages.errors %}<p class="text-sm text-red-600 dark:text-red-300 mt-1" role="alert">{{ pref_form.languages.errors.0 }}</p>{% endif %}
     </fieldset>
+    {% endif %}
 </div>
 {% endif %}

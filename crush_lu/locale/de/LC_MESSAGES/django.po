@@ -46811,6 +46811,12 @@ msgstr "Ton der anderen Person"
 msgid "If their bar moves but you hear nothing, turn up your device's volume."
 msgstr "Wenn sich der Balken der anderen Person bewegt, du aber nichts hörst, dreh die Lautstärke deines Geräts auf."
 
+msgid "Your Social Mixer ticket"
+msgstr "Dein Social-Mixer-Ticket"
+
+msgid "On the evening, your ticket lists the numbers of the guests you want to meet who also want to meet you. Your answer is never shown to other members."
+msgstr "Am Abend listet dein Ticket die Nummern der Gäste, die du kennenlernen möchtest und die auch dich kennenlernen möchten. Andere Mitglieder sehen deine Antwort nie."
+
 msgid "A group for {title} needs inviting"
 msgstr "Eine Gruppe für {title} muss eingeladen werden"
 

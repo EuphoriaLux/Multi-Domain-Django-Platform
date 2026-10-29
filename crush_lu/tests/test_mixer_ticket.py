@@ -609,6 +609,119 @@ class MixerTicketTests(TestCase):
         )
         self.assertEqual(len(rows), 1)
 
+    def _seek(self, reg, *genders):
+        profile = reg.user.crushprofile
+        profile.preferred_genders = list(genders)
+        profile.save(update_fields=["preferred_genders"])
+
+    def _set_gender(self, reg, gender):
+        profile = reg.user.crushprofile
+        profile.gender = gender
+        profile.save(update_fields=["gender"])
+
+    def _listed_genders(self, reg):
+        numbers = self._numbers()
+        gender_by_number = {
+            numbers[r.pk]: r.user.crushprofile.gender
+            for r in EventRegistration.objects.filter(
+                event=self.event, pk__in=list(numbers)
+            ).select_related("user__crushprofile")
+        }
+        _, rows, others = affinity_list(reg, self.event)
+        return {gender_by_number[n] for n, _ in rows}, others
+
+    def test_a_man_seeking_women_has_only_women_on_his_list(self):
+        man = self.regs[0]
+        self._seek(man, "F")
+        genders, others = self._listed_genders(man)
+        self.assertEqual(genders, {"F"})
+        self.assertEqual(others, 12)
+        text = preview_checkin_ticket_text(
+            registration=man, event=self.event, language="fr"
+        )
+        self.assertEqual(text.count("____________"), 12)
+        self.assertNotIn("autres numéros", text)
+
+    def test_the_gender_filter_is_mutual(self):
+        man_seeking_women, other_man, woman = self.regs[0], self.regs[2], self.regs[1]
+        self._seek(man_seeking_women, "F")
+        numbers = self._numbers()
+        _, rows, _ = affinity_list(other_man, self.event)
+        self.assertNotIn(numbers[man_seeking_women.pk], [n for n, _ in rows])
+        _, rows, _ = affinity_list(woman, self.event)
+        self.assertIn(numbers[man_seeking_women.pk], [n for n, _ in rows])
+
+    def test_a_woman_seeking_women_stays_off_mens_lists(self):
+        woman = self.regs[1]
+        self._seek(woman, "F")
+        numbers = self._numbers()
+        _, rows, _ = affinity_list(self.regs[0], self.event)
+        self.assertNotIn(numbers[woman.pk], [n for n, _ in rows])
+        self.assertEqual(self._listed_genders(woman), ({"F"}, 11))
+
+    def test_the_gender_filter_never_moves_a_percentage(self):
+        man = self.regs[0]
+        _, before, _ = affinity_list(man, self.event)
+        self._seek(man, "F")
+        _, after, _ = affinity_list(man, self.event)
+        self.assertTrue(after)
+        self.assertLess(len(after), len(before))
+        before_pct = dict(before)
+        for number, pct in after:
+            self.assertEqual(pct, before_pct[number])
+
+    def test_an_onboarded_connect_preference_wins_over_the_profile(self):
+        from crush_lu.models import CrushConnectMembership
+
+        man = self.regs[0]
+        self._seek(man, "M")
+        membership = CrushConnectMembership.objects.create(
+            user=man.user, onboarded_at=timezone.now(), preferred_genders=["F"]
+        )
+        self.assertEqual(self._listed_genders(man)[0], {"F"})
+        # Not onboarded: Connect's answer is unfinished, the profile decides.
+        membership.onboarded_at = None
+        membership.save()
+        self.assertEqual(self._listed_genders(man)[0], {"M"})
+
+    def test_the_registrations_own_answer_wins_over_connect_and_profile(self):
+        from crush_lu.models import CrushConnectMembership, EventRegistrationPreference
+
+        man = self.regs[0]
+        self._seek(man, "M")
+        CrushConnectMembership.objects.create(
+            user=man.user, onboarded_at=timezone.now(), preferred_genders=["M"]
+        )
+        EventRegistrationPreference.objects.create(
+            registration=man, preferred_genders=["F"]
+        )
+        self.assertEqual(self._listed_genders(man)[0], {"F"})
+
+    def test_a_guest_without_a_gender_is_never_filtered_out(self):
+        man = self.regs[0]
+        self._seek(man, "F")
+        unknown = self._guest(60, "confirmed")
+        self._set_gender(unknown, "")
+        numbers = self._numbers()
+        _, rows, _ = affinity_list(man, self.event)
+        self.assertIn(numbers[unknown.pk], [n for n, _ in rows])
+
+    def test_prefer_not_to_say_is_listed_only_for_guests_open_to_all(self):
+        private = self._guest(61, "confirmed")
+        self._set_gender(private, "P")
+        self._seek(self.regs[0], "F")
+        numbers = self._numbers()
+        _, rows, _ = affinity_list(self.regs[0], self.event)
+        self.assertNotIn(numbers[private.pk], [n for n, _ in rows])
+        _, rows, _ = affinity_list(self.regs[2], self.event)
+        self.assertIn(numbers[private.pk], [n for n, _ in rows])
+
+    def test_a_stored_prefer_not_to_say_preference_means_open_to_all(self):
+        # Legacy profiles may still hold 'P', which the event form never offers.
+        self._seek(self.regs[0], "P")
+        _, _, others = affinity_list(self.regs[0], self.event)
+        self.assertEqual(others, 24)
+
     def test_assignment_locks_the_event_before_the_registrations(self):
         import inspect
 

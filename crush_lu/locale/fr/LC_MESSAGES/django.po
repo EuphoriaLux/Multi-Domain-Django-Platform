@@ -46938,6 +46938,12 @@ msgstr "Son de l'autre personne"
 msgid "If their bar moves but you hear nothing, turn up your device's volume."
 msgstr "Si la barre de l'autre personne bouge mais que vous n'entendez rien, augmentez le volume de votre appareil."
 
+msgid "Your Social Mixer ticket"
+msgstr "Votre ticket du Social Mixer"
+
+msgid "On the evening, your ticket lists the numbers of the guests you want to meet who also want to meet you. Your answer is never shown to other members."
+msgstr "Le soir venu, votre ticket indique les numéros des invités que vous souhaitez rencontrer et qui souhaitent aussi vous rencontrer. Votre réponse n'est jamais visible par les autres membres."
+
 msgid "A group for {title} needs inviting"
 msgstr "Un groupe pour {title} doit être invité"
 

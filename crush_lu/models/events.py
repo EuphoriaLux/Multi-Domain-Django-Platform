@@ -1372,10 +1372,11 @@ class MeetupEvent(models.Model):
 
         Both halves are required. ``registration_mode`` is a plain field an
         admin can set on any event, but the curated flow only makes sense where
-        a preference snapshot is collected to compose the group — which is
-        speed dating alone (see ``event_register``). Checking the type here,
-        rather than trusting the field, keeps a mixer accidentally flipped to
-        "curated" behaving exactly as it does today.
+        a full preference snapshot (age range, languages, genders) is collected
+        to compose the group — which is speed dating alone; a mixer asks only
+        the genders, for its ticket (see ``event_register``). Checking the
+        type here, rather than trusting the field, keeps a mixer accidentally
+        flipped to "curated" behaving exactly as it does today.
         """
         return (
             self.event_type == "speed_dating"
@@ -3911,7 +3912,11 @@ def _degrade_curated_group_before_registration_erasure(
 
 
 class EventRegistrationPreference(models.Model):
-    """Per-application dating preferences for speed-dating events.
+    """Per-application dating preferences for speed-dating and mixer events.
+
+    A Social Mixer registration fills ``preferred_genders`` only (age and
+    languages keep their open defaults); it filters the guest's ticket
+    affinity list in services/mixer_ticket.py.
 
     A side model rather than columns on EventRegistration, on the
     CrushConnectMembership precedent (models/crush_connect.py): preferences sit
@@ -3921,7 +3926,8 @@ class EventRegistrationPreference(models.Model):
     special category), so these rows are pruned by ``gdpr_retention_cleanup``
     shortly after the event, while the registration row itself persists for
     payment lineage and attendance history. Never render these values to other
-    members; they are organiser-only input for composing the group.
+    members; they are organiser-only input for composing the group, and on a
+    mixer they only decide who appears on whose ticket.
 
     Field names deliberately mirror CrushConnectMembership so the duck-typed
     scorers in crush_lu/matching.py accept either object unchanged.
