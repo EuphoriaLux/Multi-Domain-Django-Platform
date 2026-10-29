@@ -24,6 +24,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from crush_lu.models.events import (
+    SEAT_HOLDING_STATUSES,
     CuratedEventGroup,
     CuratedEventGroupMembership,
     CuratedEventPairing,
@@ -748,6 +749,112 @@ def start_curated_rounds(event_or_id, *, actor=None):
         curated_rounds_started_by=actor,
     )
     return tuple(group.pk for group in current)
+
+
+@dataclass(frozen=True, slots=True)
+class ClosedSelection:
+    """What closing a curated selection did."""
+
+    not_selected_ids: tuple[int, ...]
+    # Open applications that sit in a live group without a seat (placed by a
+    # reprojection, never invited). Left untouched: only Invite seats them.
+    placed_uninvited_ids: tuple[int, ...]
+    notice_ids: tuple[int, ...]
+    delivery: object = None
+
+
+def close_curated_selection(event_or_id, *, actor=None):
+    """Close the selection: every open application without a place is not selected.
+
+    Run after Invite. Each ``applied`` registration with no place in a live
+    group becomes ``not_selected`` and gets one notice (email, bell, push).
+    Spec: ai-memory-hub/specs/2026-10-29-crush-curated-auto-selection.md
+
+    Refused before the application deadline, on a cancelled or finished
+    event, and while nobody holds a seat: closing a selection that invited
+    nobody would turn every applicant away.
+
+    The status write is a bulk ``.update()``, which skips
+    ``EventRegistration.save()`` and with it the degrade-on-exit hook. That is
+    why an ``applied`` member who sits in a live group (placed by a
+    reprojection but never invited) is excluded and reported instead: moving
+    them would empty a group seat without degrading the group.
+    """
+
+    from crush_lu.services.curated_group_notifications import (
+        deliver_curated_group_notifications,
+        enqueue_not_selected_notifications,
+    )
+
+    with transaction.atomic():
+        event, groups = _lock_event_state(event_or_id)
+        if not requires_curated_group_certification(event):
+            raise ValidationError(
+                "Set a valid group size on a curated speed-dating event first."
+            )
+        if event.is_cancelled:
+            raise ValidationError("The event is cancelled; there is no selection.")
+        now = timezone.now()
+        if now >= event.end_time:
+            raise ValidationError("The event has ended; there is no selection.")
+        _validate_selection_window_closed(event)
+
+        live_group_ids = [
+            group.pk
+            for group in groups
+            if group.status != CuratedEventGroup.STATUS_CANCELLED
+        ]
+        live_memberships = CuratedEventGroupMembership.objects.filter(
+            group_id__in=live_group_ids, released_at__isnull=True
+        )
+        if not live_memberships.filter(
+            registration__status__in=SEAT_HOLDING_STATUSES
+        ).exists():
+            raise ValidationError(
+                "Invite the approved groups before closing the selection: "
+                "nobody holds a seat yet."
+            )
+        placed_ids = set(
+            live_memberships.filter(registration__status="applied").values_list(
+                "registration_id", flat=True
+            )
+        )
+        open_rows = list(
+            EventRegistration.objects.filter(event_id=event.pk, status="applied")
+            .exclude(pk__in=placed_ids)
+            .order_by("pk")
+            .values_list("pk", "registered_at")
+        )
+        not_selected_ids = tuple(pk for pk, _registered_at in open_rows)
+        if not_selected_ids:
+            EventRegistration.objects.filter(
+                pk__in=not_selected_ids, status="applied"
+            ).update(status="not_selected", updated_at=now)
+        notice_ids = tuple(enqueue_not_selected_notifications(event.pk, open_rows))
+        logger.info(
+            "Curated event %s: selection closed by %s; %d not selected, %d "
+            "placed but not invited.",
+            event.pk,
+            getattr(actor, "pk", None),
+            len(not_selected_ids),
+            len(placed_ids),
+        )
+
+    # Bounded like the reserve notices after Invite: a remainder stays queued
+    # for the "Deliver pending curated emails" action.
+    delivery = (
+        deliver_curated_group_notifications(
+            notice_ids=list(notice_ids), kinds=["not_selected"], drain=True
+        )
+        if notice_ids
+        else None
+    )
+    return ClosedSelection(
+        not_selected_ids=not_selected_ids,
+        placed_uninvited_ids=tuple(sorted(placed_ids)),
+        notice_ids=notice_ids,
+        delivery=delivery,
+    )
 
 
 def registration_has_certified_payable_group(registration, *, event=None):

@@ -110,7 +110,7 @@ from a @coach_required page only and must never be reused on a member surface.
         <p class="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-3">
             {% if panel.left_out.preview %}{% trans "Would be left out" %}{% else %}{% trans "Left out" %}{% endif %}
         </p>
-        {% if not panel.left_out.blocked and not panel.left_out.eligible %}
+        {% if not panel.left_out.blocked and not panel.left_out.eligible and not panel.left_out.not_selected %}
         <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "Nobody is left out." %}</p>
         {% endif %}
         {% if panel.left_out.blocked %}
@@ -140,6 +140,20 @@ from a @coach_required page only and must never be reused on a member surface.
                 {% elif person.gender %}<span class="text-purple-500 text-xs" title="{{ person.gender_display }}">&#9898;</span>{% endif %}
                 {% if person.age %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ person.age }} {% trans "years" %}</span>{% endif %}
                 <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">{{ person.status_display }}</span>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+        {% if panel.left_out.not_selected %}
+        <p class="text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">{% trans "Not selected (selection closed)" %}</p>
+        <ul class="divide-y divide-gray-100 dark:divide-gray-700" data-curated-not-selected>
+            {% for person in panel.left_out.not_selected %}
+            <li class="py-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-800 dark:text-gray-100">
+                <a href="{% url 'crush_lu:coach_member_overview' person.user_id %}" class="font-medium hover:text-crush-purple transition-colors">{{ person.name }}</a>
+                {% if person.gender == 'F' %}<span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>
+                {% elif person.gender == 'M' %}<span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>
+                {% elif person.gender %}<span class="text-purple-500 text-xs" title="{{ person.gender_display }}">&#9898;</span>{% endif %}
+                {% if person.age %}<span class="text-xs text-gray-500 dark:text-gray-400">{{ person.age }} {% trans "years" %}</span>{% endif %}
             </li>
             {% endfor %}
         </ul>

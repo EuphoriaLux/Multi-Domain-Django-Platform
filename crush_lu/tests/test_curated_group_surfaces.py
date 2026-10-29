@@ -138,8 +138,10 @@ class CuratedGroupSurfaceTests(TestCase):
                 "group",
                 "application_open",
                 "already_applied",
+                "selection_closed",
             },
         )
+        self.assertFalse(outlook["selection_closed"])
         self.assertEqual(outlook["interest_state"], "exploring")
         self.assertEqual(outlook["group_size"], 6)
         self.assertEqual(outlook["planned_groups"], 2)

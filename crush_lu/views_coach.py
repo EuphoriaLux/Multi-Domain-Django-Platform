@@ -2737,6 +2737,7 @@ def _coach_roster_rows(registrations, event):
 
         arrival = {
             "applied": _("Awaiting selection"),
+            "not_selected": _("Not selected"),
             "pending": _("Awaiting payment"),
             "confirmed": _("Expected"),
             "attended": _("Checked in"),
