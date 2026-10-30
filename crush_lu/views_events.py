@@ -29,7 +29,12 @@ from .models.events import (
 )
 from .models.payments import PaymentTransaction
 from .models.credits import CrushCredit
-from .forms import EventRegistrationForm, EventPreferenceForm, EventFeedbackForm
+from .forms import (
+    EventRegistrationForm,
+    EventPreferenceForm,
+    EventFeedbackForm,
+    MixerPreferenceForm,
+)
 from .decorators import crush_login_required, ratelimit
 from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
@@ -478,6 +483,7 @@ _LIST_CARD_STATUS_TONES = {
     "pending": ("warning", _("Payment due")),
     "waitlist": ("info", _("Waitlist")),
     "applied": ("info", _("Applied")),
+    "not_selected": ("info", _("Not selected")),
 }
 
 
@@ -1070,6 +1076,11 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
         "already_applied": bool(
             registration is not None and registration.status == "applied"
         ),
+        # This viewer was told the selection closed without a place for them,
+        # so "the organiser is reviewing group options" would contradict it.
+        "selection_closed": bool(
+            registration is not None and registration.status == "not_selected"
+        ),
         "group_size": configured_group_size,
         "planned_groups": event.planned_groups,
         "max_groups": configured_max_groups if configured_group_size else None,
@@ -1459,7 +1470,8 @@ def event_detail(request, event_id):
     is_past = event.end_time < now
     can_cancel = bool(
         registration
-        and registration.status not in ("attended", "cancelled", "no_show")
+        and registration.status
+        not in ("attended", "cancelled", "no_show", "not_selected")
         and event.date_time > now
     )
 
@@ -1978,9 +1990,14 @@ def event_register(request, event_id):
     template = "crush_lu/event_register.html"
 
     # Speed-dating registrations also collect per-application dating
-    # preferences (age range / languages / gender preference). Scoped by event
-    # type so every other event's registration form stays byte-identical.
-    collect_preferences = event.event_type == "speed_dating"
+    # preferences (age range / languages / gender preference); a Social Mixer
+    # asks only who the guest wants to meet, which filters their ticket's
+    # affinity list. Scoped by event type so every other event's registration
+    # form stays byte-identical.
+    pref_form_class = {
+        "speed_dating": EventPreferenceForm,
+        "mixer": MixerPreferenceForm,
+    }.get(event.event_type)
 
     if request.method == "POST":
         form = EventRegistrationForm(
@@ -1990,9 +2007,7 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
         pref_form = (
-            EventPreferenceForm(request.POST, event=event)
-            if collect_preferences
-            else None
+            pref_form_class(request.POST, event=event) if pref_form_class else None
         )
         # Evaluate both unconditionally so an invalid re-render carries the
         # error messages of each form, not just the first.
@@ -2298,11 +2313,11 @@ def event_register(request, event_id):
             requires_gender_selection=requires_gender_selection,
         )
         pref_form = (
-            EventPreferenceForm(
+            pref_form_class(
                 event=event,
-                initial=EventPreferenceForm.initial_for(request.user, profile, event),
+                initial=pref_form_class.initial_for(request.user, profile, event),
             )
-            if collect_preferences
+            if pref_form_class
             else None
         )
 
@@ -2404,6 +2419,18 @@ def _event_cancel_refusal(request, event, registration):
     if registration.status in ("cancelled", "no_show"):
         messages.info(request, _("Your registration was already cancelled."))
         return redirect("crush_lu:dashboard")
+
+    # The selection closed without a place for this application: there is
+    # nothing to cancel, and cancelling would send the member-cancellation
+    # email and run the waitlist promotion for a seat that never existed.
+    if registration.status == "not_selected":
+        messages.info(
+            request,
+            _(
+                "The selection for this evening is closed, so there is nothing to cancel."
+            ),
+        )
+        return redirect("crush_lu:event_detail", event_id=event.id)
 
     # Crush.lu has cancelled this event, so there is nothing for the
     # member to cancel and a great deal for them to lose by trying.

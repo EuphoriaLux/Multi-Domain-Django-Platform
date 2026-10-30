@@ -78,6 +78,7 @@ NEXT_REGENERATE = "regenerate"
 NEXT_APPROVE = "approve"
 NEXT_INVITE = "invite"
 NEXT_CHECK_IN_AND_LOCK = "check_in_and_lock"
+NEXT_CLOSE_SELECTION = "close_selection"
 NEXT_START = "start"
 NEXT_DELIVERED = "delivered"
 NEXT_REPAIR = "repair"
@@ -102,12 +103,21 @@ NEXT_ACTION_LABELS = {
     ),
     NEXT_APPROVE: _("Review the draft, then run “Approve all current fair groups”."),
     NEXT_INVITE: _("Run “Invite the approved generation to pay”."),
+    NEXT_CLOSE_SELECTION: _(
+        "Run “Close the selection: everyone else is Not selected” so the "
+        "applicants without a place are told."
+    ),
     NEXT_CHECK_IN_AND_LOCK: _(
         "Check every member in at the door, then run “Lock checked-in curated groups”."
     ),
     NEXT_START: _("Run “Mark curated round one as started” as the first round begins."),
     NEXT_DELIVERED: _("Round one has been marked as started. Nothing left to do here."),
-    NEXT_REPAIR: _("Run “Reproject or compensate degraded groups”."),
+    NEXT_REPAIR: _(
+        "A member left this group. Everyone else keeps their place and can be "
+        "checked in as usual. To run the evening with them, run “Keep the held "
+        "group and run the evening (fewer dates)”. “Reproject or compensate "
+        "degraded groups” instead releases anyone it cannot place."
+    ),
     NEXT_CANCELLED: _("The event is cancelled; no group action applies."),
     NEXT_PROJECTOR_REFUSED: _(
         "The projector refused this pool, so groups can be neither generated nor "
@@ -242,6 +252,9 @@ def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
         event,
         stage,
         memberships,
+        open_applications=any(
+            registration.status == "applied" for registration in candidates
+        ),
         now=now,
         deadline_passed=deadline_passed,
         stale=stale,
@@ -276,6 +289,13 @@ def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
             continue
         person = _person(registration, reasons=reasons_by_id.get(registration.pk, ()))
         (left_out_blocked if person["reasons"] else left_out_eligible).append(person)
+    # Closed out by close_curated_selection: no longer grouping candidates,
+    # so without this list the panel would say nobody was left out.
+    not_selected = [
+        _person(registration)
+        for registration in registrations
+        if registration.status == "not_selected"
+    ]
 
     # The coach panel is mounted on the crush.lu urlconf only. Name it, so the
     # link resolves the same way whether this runs inside a crush.lu request
@@ -308,6 +328,7 @@ def coach_group_panel(event, registrations=None, *, blocked_user_pairs=()):
             "preview": not groups,
             "blocked": left_out_blocked,
             "eligible": left_out_eligible,
+            "not_selected": not_selected,
         },
     }
 
@@ -372,6 +393,7 @@ def _next_action(
     stage,
     memberships,
     *,
+    open_applications=False,
     now,
     deadline_passed,
     stale,
@@ -410,6 +432,10 @@ def _next_action(
         )
         if still_applied:
             return NEXT_PAST_START_UNINVITED if past_start else NEXT_INVITE
+        # Everyone placed is invited; applicants outside the groups have not
+        # been told the outcome yet. At the door, check-in comes first.
+        if open_applications and not past_start:
+            return NEXT_CLOSE_SELECTION
         return NEXT_CHECK_IN_AND_LOCK
     if past_start:
         return NEXT_PAST_START_UNGENERATED
@@ -563,6 +589,8 @@ def _group_card(group, memberships, participants):
         "projected_size": projected_size,
         "rounds": rounds,
         "minimum_dates": minimum_dates,
+        # Set when a coach kept a held group below the five-date guarantee.
+        "coach_accepted_min_dates": group.coach_accepted_min_dates,
         "target_dates": target_dates,
         "members_meeting_target": members_meeting_target,
         "target_achieved": bool(target_achieved),

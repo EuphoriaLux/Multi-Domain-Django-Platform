@@ -287,10 +287,10 @@ class Command(BaseCommand):
                     f"{pref_days}d: {group_qs.count()} group(s)"
                 )
 
-        # 5. EventRegistrationPreference — speed-dating preference snapshots
-        # (age range / languages / preferred genders). The registration row
-        # itself is untouched; only the preference side row is pruned, once
-        # the event started more than the window ago.
+        # 5. EventRegistrationPreference — speed-dating and mixer preference
+        # snapshots (age range / languages / preferred genders). The
+        # registration row itself is untouched; only the preference side row
+        # is pruned, once the event started more than the window ago.
         if not budget_hit:
             pref_qs = EventRegistrationPreference.objects.filter(
                 registration__event__date_time__lt=now - timedelta(days=pref_days)

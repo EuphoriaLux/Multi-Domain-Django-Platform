@@ -47,6 +47,15 @@ CURATED_MAX_PROJECTED_GROUP_SIZE = 42
 # application from consuming a place or minting a ticket. Selection is a move
 # from "applied" into a seat-holding status, and that single transition is what
 # grants all of the above at once.
+#
+# "not_selected" is the other end of the same decision: the selection is
+# closed and this application did not get a place. It holds no seat either,
+# is no grouping candidate, and is not a cancellation (the member did not
+# cancel). Spec: ai-memory-hub/specs/2026-10-29-crush-curated-auto-selection.md
+
+# Statuses that only make sense on a curated event; see
+# EventRegistration.applied_status_message.
+CURATED_ONLY_STATUSES = ("applied", "not_selected")
 
 # Luxembourg's 12 cantons, stored as display names rather than slugs.
 #
@@ -1363,10 +1372,11 @@ class MeetupEvent(models.Model):
 
         Both halves are required. ``registration_mode`` is a plain field an
         admin can set on any event, but the curated flow only makes sense where
-        a preference snapshot is collected to compose the group — which is
-        speed dating alone (see ``event_register``). Checking the type here,
-        rather than trusting the field, keeps a mixer accidentally flipped to
-        "curated" behaving exactly as it does today.
+        a full preference snapshot (age range, languages, genders) is collected
+        to compose the group — which is speed dating alone; a mixer asks only
+        the genders, for its ticket (see ``event_register``). Checking the
+        type here, rather than trusting the field, keeps a mixer accidentally
+        flipped to "curated" behaving exactly as it does today.
         """
         return (
             self.event_type == "speed_dating"
@@ -1577,6 +1587,9 @@ class EventRegistration(models.Model):
         # Curated speed dating only: an application awaiting organiser
         # selection. Holds no seat (see SEAT_HOLDING_STATUSES).
         ("applied", _("Applied — awaiting selection")),
+        # Curated speed dating only: the selection is closed and this
+        # application did not get a place. Holds no seat.
+        ("not_selected", _("Not selected")),
         ("pending", _("Pending Payment")),
         ("confirmed", _("Confirmed")),
         ("waitlist", _("Waitlist")),
@@ -1895,8 +1908,11 @@ class EventRegistration(models.Model):
         )
 
     @staticmethod
-    def applied_status_message(event):
+    def applied_status_message(event, status="applied"):
         """Why "applied" is wrong for ``event``, or None when it is allowed.
+
+        ``status`` may be any of ``CURATED_ONLY_STATUSES``: "not_selected"
+        releases a seat exactly the same way.
 
         ``applied`` is deliberately outside ``SEAT_HOLDING_STATUSES``, so
         setting it releases the member's seat, voids their door ticket and
@@ -1922,6 +1938,13 @@ class EventRegistration(models.Model):
         """
         if event is None or event.uses_curated_registration:
             return None
+        if status == "not_selected":
+            return _(
+                "“Not selected” belongs to speed-dating events whose "
+                "registration mode is Curated. “%(title)s” admits members on "
+                "arrival, so this status would release the seat without telling "
+                "anyone. Choose another status."
+            ) % {"title": event.title}
         return _(
             "“Applied” belongs to speed-dating events whose registration "
             "mode is Curated. “%(title)s” admits members on arrival, so an "
@@ -1949,8 +1972,8 @@ class EventRegistration(models.Model):
             event = self.event
         except ObjectDoesNotExist:
             event = None
-        if self.status == "applied":
-            message = self.applied_status_message(event)
+        if self.status in CURATED_ONLY_STATUSES:
+            message = self.applied_status_message(event, self.status)
             if message is not None:
                 raise ValidationError({"status": message})
 
@@ -2420,6 +2443,26 @@ class CuratedEventGroup(models.Model):
         related_name="+",
     )
     cancellation_reason = models.TextField(blank=True, default="")
+    # A coach's explicit decision to run the evening below the five-date
+    # guarantee ("Keep the held group"): certification then checks this
+    # minimum instead. Set only by that admin action, never automatically.
+    coach_accepted_min_dates = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(1)],
+        help_text=_(
+            "Lower minimum of dates per person a coach accepted for this "
+            "group. Blank means the five-date guarantee applies."
+        ),
+    )
+    coach_accepted_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    coach_accepted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2812,6 +2855,13 @@ class CuratedEventGroup(models.Model):
             self.pk = None
             return result
 
+    @property
+    def effective_min_dates(self):
+        """The guarantee, or the lower minimum a coach knowingly accepted."""
+        if self.coach_accepted_min_dates:
+            return min(self.coach_accepted_min_dates, self.MIN_GUARANTEED_DATES)
+        return self.MIN_GUARANTEED_DATES
+
     def schedule_viability(
         self, *, require_checked_in=False, evaluate_preferences=True
     ):
@@ -2864,15 +2914,15 @@ class CuratedEventGroup(models.Model):
             raise ValidationError(
                 _("The active roster is larger than the configured group size.")
             )
-        if len(member_ids) <= self.MIN_GUARANTEED_DATES:
+        if len(member_ids) <= self.effective_min_dates:
             raise ValidationError(
                 _(
                     "A viable group needs at least %(minimum)d members so each "
                     "person can receive %(dates)d different dates."
                 )
                 % {
-                    "minimum": self.MIN_GUARANTEED_DATES + 1,
-                    "dates": self.MIN_GUARANTEED_DATES,
+                    "minimum": self.effective_min_dates + 1,
+                    "dates": self.effective_min_dates,
                 }
             )
 
@@ -3022,7 +3072,7 @@ class CuratedEventGroup(models.Model):
 
         date_counts = [len(partners) for partners in partner_ids.values()]
         minimum_dates = min(date_counts)
-        if minimum_dates < self.MIN_GUARANTEED_DATES:
+        if minimum_dates < self.effective_min_dates:
             raise ValidationError(
                 _(
                     "This schedule gives someone only %(actual)d different "
@@ -3030,7 +3080,7 @@ class CuratedEventGroup(models.Model):
                 )
                 % {
                     "actual": minimum_dates,
-                    "minimum": self.MIN_GUARANTEED_DATES,
+                    "minimum": self.effective_min_dates,
                 }
             )
         proof_payload = {
@@ -3153,7 +3203,7 @@ class CuratedEventGroup(models.Model):
                 .count()
             )
             derived_fairness_metrics = {
-                "min_required": self.MIN_GUARANTEED_DATES,
+                "min_required": group.effective_min_dates,
                 "min_achieved": summary["minimum_dates"],
                 "target_requested": self.TARGET_DATES,
                 "target_achieved": (
@@ -3521,6 +3571,7 @@ class CuratedGroupNotification(models.Model):
         REMEDY = "remedy", _("Unavailable-group payment remedy")
         WITHDRAWAL = "withdrawal", _("Unpaid-group withdrawal")
         RESERVE = "reserve", _("Not selected — application stays in the pool")
+        NOT_SELECTED = "not_selected", _("Selection closed — no place this time")
 
     class Status(models.TextChoices):
         PENDING = "pending", _("Pending")
@@ -3861,7 +3912,11 @@ def _degrade_curated_group_before_registration_erasure(
 
 
 class EventRegistrationPreference(models.Model):
-    """Per-application dating preferences for speed-dating events.
+    """Per-application dating preferences for speed-dating and mixer events.
+
+    A Social Mixer registration fills ``preferred_genders`` only (age and
+    languages keep their open defaults); it filters the guest's ticket
+    affinity list in services/mixer_ticket.py.
 
     A side model rather than columns on EventRegistration, on the
     CrushConnectMembership precedent (models/crush_connect.py): preferences sit
@@ -3871,7 +3926,8 @@ class EventRegistrationPreference(models.Model):
     special category), so these rows are pruned by ``gdpr_retention_cleanup``
     shortly after the event, while the registration row itself persists for
     payment lineage and attendance history. Never render these values to other
-    members; they are organiser-only input for composing the group.
+    members; they are organiser-only input for composing the group, and on a
+    mixer they only decide who appears on whose ticket.
 
     Field names deliberately mirror CrushConnectMembership so the duck-typed
     scorers in crush_lu/matching.py accept either object unchanged.

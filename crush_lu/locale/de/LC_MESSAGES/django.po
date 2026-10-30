@@ -46810,3 +46810,79 @@ msgstr "Ton der anderen Person"
 
 msgid "If their bar moves but you hear nothing, turn up your device's volume."
 msgstr "Wenn sich der Balken der anderen Person bewegt, du aber nichts hörst, dreh die Lautstärke deines Geräts auf."
+
+msgid "Your Social Mixer ticket"
+msgstr "Dein Social-Mixer-Ticket"
+
+msgid "On the evening, your ticket lists the numbers of the guests you want to meet who also want to meet you. Your answer is never shown to other members."
+msgstr "Am Abend listet dein Ticket die Nummern der Gäste, die du kennenlernen möchtest und die auch dich kennenlernen möchten. Andere Mitglieder sehen deine Antwort nie."
+
+msgid "A group for {title} needs inviting"
+msgstr "Eine Gruppe für {title} muss eingeladen werden"
+
+msgid "A group for {title} needs a decision"
+msgstr "Eine Gruppe für {title} braucht eine Entscheidung"
+
+msgid "A member left a group for {title} and it could not be rebuilt automatically. Everyone else keeps their place and can be checked in as usual. Open the event to decide what to do."
+msgstr "Ein Mitglied hat eine Gruppe für {title} verlassen, und sie konnte nicht automatisch neu gebildet werden. Alle anderen behalten ihren Platz und können wie gewohnt eingecheckt werden. Öffne das Event, um zu entscheiden, wie es weitergeht."
+
+msgid "A cancellation rebuilt a group for {title}. {count} member in it has not been invited yet: run Invite so they are told."
+msgid_plural "A cancellation rebuilt a group for {title}. {count} members in it have not been invited yet: run Invite so they are told."
+msgstr[0] "Nach einer Absage wurde eine Gruppe für {title} neu gebildet. {count} Mitglied darin ist noch nicht eingeladen: Führe „Invite“ aus, damit die Person benachrichtigt wird."
+msgstr[1] "Nach einer Absage wurde eine Gruppe für {title} neu gebildet. {count} Mitglieder darin sind noch nicht eingeladen: Führe „Invite“ aus, damit sie benachrichtigt werden."
+
+msgid "A curated group needs you"
+msgstr "Eine Gruppe braucht dich"
+
+msgid "Nobody was removed and no email went to the members. To run the evening with the people who are left, use “Keep the held group and run the evening (fewer dates)” in the admin. “Reproject or compensate degraded groups” instead releases everyone it cannot place."
+msgstr "Niemand wurde entfernt, und die Mitglieder haben keine E-Mail bekommen. Um den Abend mit den verbleibenden Personen durchzuführen, nutze im Admin „Keep the held group and run the evening (fewer dates)“. „Reproject or compensate degraded groups“ gibt dagegen alle frei, die es nicht unterbringen kann."
+
+msgid "Open the event"
+msgstr "Event öffnen"
+
+msgid "No place at {title} this time"
+msgstr "Diesmal kein Platz bei {title}"
+
+msgid "The groups for this evening are complete and we could not offer you a place. Thank you for applying. We hope to see you at one of our next evenings."
+msgstr "Die Gruppen für diesen Abend sind vollständig, und wir konnten dir keinen Platz anbieten. Danke für deine Bewerbung. Wir hoffen, dich bei einem unserer nächsten Abende zu sehen."
+
+msgid "Your application for {title}"
+msgstr "Deine Bewerbung für {title}"
+
+msgid "The groups are complete"
+msgstr "Die Gruppen sind vollständig"
+
+#, python-format
+msgid "Thank you for applying to <strong>%(title)s</strong>. The groups for this evening are now complete, and this time we could not offer you a place."
+msgstr "Danke für deine Bewerbung für <strong>%(title)s</strong>. Die Gruppen für diesen Abend sind jetzt vollständig, und diesmal konnten wir dir keinen Platz anbieten."
+
+msgid "Groups are put together so that everyone meets at least five people they are compatible with. That depends on who applies for the same evening, so it says nothing about you."
+msgstr "Die Gruppen werden so zusammengestellt, dass alle mindestens fünf Menschen treffen, die zu ihnen passen. Das hängt davon ab, wer sich für denselben Abend bewirbt, und sagt nichts über dich aus."
+
+msgid "No payment was taken."
+msgstr "Es wurde keine Zahlung eingezogen."
+
+msgid "We would love to see you at one of our next evenings."
+msgstr "Wir würden uns freuen, dich bei einem unserer nächsten Abende zu sehen."
+
+msgid "See upcoming events"
+msgstr "Kommende Events ansehen"
+
+msgid "No place this time"
+msgstr "Diesmal kein Platz"
+
+msgid "Not selected (selection closed)"
+msgstr "Nicht ausgewählt (Auswahl abgeschlossen)"
+
+msgid "Run “Close the selection: everyone else is Not selected” so the applicants without a place are told."
+msgstr "Führe „Close the selection: everyone else is Not selected“ aus, damit alle ohne Platz Bescheid bekommen."
+
+msgid "The selection for this evening is closed, so there is nothing to cancel."
+msgstr "Die Auswahl für diesen Abend ist abgeschlossen, es gibt also nichts zu stornieren."
+
+msgid "A member left this group. Everyone else keeps their place and can be checked in as usual. To run the evening with them, run “Keep the held group and run the evening (fewer dates)”. “Reproject or compensate degraded groups” instead releases anyone it cannot place."
+msgstr "Ein Mitglied hat diese Gruppe verlassen. Alle anderen behalten ihren Platz und können wie gewohnt eingecheckt werden. Um den Abend mit ihnen durchzuführen, führe „Keep the held group and run the evening (fewer dates)“ aus. „Reproject or compensate degraded groups“ gibt dagegen alle frei, die es nicht unterbringen kann."
+
+#, python-format
+msgid "coach accepted fewer dates (at least %(minimum)s)"
+msgstr "Coach hat weniger Dates akzeptiert (mindestens %(minimum)s)"

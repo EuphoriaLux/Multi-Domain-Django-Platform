@@ -196,6 +196,55 @@ def enqueue_reserve_notifications(event_id, *, generation, exclude_registration_
     )
 
 
+def _not_selected_dedupe_key(event_id, registration_id, registered_at):
+    cycle = _application_cycle(registered_at)
+    return f"not_selected:{event_id}:{registration_id}:{cycle}"
+
+
+def enqueue_not_selected_notifications(event_id, rows):
+    """Persist one notice per application the closed selection left out.
+
+    ``rows`` are ``(registration_id, registered_at)`` pairs, written inside
+    ``close_curated_selection``'s transaction. Keyed per application cycle, so
+    closing again never mails the same application twice. Returns the IDs of
+    the notices still pending, for the caller to drain once it commits.
+    """
+
+    event_id = int(event_id)
+    rows = list(rows)
+    if not rows:
+        return []
+    dedupe_keys = [
+        _not_selected_dedupe_key(event_id, registration_id, registered_at)
+        for registration_id, registered_at in rows
+    ]
+    CuratedGroupNotification.objects.bulk_create(
+        [
+            CuratedGroupNotification(
+                event_id=event_id,
+                registration_id=registration_id,
+                event_id_snapshot=event_id,
+                registration_id_snapshot=registration_id,
+                kind=CuratedGroupNotification.Kind.NOT_SELECTED,
+                dedupe_key=dedupe_key,
+                payload={"application_cycle": _application_cycle(registered_at)},
+            )
+            for (registration_id, registered_at), dedupe_key in zip(
+                rows, dedupe_keys, strict=True
+            )
+        ],
+        ignore_conflicts=True,
+    )
+    return list(
+        CuratedGroupNotification.objects.filter(
+            dedupe_key__in=dedupe_keys,
+            status=CuratedGroupNotification.Status.PENDING,
+        )
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+
+
 def _pending_notices(
     *, event_ids=None, registration_ids=None, kinds=None, notice_ids=None
 ):
@@ -479,6 +528,63 @@ def _deliver_reserve_notice(notice):
     return ("sent", "") if delivered else ("retry", "Mail delivery returned false.")
 
 
+def _deliver_not_selected_notice(notice):
+    registration = (
+        EventRegistration.objects.select_related("event", "user")
+        .filter(
+            pk=notice.registration_id_snapshot,
+            event_id=notice.event_id_snapshot,
+        )
+        .first()
+    )
+    if registration is None:
+        return "stale", "Registration no longer belongs to the notice event."
+    if registration.status != "not_selected":
+        return "stale", "Registration is no longer marked not selected."
+    if registration.event.is_cancelled:
+        return "stale", "The event was cancelled."
+    expected_cycle = notice.payload.get("application_cycle")
+    if expected_cycle is not None and expected_cycle != _application_cycle(
+        registration.registered_at
+    ):
+        return "stale", "The member applied again since this notice was queued."
+
+    from crush_lu import email_helpers
+    from crush_lu.notification_service import NotificationService, NotificationType
+
+    notification_type = NotificationType.EVENT_CURATED_NOT_SELECTED
+    # Bell and push once per notice, claimed with this notice's dedupe key so a
+    # retried email repeats neither (the #1316 pattern). Best-effort: a
+    # failure here never costs the member the email.
+    try:
+        NotificationService.notify(
+            user=registration.user,
+            notification_type=notification_type,
+            context={"registration": registration, "event": registration.event},
+            dedupe_key=notice.dedupe_key,
+            send_email=False,
+        )
+    except Exception:  # noqa: BLE001 - the email below must still go out
+        logger.exception(
+            "Curated not-selected bell/push failed for registration %s",
+            registration.pk,
+        )
+
+    # Transactional: the outcome of the member's own application. Ignores the
+    # reminders toggle, honours the ban and the master unsubscribe; a refusal
+    # cannot change on retry, so it closes the notice.
+    if not email_helpers.can_send_email(
+        registration.user, notification_type.email_preference_key
+    ):
+        return (
+            "sent",
+            "Email not allowed (unsubscribed from all email, or banned); "
+            "bell and push only.",
+        )
+    delivered = email_helpers.send_curated_group_not_selected_notice(registration)
+    return ("sent", "") if delivered else ("retry", "Mail delivery returned false.")
+
+
 def _deliver_claimed_notice(notice_id, token):
     notice = CuratedGroupNotification.objects.filter(
         pk=notice_id,
@@ -496,6 +602,8 @@ def _deliver_claimed_notice(notice_id, token):
             outcome, error = _deliver_withdrawal_notice(notice)
         elif notice.kind == CuratedGroupNotification.Kind.RESERVE:
             outcome, error = _deliver_reserve_notice(notice)
+        elif notice.kind == CuratedGroupNotification.Kind.NOT_SELECTED:
+            outcome, error = _deliver_not_selected_notice(notice)
         else:
             outcome, error = "stale", "Unknown curated notification kind."
     except Exception as exc:  # noqa: BLE001 - a mail outage stays retryable
@@ -607,3 +715,76 @@ def deliver_curated_group_notifications(
         cancelled=counts["stale"],
         remaining=remaining,
     )
+
+
+# Long enough for a handful of coaches' email and push, short enough that the
+# member's own cancellation request, which this runs inside, stays fast.
+COACH_ALERT_BUDGET_SECONDS = 20
+
+
+def alert_coaches_about_automatic_remedy(event_id, remedy):
+    """Tell the event's active coaches that an automatic repair needs a person.
+
+    ``held_for_coach``: every seat was kept and the group stays degraded.
+    ``reprojected`` with uninvited members: the new group holds people who have
+    no seat yet, and only Invite seats and tells them. Any other result needs
+    nobody. Called after the remedy committed; one coach's failing push or
+    email never reaches the next coach or the cancelling member.
+    """
+    import time
+
+    from crush_lu.models.events import MeetupEvent
+    from crush_lu.notification_service import NotificationService, NotificationType
+
+    if remedy.action == "held_for_coach":
+        reason, count = "held", 0
+        generation = (
+            CuratedEventGroup.objects.filter(pk__in=remedy.degraded_group_ids)
+            .order_by("-generation")
+            .values_list("generation", flat=True)
+            .first()
+        )
+    elif remedy.action == "reprojected" and remedy.uninvited_registration_ids:
+        reason = "uninvited"
+        count = len(remedy.uninvited_registration_ids)
+        generation = remedy.replacement_generation
+    else:
+        return 0
+
+    event = MeetupEvent.objects.filter(pk=event_id).first()
+    if event is None:
+        return 0
+    coaches = list(
+        event.coaches.filter(is_active=True).select_related("user").order_by("pk")
+    )
+    if not coaches:
+        logger.warning(
+            "Curated event %s needs a coach (%s) but has no active coach.",
+            event_id,
+            reason,
+        )
+        return 0
+
+    deadline = time.monotonic() + COACH_ALERT_BUDGET_SECONDS
+    alerted = 0
+    for coach in coaches:
+        try:
+            result = NotificationService.notify(
+                coach.user,
+                NotificationType.CURATED_GROUP_COACH_ALERT,
+                {"event": event, "reason": reason, "count": count},
+                # One alert per coach per generation and reason, however often
+                # the remedy runs again on the same degraded groups.
+                dedupe_key=f"curated-coach:{reason}:{event_id}:{generation}",
+                deadline=deadline,
+            )
+        except Exception:
+            logger.exception(
+                "Coach alert for curated event %s failed for coach %s.",
+                event_id,
+                coach.pk,
+            )
+            continue
+        if result.any_delivered:
+            alerted += 1
+    return alerted
