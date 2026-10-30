@@ -191,6 +191,103 @@ def _record_unpaid(tx, mollie_status, payment):
         )
 
 
+def _describe_money_returned(tx, refunded, charged_back):
+    parts = []
+    if refunded:
+        parts.append(f"{tx.currency} {refunded:.2f} refunded")
+    if charged_back:
+        parts.append(f"{tx.currency} {charged_back:.2f} charged back")
+    return f"Mollie: {', '.join(parts)}"
+
+
+def _revoke_supporter_badge(tx):
+    """Take the badge off ``tx``'s member, unless another donation still earns it.
+
+    Tom's rule, 2026-10-30. Only the move to REFUNDED calls this, so a badge staff
+    restored in the profile admin survives repeats of the webhook. Nothing puts
+    it back automatically, and the member is not told.
+    """
+    # LOCK ORDER: the caller holds PaymentTransaction; CrushProfile comes second,
+    # as in _apply_paid_checkout. Read the donations only once this lock is held,
+    # because _apply_paid_checkout grants under it: a donation confirming right
+    # now has either committed and counts below, or grants after this commits.
+    profile = (
+        CrushProfile.objects.select_for_update().filter(user_id=tx.user_id).first()
+    )
+    if profile is None or not profile.is_community_supporter:
+        return
+    if PaymentTransaction.objects.filter(
+        user_id=tx.user_id,
+        purpose=PaymentTransaction.Purpose.DONATION,
+        status=PaymentTransaction.Status.PAID,
+    ).exists():
+        return
+    profile.is_community_supporter = False
+    profile.save(update_fields=["is_community_supporter"])
+    logger.info(
+        "Removed Community Supporter badge from user %s after Mollie donation %s",
+        tx.user_id,
+        tx.transaction_reference,
+    )
+
+
+def _settle_paid(tx, payment):
+    """Apply a ``paid`` read: the payment itself, then whatever has gone back.
+
+    The rules are the ones ``reconcile_sumup_payments`` settled on. The row
+    becomes REFUNDED once all of it is back, by refund, chargeback or both, and
+    the badge goes with it (``_revoke_supporter_badge``). A partial refund stays
+    PAID for a human to look at, with the amounts in ``raw_response``, keeps the
+    badge, and leaves ``failure_reason`` blank as the admin promises.
+    """
+    refunded, charged_back = mollie.money_returned(payment)
+    returned = refunded + charged_back
+    with transaction.atomic():
+        # LOCK ORDER: PaymentTransaction before CrushProfile, as in
+        # _apply_paid_checkout and merge_accounts.
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx.pk)
+        # Mollie says paid for ever, and _apply_paid_checkout stops only on a
+        # PAID row, so re-applying here would undo the refund and send a second
+        # receipt on every repeat of the webhook.
+        if locked.status == PaymentTransaction.Status.REFUNDED:
+            # One-way, like the SumUp sweep. A refund can still fail after
+            # processing and a chargeback can be reversed, but the row only
+            # says so to a human, who can restore the badge in the profile admin.
+            if returned < locked.amount:
+                logger.warning(
+                    "Mollie donation %s is REFUNDED but Mollie now counts %s "
+                    "returned; row and badge not restored, manual follow-up "
+                    "required.",
+                    locked.transaction_reference,
+                    returned,
+                )
+            return
+
+        known = sum(mollie.money_returned(locked.raw_response))
+        _apply_paid_checkout(locked, payment)
+        locked.refresh_from_db()
+        if returned == known:
+            return
+
+        description = _describe_money_returned(locked, refunded, charged_back)
+        locked.raw_response = payment
+        update_fields = ["raw_response", "updated_at"]
+        if returned >= locked.amount:
+            locked.status = PaymentTransaction.Status.REFUNDED
+            locked.failure_reason = description
+            update_fields += ["status", "failure_reason"]
+        locked.save(update_fields=update_fields)
+        if locked.status == PaymentTransaction.Status.REFUNDED:
+            _revoke_supporter_badge(locked)
+        transaction.on_commit(
+            lambda reference=locked.transaction_reference, state=locked.status: (
+                logger.warning(
+                    "Mollie donation %s: %s; row is %s.", reference, description, state
+                )
+            )
+        )
+
+
 def sync_mollie_payment(tx):
     """Re-read ``tx``'s payment from Mollie and apply it. Returns its status.
 
@@ -212,7 +309,7 @@ def sync_mollie_payment(tx):
                 tx.currency,
             )
             return status
-        _apply_paid_checkout(tx, payment)
+        _settle_paid(tx, payment)
     elif status in _UNPAID_STATUS:
         _record_unpaid(tx, status, payment)
     return status
