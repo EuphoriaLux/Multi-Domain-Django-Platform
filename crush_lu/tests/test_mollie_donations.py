@@ -12,6 +12,8 @@ from unittest import mock
 import requests
 from django.contrib.auth import get_user_model
 from django.contrib.messages import get_messages
+from django.contrib.sites.models import Site
+from django.core import mail
 from django.core.cache import cache
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 
@@ -648,6 +650,262 @@ class MollieMoneyReturnedTests(TestCase):
         lock = source.index("PaymentTransaction.objects.select_for_update")
         self.assertLess(lock, source.index("_apply_paid_checkout(locked"))
         self.assertLess(lock, source.index("locked.save("))
+        self.assertLess(lock, source.index("_revoke_supporter_badge(locked"))
+
+    def test_the_badge_rule_reads_the_donations_under_the_profile_lock(self):
+        """Read earlier, a donation confirming at that moment would be missed."""
+        import inspect
+
+        from crush_lu import views_mollie
+
+        source = inspect.getsource(views_mollie._revoke_supporter_badge)
+        lock = source.index("CrushProfile.objects.select_for_update")
+        self.assertLess(lock, source.index("PaymentTransaction.objects.filter"))
+        self.assertLess(lock, source.index("profile.save("))
+
+
+def _other_payment(user, reference, **fields):
+    """A row that is not the one under test: a paid SumUp donation by default."""
+    return PaymentTransaction.objects.create(
+        transaction_reference=reference,
+        provider=fields.pop("provider", PaymentTransaction.Provider.SUMUP),
+        amount=Decimal("5.00"),
+        currency="EUR",
+        status=fields.pop("status", PaymentTransaction.Status.PAID),
+        purpose=fields.pop("purpose", PaymentTransaction.Purpose.DONATION),
+        user=user,
+        **fields,
+    )
+
+
+@override_settings(**MOLLIE_ON)
+class MollieSupporterBadgeTests(TestCase):
+    """Tom's rule, 2026-10-30: all the money back takes the badge off, unless
+    another donation is still paid. Staff restore it by hand; nothing else does.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.user, self.profile = _member("donor@crush.lu")
+        self.tx = _mollie_donation(self.user)
+        self.client = Client(HTTP_HOST=HOST, enforce_csrf_checks=True)
+        self._deliver(_payment("paid"))
+        self.assertTrue(self._has_badge())
+        mail.outbox.clear()
+
+    def _deliver(self, payment, payment_id="tr_7UhSN1zuXS"):
+        with (
+            mock.patch(REQUEST, return_value=payment),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            response = self.client.post(WEBHOOK, {"id": payment_id})
+        self.assertEqual(response.status_code, 200)
+
+    def _has_badge(self, profile=None):
+        profile = profile or self.profile
+        profile.refresh_from_db()
+        return profile.is_community_supporter
+
+    def test_a_full_refund_takes_the_badge_off(self):
+        self._deliver(_returned(refunds=[_refund()]))
+
+        self.assertFalse(self._has_badge())
+
+    def test_a_full_chargeback_takes_the_badge_off(self):
+        self._deliver(_returned(chargebacks=[_chargeback()]))
+
+        self.assertFalse(self._has_badge())
+
+    def test_a_refund_and_a_chargeback_adding_up_take_the_badge_off(self):
+        self._deliver(
+            _returned(refunds=[_refund("3.00")], chargebacks=[_chargeback("7.00")])
+        )
+
+        self.assertFalse(self._has_badge())
+
+    def test_a_partial_refund_leaves_the_badge_on(self):
+        self._deliver(_returned(refunds=[_refund("3.00")]))
+
+        self.assertTrue(self._has_badge())
+
+    def test_a_partial_chargeback_leaves_the_badge_on(self):
+        self._deliver(_returned(chargebacks=[_chargeback("3.00")]))
+
+        self.assertTrue(self._has_badge())
+
+    def test_a_refund_that_can_still_be_canceled_leaves_the_badge_on(self):
+        self._deliver(_returned(refunds=[_refund(status="pending")]))
+
+        self.assertTrue(self._has_badge())
+
+    def test_partial_refunds_take_the_badge_off_when_they_reach_the_total(self):
+        self._deliver(_returned(refunds=[_refund("3.00")]))
+        self._deliver(_returned(refunds=[_refund("3.00"), _refund("7.00")]))
+
+        self.assertFalse(self._has_badge())
+
+    def test_another_paid_donation_keeps_the_badge(self):
+        for provider in (
+            PaymentTransaction.Provider.SUMUP,
+            PaymentTransaction.Provider.MOLLIE,
+        ):
+            with self.subTest(provider=provider):
+                other = _other_payment(
+                    self.user, f"OTHER-{provider}", provider=provider
+                )
+                PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+                    status=PaymentTransaction.Status.PAID, raw_response={}
+                )
+
+                self._deliver(_returned(refunds=[_refund()]))
+
+                self.assertTrue(self._has_badge())
+                other.delete()
+
+    def test_a_partly_refunded_donation_still_counts_as_paid(self):
+        _other_payment(
+            self.user,
+            "OTHER-PARTIAL",
+            provider=PaymentTransaction.Provider.MOLLIE,
+            mollie_payment_id="tr_otherpayment",
+        )
+        self._deliver(
+            _returned(refunds=[_refund("1.00")]), payment_id="tr_otherpayment"
+        )
+
+        self._deliver(_returned(refunds=[_refund()]))
+
+        self.assertTrue(self._has_badge())
+
+    def test_rows_that_are_not_a_paid_donation_do_not_keep_the_badge(self):
+        cases = {
+            "refunded": {"status": PaymentTransaction.Status.REFUNDED},
+            "pending": {"status": PaymentTransaction.Status.PENDING},
+            "failed": {"status": PaymentTransaction.Status.FAILED},
+            "event seat": {"purpose": PaymentTransaction.Purpose.EVENT_REGISTRATION},
+            "premium": {"purpose": PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP},
+        }
+        for name, fields in cases.items():
+            with self.subTest(name):
+                other = _other_payment(self.user, f"OTHER-{name}", **fields)
+                PaymentTransaction.objects.filter(pk=self.tx.pk).update(
+                    status=PaymentTransaction.Status.PAID, raw_response={}
+                )
+                CrushProfile.objects.filter(pk=self.profile.pk).update(
+                    is_community_supporter=True
+                )
+
+                self._deliver(_returned(refunds=[_refund()]))
+
+                self.assertFalse(self._has_badge())
+                other.delete()
+
+    def test_another_members_donation_does_not_keep_the_badge(self):
+        stranger, stranger_profile = _member("stranger@crush.lu")
+        _other_payment(stranger, "OTHER-STRANGER")
+        CrushProfile.objects.filter(pk=stranger_profile.pk).update(
+            is_community_supporter=True
+        )
+
+        self._deliver(_returned(refunds=[_refund()]))
+
+        self.assertFalse(self._has_badge())
+        self.assertTrue(self._has_badge(stranger_profile))
+
+    def test_a_badge_restored_by_staff_survives_repeats_of_the_webhook(self):
+        self._deliver(_returned(chargebacks=[_chargeback()]))
+        CrushProfile.objects.filter(pk=self.profile.pk).update(
+            is_community_supporter=True
+        )
+
+        self._deliver(_returned(chargebacks=[_chargeback()]))
+
+        self.assertTrue(self._has_badge())
+
+    def test_a_reversal_only_warns_and_does_not_restore_the_badge(self):
+        self._deliver(_returned(chargebacks=[_chargeback()]))
+
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING") as logs:
+            self._deliver(
+                _returned(chargebacks=[_chargeback(reversed_at="2026-11-01T10:00:00Z")])
+            )
+
+        self.assertIn("badge not restored", logs.output[0])
+        self.assertFalse(self._has_badge())
+
+    def test_a_failed_refund_does_not_restore_the_badge(self):
+        self._deliver(_returned(refunds=[_refund()]))
+
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund(status="failed")]))
+
+        self.assertFalse(self._has_badge())
+
+    def test_the_only_donation_refunded_on_its_first_read_leaves_no_badge(self):
+        """The paid webhook was lost: granted and removed again in one read."""
+        late, late_profile = _member("late@crush.lu")
+        _mollie_donation(late, payment_id="tr_latepayment", ref="CRUSH-DON-LATE")
+
+        self._deliver(_returned(refunds=[_refund()]), payment_id="tr_latepayment")
+
+        self.assertFalse(self._has_badge(late_profile))
+
+    def test_the_member_is_not_told(self):
+        self._deliver(_returned(refunds=[_refund()]))
+
+        self.assertEqual(mail.outbox, [])
+
+    def test_a_member_without_a_profile_only_loses_the_row(self):
+        CrushProfile.objects.filter(pk=self.profile.pk).delete()
+
+        self._deliver(_returned(refunds=[_refund()]))
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+
+
+class SupporterBadgeAdminTests(TestCase):
+    """Staff need a way to restore a badge the money rule took off."""
+
+    def setUp(self):
+        cache.clear()
+        Site.objects.get_or_create(
+            id=1, defaults={"domain": "testserver", "name": "Test Server"}
+        )
+        self.user, self.profile = _member("donor@crush.lu")
+        self.url = f"/crush-admin/crush_lu/crushprofile/{self.profile.pk}/change/"
+        staff = User.objects.create_superuser(
+            username="badge_admin", email="badge-admin@crush.lu", password="pw12345678"
+        )
+        self.client = Client(HTTP_HOST=HOST)
+        self.client.force_login(staff)
+
+    def test_the_change_form_offers_the_badge(self):
+        response = self.client.get(self.url)
+
+        self.assertContains(response, 'name="is_community_supporter"')
+
+    def test_staff_can_restore_the_badge(self):
+        inline = self.client.get(self.url).context["inline_admin_formsets"][0].formset
+
+        response = self.client.post(
+            self.url,
+            {
+                f"{inline.prefix}-TOTAL_FORMS": "0",
+                f"{inline.prefix}-INITIAL_FORMS": "0",
+                "preferred_language": "en",
+                "preferred_age_min": "18",
+                "preferred_age_max": "99",
+                "completion_status": self.profile.completion_status,
+                "verification_status": self.profile.verification_status,
+                "is_community_supporter": "on",
+                "_save": "Save",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.profile.refresh_from_db()
+        self.assertTrue(self.profile.is_community_supporter)
 
 
 @override_settings(**MOLLIE_ON)

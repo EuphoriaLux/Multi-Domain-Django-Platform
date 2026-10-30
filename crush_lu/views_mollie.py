@@ -200,13 +200,45 @@ def _describe_money_returned(tx, refunded, charged_back):
     return f"Mollie: {', '.join(parts)}"
 
 
+def _revoke_supporter_badge(tx):
+    """Take the badge off ``tx``'s member, unless another donation still earns it.
+
+    Tom's rule, 2026-10-30. Only the move to REFUNDED calls this, so a badge staff
+    restored in the profile admin survives repeats of the webhook. Nothing puts
+    it back automatically, and the member is not told.
+    """
+    # LOCK ORDER: the caller holds PaymentTransaction; CrushProfile comes second,
+    # as in _apply_paid_checkout. Read the donations only once this lock is held,
+    # because _apply_paid_checkout grants under it: a donation confirming right
+    # now has either committed and counts below, or grants after this commits.
+    profile = (
+        CrushProfile.objects.select_for_update().filter(user_id=tx.user_id).first()
+    )
+    if profile is None or not profile.is_community_supporter:
+        return
+    if PaymentTransaction.objects.filter(
+        user_id=tx.user_id,
+        purpose=PaymentTransaction.Purpose.DONATION,
+        status=PaymentTransaction.Status.PAID,
+    ).exists():
+        return
+    profile.is_community_supporter = False
+    profile.save(update_fields=["is_community_supporter"])
+    logger.info(
+        "Removed Community Supporter badge from user %s after Mollie donation %s",
+        tx.user_id,
+        tx.transaction_reference,
+    )
+
+
 def _settle_paid(tx, payment):
     """Apply a ``paid`` read: the payment itself, then whatever has gone back.
 
     The rules are the ones ``reconcile_sumup_payments`` settled on. The row
-    becomes REFUNDED once all of it is back, by refund, chargeback or both. A
-    partial refund stays PAID for a human to look at, with the amounts in
-    ``raw_response``, and leaves ``failure_reason`` blank as the admin promises.
+    becomes REFUNDED once all of it is back, by refund, chargeback or both, and
+    the badge goes with it (``_revoke_supporter_badge``). A partial refund stays
+    PAID for a human to look at, with the amounts in ``raw_response``, keeps the
+    badge, and leaves ``failure_reason`` blank as the admin promises.
     """
     refunded, charged_back = mollie.money_returned(payment)
     returned = refunded + charged_back
@@ -220,11 +252,12 @@ def _settle_paid(tx, payment):
         if locked.status == PaymentTransaction.Status.REFUNDED:
             # One-way, like the SumUp sweep. A refund can still fail after
             # processing and a chargeback can be reversed, but the row only
-            # says so to a human.
+            # says so to a human, who can restore the badge in the profile admin.
             if returned < locked.amount:
                 logger.warning(
                     "Mollie donation %s is REFUNDED but Mollie now counts %s "
-                    "returned; not restored, manual follow-up required.",
+                    "returned; row and badge not restored, manual follow-up "
+                    "required.",
                     locked.transaction_reference,
                     returned,
                 )
@@ -244,6 +277,8 @@ def _settle_paid(tx, payment):
             locked.failure_reason = description
             update_fields += ["status", "failure_reason"]
         locked.save(update_fields=update_fields)
+        if locked.status == PaymentTransaction.Status.REFUNDED:
+            _revoke_supporter_badge(locked)
         transaction.on_commit(
             lambda reference=locked.transaction_reference, state=locked.status: (
                 logger.warning(

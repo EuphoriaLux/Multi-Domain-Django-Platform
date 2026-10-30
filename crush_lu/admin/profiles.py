@@ -800,6 +800,18 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             },
         ),
         (
+            "Community Supporter",
+            {
+                "fields": ("is_community_supporter",),
+                "description": _(
+                    "Set when a donation is paid. Removed when a Mollie donation "
+                    "is fully refunded or charged back and no other donation is "
+                    "still paid. Tick it to restore the badge, for example after "
+                    "a refund failed or a chargeback was reversed."
+                ),
+            },
+        ),
+        (
             "Metadata",
             {
                 "fields": ("created_at", "updated_at"),
