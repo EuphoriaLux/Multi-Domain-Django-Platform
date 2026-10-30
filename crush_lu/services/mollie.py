@@ -37,6 +37,11 @@ STATUS_CANCELED = "canceled"
 STATUS_EXPIRED = "expired"
 UNPAID_FINAL_STATUSES = (STATUS_FAILED, STATUS_CANCELED, STATUS_EXPIRED)
 
+# Refunds past the point of no return. queued and pending can still be canceled
+# (Mollie sends no webhook when they are), and a failed one puts the money back
+# on the account. https://docs.mollie.com/docs/refunds
+REFUND_STATUSES_RETURNING_MONEY = ("processing", "refunded")
+
 # Mollie has no Luxembourg locales; these are the closest of its own.
 _LOCALES = {"en": "en_US", "de": "de_DE", "fr": "fr_FR"}
 
@@ -81,6 +86,43 @@ def amount_matches(payment, amount, currency):
     except InvalidOperation:
         return False
     return reported.get("currency") == currency and value == amount
+
+
+def _amount_value(amount):
+    try:
+        return Decimal(str((amount or {}).get("value")))
+    except InvalidOperation:
+        return Decimal("0")
+
+
+def money_returned(payment):
+    """``(refunded, charged_back)`` so far, from a ``get_payment`` response.
+
+    A refund or chargeback leaves the payment ``paid``, so this is the only
+    signal. It adds up the embedded objects rather than reading
+    ``amountRefunded`` and ``amountChargedBack``, because the docs do not say
+    which refund statuses those totals include, or whether a reversed chargeback
+    leaves them. Both lists are simply absent from a payment read without
+    ``embed``, which counts as nothing returned.
+    """
+    embedded = payment.get("_embedded") or {}
+    refunded = sum(
+        (
+            _amount_value(refund.get("amount"))
+            for refund in embedded.get("refunds") or []
+            if refund.get("status") in REFUND_STATUSES_RETURNING_MONEY
+        ),
+        Decimal("0"),
+    )
+    charged_back = sum(
+        (
+            _amount_value(chargeback.get("amount"))
+            for chargeback in embedded.get("chargebacks") or []
+            if not chargeback.get("reversedAt")
+        ),
+        Decimal("0"),
+    )
+    return refunded, charged_back
 
 
 class MollieClient:
@@ -153,4 +195,4 @@ class MollieClient:
     def get_payment(self, payment_id):
         if not PAYMENT_ID_RE.match(payment_id or ""):
             raise MollieError("Not a Mollie payment id")
-        return self._request("GET", f"/payments/{payment_id}")
+        return self._request("GET", f"/payments/{payment_id}?embed=refunds,chargebacks")
