@@ -510,6 +510,8 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // Credentials that differ per slot or exist on one slot only
       'SUMUP_API_KEY'
       'SUMUP_MERCHANT_CODE'
+      // A staging test_ key must never swap into production (live_ key).
+      'MOLLIE_API_KEY'
       // Payment pause (#1272). Absent means True (payments on), so an unpinned
       // False on one slot would swap away and silently reopen card payments.
       // Pin with: az webapp config appsettings set ... --slot-settings ONLINE_PAYMENTS_ENABLED=False

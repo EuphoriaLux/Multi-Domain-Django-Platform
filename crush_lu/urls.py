@@ -37,6 +37,7 @@ from . import views_changelog
 from . import views_premium
 from . import views_event_lobby
 from . import views_payments
+from . import views_mollie
 from .forms import CrushSignupForm
 from .throttling import LoginRateThrottle
 from .rate_limit_utils import add_rate_limited_error, humanize_wait_seconds
@@ -1513,6 +1514,20 @@ urlpatterns = [
         name="sumup_payment_return",
     ),
     path("payments/sumup/webhook/", views_payments.sumup_webhook, name="sumup_webhook"),
+    # Payments (Mollie: donations)
+    path(
+        "payments/mollie/create-donation-checkout/",
+        views_mollie.create_mollie_donation_checkout,
+        name="mollie_create_donation_checkout",
+    ),
+    path(
+        "payments/mollie/return/",
+        views_mollie.mollie_payment_return,
+        name="mollie_payment_return",
+    ),
+    path(
+        "payments/mollie/webhook/", views_mollie.mollie_webhook, name="mollie_webhook"
+    ),
 ]
 
 

@@ -48,7 +48,7 @@
         enforces the same condition, because hiding a button does not close an
         endpoint a webview can still reach.
         {% endcomment %}
-        {% if online_payments_paused %}
+        {% if online_payments_paused and not mollie_donations_enabled %}
         {# No payment provider: views_payments refuses donations with a 503. #}
         <p class="mt-4 text-xs rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">
             {% trans "Online contributions are paused for now. Thank you for your support!" %}
@@ -91,7 +91,7 @@
              data-min="2"
              data-max="500"
              data-default="10"
-             data-endpoint="/payments/sumup/create-donation-checkout/"
+             data-endpoint="{% if mollie_donations_enabled %}/payments/mollie/create-donation-checkout/{% else %}/payments/sumup/create-donation-checkout/{% endif %}"
              data-label-support="{% trans 'Support' context 'donation button' %}"
              data-msg-min="{% trans 'Minimum contribution amount is €2.00.' %}"
              data-msg-max="{% trans 'Maximum contribution amount is €500. Please contact us for larger contributions.' %}"
@@ -155,7 +155,8 @@
             <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
             </svg>
-            <span>{% trans "Secure checkout · Apple Pay, Google Pay & Cards" %}</span>
+            {# Mollie's hosted checkout offers whatever methods the account has enabled, so it is not listed here. #}
+            <span>{% if mollie_donations_enabled %}{% trans "Secure checkout by Mollie" %}{% else %}{% trans "Secure checkout · Apple Pay, Google Pay & Cards" %}{% endif %}</span>
         </div>
         {% endif %}{# suppress_native_commerce #}
     </div>

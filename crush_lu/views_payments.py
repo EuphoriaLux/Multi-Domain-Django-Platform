@@ -1277,6 +1277,87 @@ def create_sumup_premium_checkout(request, membership_id):
     )
 
 
+def _parse_donation_amount(request):
+    """``(amount, None)`` for a valid donation amount, else ``(None, response)``.
+
+    Shared by the SumUp and Mollie donation checkouts so both enforce the same
+    parsing, rounding and bounds. ``amount`` is quantized to the cent.
+    """
+    try:
+        if request.body:
+            data = json.loads(request.body.decode("utf-8"))
+            # A JSON body is not necessarily an object. ``[1,2]`` and ``"x"``
+            # both parse fine and then have no .get(), which would be an
+            # AttributeError the except clause below deliberately does not
+            # catch -- a malformed body has to be a 400, not a 500.
+            if not isinstance(data, dict):
+                return None, JsonResponse(
+                    {"error": _("Invalid donation amount.")}, status=400
+                )
+            raw_amount = data.get("amount")
+        else:
+            raw_amount = request.POST.get("amount")
+        if raw_amount is None:
+            return None, JsonResponse(
+                {"error": _("Donation amount is required.")}, status=400
+            )
+        amount = Decimal(str(raw_amount))
+    except (TypeError, ValueError, InvalidOperation):
+        # Named exceptions, not a bare ``Exception``. The amount is the only
+        # thing being parsed here; anything else that raises is a bug in this
+        # view and must surface as a 500 rather than be reported to the member
+        # as "your amount was invalid".
+        return None, JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    # "Infinity" and "NaN" are perfectly valid Decimal literals. Infinity slips
+    # past the range check below (no comparison is ever true for it in the
+    # rejecting direction) and reaches SumUp as ``inf``; NaN raises
+    # InvalidOperation from the comparison itself, outside the try above, and
+    # would 500. Neither is a donation, so both are refused up front.
+    if not amount.is_finite():
+        return None, JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    # Money, to the cent, before anything reads the value. Left un-quantized, a
+    # custom amount of 2.355 produced three different numbers for one donation:
+    # the description said EUR 2.35, ``float(amount)`` handed SumUp 2.355, and
+    # PaymentTransaction.amount (decimal_places=2) stored a rounded third. The
+    # member must be charged, shown and recorded the same figure. Quantizing
+    # before the range checks also means 1.999 is treated as the EUR 2.00 it
+    # will actually be charged, rather than rejected against a value nothing
+    # downstream would have used.
+    #
+    # Guarded, because quantize() is not total: a finite Decimal whose result
+    # would exceed the context precision raises InvalidOperation. "1e30" clears
+    # both the parse and the is_finite() check above and would 500 here -- the
+    # ceiling below never gets to reject it, because this line runs first.
+    try:
+        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except InvalidOperation:
+        return None, JsonResponse({"error": _("Invalid donation amount.")}, status=400)
+
+    if amount < DONATION_MIN_EUR:
+        return None, JsonResponse(
+            {"error": _("Minimum donation amount is €2.00.")}, status=400
+        )
+
+    # The amount is chosen by the member -- the card offers presets but also a
+    # free-text field, so a slipped decimal point or a hand-rolled POST can ask
+    # for an arbitrary sum. Cap it so a typo cannot open a five-figure checkout
+    # (and cannot leave a bogus PENDING row behind when SumUp then refuses it).
+    if amount > DONATION_MAX_EUR:
+        return None, JsonResponse(
+            {
+                "error": _(
+                    "Maximum donation amount is €%(max)s. Please contact us for larger contributions."
+                )
+                % {"max": f"{DONATION_MAX_EUR:.0f}"}
+            },
+            status=400,
+        )
+
+    return amount, None
+
+
 @login_required
 @require_POST
 def create_sumup_donation_checkout(request):
@@ -1321,77 +1402,9 @@ def create_sumup_donation_checkout(request):
             status=400,
         )
 
-    try:
-        if request.body:
-            data = json.loads(request.body.decode("utf-8"))
-            # A JSON body is not necessarily an object. ``[1,2]`` and ``"x"``
-            # both parse fine and then have no .get(), which would be an
-            # AttributeError the except clause below deliberately does not
-            # catch -- a malformed body has to be a 400, not a 500.
-            if not isinstance(data, dict):
-                return JsonResponse(
-                    {"error": _("Invalid donation amount.")}, status=400
-                )
-            raw_amount = data.get("amount")
-        else:
-            raw_amount = request.POST.get("amount")
-        if raw_amount is None:
-            return JsonResponse(
-                {"error": _("Donation amount is required.")}, status=400
-            )
-        amount = Decimal(str(raw_amount))
-    except (TypeError, ValueError, InvalidOperation):
-        # Named exceptions, not a bare ``Exception``. The amount is the only
-        # thing being parsed here; anything else that raises is a bug in this
-        # view and must surface as a 500 rather than be reported to the member
-        # as "your amount was invalid".
-        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
-
-    # "Infinity" and "NaN" are perfectly valid Decimal literals. Infinity slips
-    # past the range check below (no comparison is ever true for it in the
-    # rejecting direction) and reaches SumUp as ``inf``; NaN raises
-    # InvalidOperation from the comparison itself, outside the try above, and
-    # would 500. Neither is a donation, so both are refused up front.
-    if not amount.is_finite():
-        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
-
-    # Money, to the cent, before anything reads the value. Left un-quantized, a
-    # custom amount of 2.355 produced three different numbers for one donation:
-    # the description said EUR 2.35, ``float(amount)`` handed SumUp 2.355, and
-    # PaymentTransaction.amount (decimal_places=2) stored a rounded third. The
-    # member must be charged, shown and recorded the same figure. Quantizing
-    # before the range checks also means 1.999 is treated as the EUR 2.00 it
-    # will actually be charged, rather than rejected against a value nothing
-    # downstream would have used.
-    #
-    # Guarded, because quantize() is not total: a finite Decimal whose result
-    # would exceed the context precision raises InvalidOperation. "1e30" clears
-    # both the parse and the is_finite() check above and would 500 here -- the
-    # ceiling below never gets to reject it, because this line runs first.
-    try:
-        amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    except InvalidOperation:
-        return JsonResponse({"error": _("Invalid donation amount.")}, status=400)
-
-    if amount < DONATION_MIN_EUR:
-        return JsonResponse(
-            {"error": _("Minimum donation amount is €2.00.")}, status=400
-        )
-
-    # The amount is chosen by the member -- the card offers presets but also a
-    # free-text field, so a slipped decimal point or a hand-rolled POST can ask
-    # for an arbitrary sum. Cap it so a typo cannot open a five-figure checkout
-    # (and cannot leave a bogus PENDING row behind when SumUp then refuses it).
-    if amount > DONATION_MAX_EUR:
-        return JsonResponse(
-            {
-                "error": _(
-                    "Maximum donation amount is €%(max)s. Please contact us for larger contributions."
-                )
-                % {"max": f"{DONATION_MAX_EUR:.0f}"}
-            },
-            status=400,
-        )
+    amount, error_response = _parse_donation_amount(request)
+    if error_response is not None:
+        return error_response
 
     # Throttle here rather than at the top of the view: this is the first line
     # past which a request costs anything. Every call beyond it is a live SumUp
@@ -1768,10 +1781,11 @@ def _premium_purchase_refused(membership, *, lock=False):
 def _apply_paid_checkout(tx_obj, data):
     """Mark the transaction paid and unlock whatever it bought.
 
-    Callers must have read the paid state *from SumUp* — never from a request
-    body. Idempotent under concurrency: the browser return and SumUp's server
-    callback routinely race each other, so the row is locked and re-checked
-    before any side effect (a second run would re-issue the check-in token).
+    Callers must have read the paid state *from the provider* (SumUp, or Mollie
+    for donations in views_mollie) — never from a request body. Idempotent
+    under concurrency: the browser return and the provider's server callback
+    routinely race each other, so the row is locked and re-checked before any
+    side effect (a second run would re-issue the check-in token).
     """
     with transaction.atomic():
         # select_for_update() has to run inside a transaction — ATOMIC_REQUESTS
@@ -2330,9 +2344,10 @@ def _apply_paid_checkout(tx_obj, data):
                 # a branch that should now be unreachable is exactly the kind
                 # that must say so loudly when it is not.
                 logger.error(
-                    "SumUp donation %s completed for user %s but they have no "
+                    "%s donation %s completed for user %s but they have no "
                     "CrushProfile — payment recorded, Community Supporter NOT "
                     "granted, manual follow-up required.",
+                    locked.get_provider_display(),
                     locked.transaction_reference,
                     locked.user_id,
                 )
@@ -2340,8 +2355,9 @@ def _apply_paid_checkout(tx_obj, data):
                 profile.is_community_supporter = True
                 profile.save(update_fields=["is_community_supporter"])
                 logger.info(
-                    "Granted Community Supporter badge to user %s via SumUp donation %s",
+                    "Granted Community Supporter badge to user %s via %s donation %s",
                     locked.user_id,
+                    locked.get_provider_display(),
                     locked.transaction_reference,
                 )
 

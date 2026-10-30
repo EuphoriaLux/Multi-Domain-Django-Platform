@@ -1066,12 +1066,20 @@ VIDEO_CALL_ICE_TRANSPORT_POLICY = os.environ.get(
 # cannot import from crush_lu (the service imports django.conf.settings, so it
 # would be circular). Two copies of that logic drifted once already.
 SUMUP_API_KEY = os.environ.get("SUMUP_API_KEY", "")
-# Master switch for taking money online on crush.lu. False closes every card
-# checkout (event seats, Premium, donations) and the card form, hides the pay
-# buttons and tells members to pay at the door. Crush Credit and staff-recorded
-# cash payments keep working. Set False while there is no payment provider
-# (SumUp refused the platform in 2026-10).
+# Master switch for taking money online through SumUp on crush.lu. False closes
+# every SumUp card checkout (event seats, Premium, donations) and the card form,
+# hides the pay buttons and tells members to pay at the door. Crush Credit and
+# staff-recorded cash payments keep working. Set False while there is no payment
+# provider (SumUp refused the platform in 2026-10). Donations through Mollie do
+# not read this switch: they follow MOLLIE_API_KEY below.
 ONLINE_PAYMENTS_ENABLED = _env_bool("ONLINE_PAYMENTS_ENABLED", default=True)
+# Mollie (crush_lu/services/mollie.py): the test_... or live_... API key from
+# the Mollie dashboard. While set, the support card takes donations through
+# Mollie's hosted checkout; event seats and Premium stay on SumUp until they
+# move too. Read raw, like SUMUP_API_KEY: clean_credential normalises it.
+# Slot-sticky (infra/resources.bicep), so a staging test key never swaps into
+# production.
+MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")
 # Event sign-ups may bring a guest only when this is on AND the event allows it
 # (MeetupEvent.guests_open). Off since 2026-10-17: guests took seats the
 # capacity checks never counted, so the feature is dropped for now. Decision:

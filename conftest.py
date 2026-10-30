@@ -146,6 +146,11 @@ def pytest_configure(config):
     # Force console email backend for tests (no real emails sent)
     settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 
+    # A Mollie key in a developer's .env would switch every support card to
+    # Mollie and let an unmocked test reach the real API. Tests that need it
+    # set it with override_settings.
+    settings.MOLLIE_API_KEY = ""
+
     # Set SITE_ID for tests to avoid dynamic site lookup issues with live_server
     # live_server uses ports like localhost:12345, which don't match Site domains
     settings.SITE_ID = 1

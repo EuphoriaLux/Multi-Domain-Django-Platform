@@ -107,6 +107,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         "transaction_reference",
         "sumup_checkout_id",
         "sumup_customer_id",
+        "mollie_payment_id",
         "buyer__email",
         "buyer__username",
         "user__email",
@@ -126,6 +127,7 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
         "provider",
         "sumup_checkout_id",
         "sumup_customer_id",
+        "mollie_payment_id",
         "amount",
         "currency",
         "status",
@@ -183,6 +185,13 @@ class PaymentTransactionAdmin(admin.ModelAdmin):
             "SumUp identifiers",
             {
                 "fields": ("sumup_checkout_id", "sumup_customer_id"),
+                "classes": ("collapse",),
+            },
+        ),
+        (
+            "Mollie identifiers",
+            {
+                "fields": ("mollie_payment_id",),
                 "classes": ("collapse",),
             },
         ),

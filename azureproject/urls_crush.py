@@ -82,6 +82,7 @@ from crush_lu import (
     views_quiz,
     views_notifications,
     views_payments,
+    views_mollie,
 )
 from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
@@ -496,6 +497,23 @@ urlpatterns = (
             "payments/sumup/webhook/",
             views_payments.sumup_webhook,
             name="sumup_webhook",
+        ),
+        # Payments (Mollie: donations). Outside i18n_patterns like SumUp's:
+        # Mollie calls the webhook and the return URL with no language prefix.
+        path(
+            "payments/mollie/create-donation-checkout/",
+            views_mollie.create_mollie_donation_checkout,
+            name="mollie_create_donation_checkout",
+        ),
+        path(
+            "payments/mollie/return/",
+            views_mollie.mollie_payment_return,
+            name="mollie_payment_return",
+        ),
+        path(
+            "payments/mollie/webhook/",
+            views_mollie.mollie_webhook,
+            name="mollie_webhook",
         ),
         # Crush Connect Waitlist API (language-neutral for JS calls)
         path(
