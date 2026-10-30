@@ -1,5 +1,5 @@
 {% extends "crush_lu/base.html" %}
-{% load i18n %}
+{% load i18n moderation_tags %}
 
 {% block title %}{{ person.first_name }} - {% trans "Crush Connect" %}{% endblock %}
 {% block mobile_page_title %}{{ person.first_name }}{% endblock %}
@@ -96,6 +96,12 @@ encounter (authorized in the view).
                 </form>
             </div>
         </details>
+
+        {# Blocking ends the encounter's visibility, so this page 404s afterwards: land on the list. #}
+        {% url 'crush_lu:event_lobby_people' as people_url %}
+        <div class="mb-4 px-1">
+            {% block_report_menu person source="event_lobby" next_url=people_url %}
+        </div>
 
         <p class="text-xs text-center text-gray-400 dark:text-gray-500">
             {% trans "A permanent record of a real-world meeting. Say hi next time you see them." %}

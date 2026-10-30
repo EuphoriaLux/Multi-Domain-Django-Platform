@@ -18,6 +18,8 @@
          x-data="eventLobby"
          data-state-url="{% url 'crush_lu:event_lobby_state_api' event.id %}"
          data-signal-url="{% url 'crush_lu:event_lobby_signal_api' event.id %}"
+         data-report-url="{% url 'crush_lu:event_lobby_report_api' event.id %}"
+         data-block-url="{% url 'crush_lu:event_lobby_block_api' event.id %}"
          data-ws-path="{{ ws_path }}"
          {% if coach_preview %}data-read-only="1"{% endif %}
          data-phase="{{ state.phase }}"
@@ -36,10 +38,18 @@
          data-msg-tile-label="{% trans 'Select participant photo' %}"
          data-msg-sent-badge="{% trans 'Sent · waiting for mutual interest' %}"
          data-msg-met-badge="{% trans 'You have already met' %}"
-         data-msg-signals-remaining="{% trans 'Signals remaining' %}">
+         data-msg-signals-remaining="{% trans 'Signals remaining' %}"
+         data-msg-safety-label="{% trans 'Safety options' %}"
+         data-msg-report-photo="{% trans 'Report this photo' %}"
+         data-msg-report-or-block="{% trans 'Report or block {name}' %}"
+         data-msg-reported="{% trans "Thanks — our team will review this report. You won't hear back unless we need more detail." %}"
+         data-msg-blocked="{% trans "You've blocked this member. They won't be able to reach you, and you won't see each other again." %}"
+         data-msg-safety-error="{% trans "That didn't work. Please try again." %}">
 
         {# Spark mark cloned by event-lobby.js when it re-renders tiles. #}
         <template id="lobby-spark-template">{% include "shared/icons/spark.html" with class="w-3 h-3" %}</template>
+        {# Shield cloned by event-lobby.js when it re-renders "Go say hello" rows. #}
+        <template id="lobby-safety-template">{% include "shared/icons/shield-check.html" with class="w-5 h-5" %}</template>
 
         {% comment %}═══════════════════════════════════════════════════════════
            MASTHEAD — one eyebrow line, the event title, the promise. The
@@ -157,6 +167,16 @@
                 <div class="lobby-mutual-item">
                     <img src="{{ mutual.photo_url }}"{% if mutual.photo_focus %} style="object-position: {{ mutual.photo_focus }}"{% endif %} alt="">
                     <p>{{ mutual.first_name }}</p>
+                    {% if not coach_preview %}
+                    <button type="button" class="lobby-mutual-safety"
+                            data-safety-handle="{{ mutual.handle }}"
+                            data-safety-name="{{ mutual.first_name }}"
+                            data-safety-photo-url="{{ mutual.photo_url }}"
+                            data-safety-photo-focus="{{ mutual.photo_focus }}"
+                            aria-label="{% trans 'Safety options' %}">
+                        {% include "shared/icons/shield-check.html" with class="w-5 h-5" %}
+                    </button>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
@@ -321,9 +341,71 @@
                             </span>
                         </button>
                     </div>
+                    <button type="button" class="block w-full min-h-11 mt-2 text-xs font-medium text-lobby-dim hover:text-lobby-ink"
+                            x-on:click="reportFromConfirm">
+                        {% trans "Report this photo" %}
+                    </button>
                 </div>
             </div>
         </dialog>
+
+        {% comment %}═══════════════════════════════════════════
+           SAFETY SHEET — report or block one person, addressed by opaque
+           handle. Opened from the shield on a "Go say hello" row (revealed:
+           report + block) or "Report this photo" on the signal sheet
+           (anonymous: report only, since a block would unmask them through
+           the Blocked members page; the server enforces that too).
+           ══════════════════════════════════════════════{% endcomment %}
+        {% if not coach_preview %}
+        <dialog data-safety-dialog tabindex="-1" class="fixed inset-0 z-50 m-0 h-full max-h-none w-full max-w-none overflow-y-auto border-0 bg-transparent p-0"
+             x-show="safetyOpen" x-cloak
+             role="dialog" aria-modal="true" aria-labelledby="lobby-safety-title">
+            <div class="flex min-h-full items-end sm:items-center justify-center">
+                <div class="absolute inset-0 bg-lobby-night/80" x-on:click="closeSafety" aria-hidden="true"></div>
+                <div class="relative w-full sm:max-w-sm bg-lobby-room border border-lobby-edge border-b-0 sm:border-b rounded-t-2xl sm:rounded-2xl p-6">
+                    <img x-bind:src="safetyPhotoUrl" x-bind:style="safetyPhotoStyle" alt="" class="w-16 h-16 rounded-2xl object-cover object-face mx-auto mb-3">
+                    <h2 id="lobby-safety-title" class="font-display text-xl font-semibold text-center text-lobby-ink mb-2" x-text="safetyTitle"></h2>
+                    <p class="text-sm text-center text-lobby-dim mb-4">
+                        {% trans "Our team reviews every report. They won't be told it was you." %}
+                    </p>
+                    {# No submit button or submit event: page-loading.js raises its full-page overlay on any submit. #}
+                    <form data-safety-form class="space-y-3">
+                        <div>
+                            <label for="lobby-safety-reason" class="block text-xs font-semibold text-lobby-dim mb-1">{% trans "Report this member" %}</label>
+                            <select id="lobby-safety-reason" name="reason" class="w-full text-sm rounded-xl border-lobby-edge bg-lobby-night text-lobby-ink">
+                                {% for value, label in report_reasons %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <textarea name="details" rows="2" maxlength="2000"
+                                  aria-label="{% trans 'Anything we should know? (optional)' %}"
+                                  placeholder="{% trans 'Anything we should know? (optional)' %}"
+                                  class="w-full text-sm rounded-xl border-lobby-edge bg-lobby-night text-lobby-ink placeholder:text-lobby-dim"></textarea>
+                        <label class="flex items-center gap-2 text-sm text-lobby-ink" x-show="safetyRevealed">
+                            <input type="checkbox" name="also_block" value="1" checked class="rounded border-lobby-edge">
+                            {% trans "Also block them" %}
+                        </label>
+                        <p class="text-sm text-crush-pink mb-0" role="alert" x-show="hasSafetyError" x-text="safetyError"></p>
+                        <div class="flex gap-3 pt-1">
+                            <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-ink bg-lobby-edge hover:brightness-125 rounded-xl"
+                                    data-confirm-cancel x-on:click="closeSafety">
+                                {% trans "Cancel" %}
+                            </button>
+                            <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-night bg-crush-pink hover:bg-crush-pink-light rounded-xl disabled:opacity-60"
+                                    x-on:click="submitSafetyReport" x-bind:disabled="safetySending">
+                                {% trans "Submit report" %}
+                            </button>
+                        </div>
+                    </form>
+                    <button type="button" class="block w-full min-h-11 mt-2 text-sm font-medium text-lobby-dim hover:text-lobby-ink"
+                            x-show="safetyRevealed" x-on:click="submitSafetyBlock" x-bind:disabled="safetySending">
+                        {% trans "Just block this member" %}
+                    </button>
+                </div>
+            </div>
+        </dialog>
+        {% endif %}
 
     </div>
 </div>

@@ -20,16 +20,20 @@ register = template.Library()
 
 
 @register.inclusion_tag("crush_lu/moderation/_block_report_menu.html")
-def block_report_menu(member, source="", source_id=None, variant="", block_url=""):
+def block_report_menu(
+    member, source="", source_id=None, variant="", block_url="", next_url=""
+):
     """``variant="icon"`` renders the trigger as a 44px shield button with a
     floating panel (for page headers); ``block_url`` points the plain block
     form at a surface-specific endpoint (e.g. the Connect chat block, which
-    also closes the chat)."""
+    also closes the chat); ``next_url`` is where to land afterwards, for a page
+    that stops existing once the member is blocked (default: back to it)."""
     return {
         "member": member,
         "source": source,
         "source_id": source_id,
         "variant": variant,
         "block_url": block_url,
+        "next_url": next_url,
         "report_reasons": UserReport.REASON_CHOICES,
     }

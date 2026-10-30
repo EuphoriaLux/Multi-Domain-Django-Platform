@@ -797,6 +797,16 @@ urlpatterns = [
         name="event_lobby_signal_api",
     ),
     path(
+        "events/<int:event_id>/lobby/api/report/",
+        views_event_lobby.lobby_report_api,
+        name="event_lobby_report_api",
+    ),
+    path(
+        "events/<int:event_id>/lobby/api/block/",
+        views_event_lobby.lobby_block_api,
+        name="event_lobby_block_api",
+    ),
+    path(
         "events/<int:event_id>/lobby/api/confirm/",
         views_event_lobby.lobby_confirm_api,
         name="event_lobby_confirm_api",

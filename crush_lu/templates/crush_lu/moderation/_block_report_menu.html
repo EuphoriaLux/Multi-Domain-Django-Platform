@@ -6,6 +6,7 @@ Reusable peer-safety disclosure. Caller passes:
     source_id - pk of the originating object (optional)
     variant   - "icon": 44px shield button + floating panel, for headers (optional)
     block_url - endpoint for the plain block form (optional; default block_user)
+    next_url  - where to land after either form (optional; default the referer)
 Plain forms (no JS dependency); each posts and redirects back via referer.
 {% endcomment %}
 {% if variant == "icon" %}
@@ -31,6 +32,7 @@ Plain forms (no JS dependency); each posts and redirects back via referer.
             {% csrf_token %}
             {% if source %}<input type="hidden" name="source" value="{{ source }}">{% endif %}
             {% if source_id %}<input type="hidden" name="source_id" value="{{ source_id }}">{% endif %}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
             <label class="block text-xs font-semibold text-gray-600 dark:text-gray-300">{% trans "Report this member" %}</label>
             <select name="reason" class="w-full text-sm rounded-lg border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white">
                 {% for value, label in report_reasons %}
@@ -62,6 +64,7 @@ Plain forms (no JS dependency); each posts and redirects back via referer.
             {% csrf_token %}
             {# Filled from the sheet's optional, unticked checkbox: the chat block's existing ConnectReport escalation. #}
             {% if block_url %}<input type="hidden" name="escalate_to_coach" value="">{% endif %}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
             <button type="submit" class="text-sm font-medium text-gray-600 dark:text-gray-300 hover:underline">
                 {% trans "Just block this member" %}
             </button>

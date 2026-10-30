@@ -31,11 +31,13 @@ from .models import (
     EventLobbyParticipation,
     EventRegistration,
     MeetupEvent,
+    UserReport,
 )
 from .services.event_lobby import (
     LobbyAccessError,
     PHASE_LIVE,
     PHASE_RECAP,
+    block_participant,
     confirm_meeting,
     eligible_participations,
     encounter_counterpart,
@@ -53,6 +55,7 @@ from .services.event_lobby import (
     may_learn_lobby_exists,
     participant_gate,
     recap_state,
+    report_participant,
     send_meet_signal,
     submit_encounter_removal_request,
     viewer_participation,
@@ -243,6 +246,7 @@ def event_lobby(request, event_id):
         "roster": get_roster(request.user, event),
         "mutuals": get_mutuals(request.user, event),
         "ws_path": f"/ws/event-lobby/{event.pk}/",
+        "report_reasons": UserReport.REASON_CHOICES,
     }
     response = render(request, "crush_lu/event_lobby/lobby.html", context)
     # §13: the roster must never be cacheable.
@@ -528,6 +532,59 @@ def lobby_signal_api(request, event_id):
     response = JsonResponse(result)
     response["Cache-Control"] = "private, no-store"
     return response
+
+
+_SAFETY_DENIED = ("feature_disabled", "not_participant", "phase_closed")
+
+
+def _safety_response(result):
+    """Shape a report/block outcome. Never carries who the handle belongs to."""
+    outcome = result.pop("result")
+    if outcome in _SAFETY_DENIED:
+        return JsonResponse({"ok": False, "error": outcome}, status=403)
+    if outcome == "unknown_participant":
+        return JsonResponse({"ok": False, "error": outcome}, status=404)
+    response = JsonResponse({"ok": True, "result": outcome, **result})
+    response["Cache-Control"] = "private, no-store"
+    return response
+
+
+@crush_login_required
+@ratelimit(key="user", rate="20/h", method="POST")
+@require_POST
+def lobby_report_api(request, event_id):
+    """Report a participant by opaque handle (same limit as ``report_user``)."""
+    event = _get_lobby_event(event_id)
+
+    try:
+        data = json.loads(request.body)
+        handle = str(data["handle"])
+        reason = str(data.get("reason") or "other")
+        details = str(data.get("details") or "")
+        also_block = data.get("also_block") is True
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError, AttributeError):
+        return JsonResponse({"ok": False, "error": "bad_payload"}, status=400)
+
+    return _safety_response(
+        report_participant(
+            request.user, event, handle, reason, details, also_block=also_block
+        )
+    )
+
+
+@crush_login_required
+@ratelimit(key="user", rate="30/h", method="POST")
+@require_POST
+def lobby_block_api(request, event_id):
+    """Block a revealed participant by handle (same limit as ``block_user``)."""
+    event = _get_lobby_event(event_id)
+
+    try:
+        handle = str(json.loads(request.body)["handle"])
+    except (json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return JsonResponse({"ok": False, "error": "bad_payload"}, status=400)
+
+    return _safety_response(block_participant(request.user, event, handle))
 
 
 def _push_counter_update(event, recipient_user_id):

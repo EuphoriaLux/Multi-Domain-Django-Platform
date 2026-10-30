@@ -28,7 +28,8 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
-from .blocking import blocked_user_ids, is_blocked_pair
+from .blocking import apply_block, blocked_user_ids, is_blocked_pair
+from .user_reports import file_user_report
 
 logger = logging.getLogger(__name__)
 
@@ -663,6 +664,86 @@ def lobby_state(user, event, now=None) -> dict:
         "signals_total": _max_signals(),
         "incoming_count": incoming_signal_count(user, event),
     }
+
+
+def _safety_target(viewer, event, handle, now):
+    """Resolve an opaque handle for a report or block, in live and recap.
+
+    Returns ``(result, participation, revealed)``. ``result`` is ``None`` when
+    the handle resolves. Unknown, self, ineligible and blocked all collapse
+    into one answer, as in ``send_meet_signal``: blocks stay unprobeable.
+    ``revealed`` means the viewer already knows this person's name.
+    """
+    if not lobby_feature_enabled():
+        return "feature_disabled", None, False
+    if event_lobby_phase(event, now) not in (PHASE_LIVE, PHASE_RECAP):
+        return "phase_closed", None, False
+    if viewer_participation(viewer, event) is None:
+        return "not_participant", None, False
+
+    target = (
+        eligible_participations(event)
+        .filter(handle=handle)
+        .exclude(user=viewer)
+        .select_related("user")
+        .first()
+    )
+    if (
+        target is None
+        or is_blocked_pair(viewer, target.user)
+        or target.user_id in hidden_encounter_user_ids(viewer)
+    ):
+        return "unknown_participant", None, False
+    revealed = target.user_id in (
+        _mutual_user_ids(viewer, event) | _encounter_user_ids(viewer)
+    )
+    return None, target, revealed
+
+
+def report_participant(
+    reporter, event, handle, reason, details="", also_block=False, now=None
+) -> dict:
+    """File a report on a participant addressed by opaque handle.
+
+    Anyone in the room can be reported, named or not, because a photo is
+    visible before any reveal. ``also_block`` only applies to a revealed
+    person: see ``block_participant``.
+    """
+    now = now or timezone.now()
+    result, target, revealed = _safety_target(reporter, event, handle, now)
+    if result:
+        return {"result": result}
+
+    file_user_report(
+        reporter,
+        target.user,
+        reason=reason,
+        details=details,
+        source="event_lobby",
+        source_id=event.pk,
+    )
+    blocked = bool(also_block and revealed)
+    if blocked:
+        apply_block(reporter, target.user)
+    return {"result": "reported", "blocked": blocked}
+
+
+def block_participant(blocker, event, handle, now=None) -> dict:
+    """Block a participant whose name the blocker already knows.
+
+    An anonymous tile cannot be blocked: the Blocked members page lists people
+    by first name, so a block would unmask them (§13). It answers exactly like
+    an unknown handle, so the refusal says nothing about who is behind it.
+    """
+    now = now or timezone.now()
+    result, target, revealed = _safety_target(blocker, event, handle, now)
+    if result:
+        return {"result": result}
+    if not revealed:
+        return {"result": "unknown_participant"}
+
+    apply_block(blocker, target.user)
+    return {"result": "blocked"}
 
 
 def _max_signals() -> int:
