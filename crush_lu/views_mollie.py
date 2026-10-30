@@ -191,6 +191,68 @@ def _record_unpaid(tx, mollie_status, payment):
         )
 
 
+def _describe_money_returned(tx, refunded, charged_back):
+    parts = []
+    if refunded:
+        parts.append(f"{tx.currency} {refunded:.2f} refunded")
+    if charged_back:
+        parts.append(f"{tx.currency} {charged_back:.2f} charged back")
+    return f"Mollie: {', '.join(parts)}"
+
+
+def _settle_paid(tx, payment):
+    """Apply a ``paid`` read: the payment itself, then whatever has gone back.
+
+    The rules are the ones ``reconcile_sumup_payments`` settled on. The row
+    becomes REFUNDED once all of it is back, by refund, chargeback or both. A
+    partial refund stays PAID for a human to look at, with the amounts in
+    ``raw_response``, and leaves ``failure_reason`` blank as the admin promises.
+    """
+    refunded, charged_back = mollie.money_returned(payment)
+    returned = refunded + charged_back
+    with transaction.atomic():
+        # LOCK ORDER: PaymentTransaction before CrushProfile, as in
+        # _apply_paid_checkout and merge_accounts.
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx.pk)
+        # Mollie says paid for ever, and _apply_paid_checkout stops only on a
+        # PAID row, so re-applying here would undo the refund and send a second
+        # receipt on every repeat of the webhook.
+        if locked.status == PaymentTransaction.Status.REFUNDED:
+            # One-way, like the SumUp sweep. A refund can still fail after
+            # processing and a chargeback can be reversed, but the row only
+            # says so to a human.
+            if returned < locked.amount:
+                logger.warning(
+                    "Mollie donation %s is REFUNDED but Mollie now counts %s "
+                    "returned; not restored, manual follow-up required.",
+                    locked.transaction_reference,
+                    returned,
+                )
+            return
+
+        known = sum(mollie.money_returned(locked.raw_response))
+        _apply_paid_checkout(locked, payment)
+        locked.refresh_from_db()
+        if returned == known:
+            return
+
+        description = _describe_money_returned(locked, refunded, charged_back)
+        locked.raw_response = payment
+        update_fields = ["raw_response", "updated_at"]
+        if returned >= locked.amount:
+            locked.status = PaymentTransaction.Status.REFUNDED
+            locked.failure_reason = description
+            update_fields += ["status", "failure_reason"]
+        locked.save(update_fields=update_fields)
+        transaction.on_commit(
+            lambda reference=locked.transaction_reference, state=locked.status: (
+                logger.warning(
+                    "Mollie donation %s: %s; row is %s.", reference, description, state
+                )
+            )
+        )
+
+
 def sync_mollie_payment(tx):
     """Re-read ``tx``'s payment from Mollie and apply it. Returns its status.
 
@@ -212,7 +274,7 @@ def sync_mollie_payment(tx):
                 tx.currency,
             )
             return status
-        _apply_paid_checkout(tx, payment)
+        _settle_paid(tx, payment)
     elif status in _UNPAID_STATUS:
         _record_unpaid(tx, status, payment)
     return status

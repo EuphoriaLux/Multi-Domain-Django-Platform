@@ -53,14 +53,30 @@ def _opened(payment_id="tr_7UhSN1zuXS"):
     )
 
 
-def _payment(status, value="10.00", payment_id="tr_7UhSN1zuXS"):
-    return _response(
-        200,
-        {
-            "id": payment_id,
-            "status": status,
-            "amount": {"value": value, "currency": "EUR"},
-        },
+def _payment(status, value="10.00", payment_id="tr_7UhSN1zuXS", embedded=None):
+    body = {
+        "id": payment_id,
+        "status": status,
+        "amount": {"value": value, "currency": "EUR"},
+    }
+    if embedded:
+        body["_embedded"] = embedded
+    return _response(200, body)
+
+
+def _refund(value="10.00", status="refunded"):
+    return {"amount": {"value": value, "currency": "EUR"}, "status": status}
+
+
+def _chargeback(value="10.00", reversed_at=None):
+    return {"amount": {"value": value, "currency": "EUR"}, "reversedAt": reversed_at}
+
+
+def _returned(refunds=(), chargebacks=()):
+    """A ``paid`` read with refunds and chargebacks embedded."""
+    return _payment(
+        "paid",
+        embedded={"refunds": list(refunds), "chargebacks": list(chargebacks)},
     )
 
 
@@ -176,6 +192,50 @@ class MollieClientTests(SimpleTestCase):
         self.assertTrue(mollie.amount_matches(payment, Decimal("10.00"), "EUR"))
         self.assertFalse(mollie.amount_matches(payment, Decimal("10.01"), "EUR"))
         self.assertFalse(mollie.amount_matches({}, Decimal("10.00"), "EUR"))
+
+    def test_get_payment_asks_for_refunds_and_chargebacks(self):
+        with mock.patch(REQUEST, return_value=_payment("paid")) as call:
+            mollie.MollieClient(api_key="test_abc").get_payment("tr_x1")
+
+        self.assertEqual(
+            call.call_args.args,
+            (
+                "GET",
+                "https://api.mollie.com/v2/payments/tr_x1?embed=refunds,chargebacks",
+            ),
+        )
+
+    def test_money_returned_counts_only_money_that_really_went_back(self):
+        for label, embedded, expected in (
+            ("nothing embedded", None, ("0", "0")),
+            ("empty lists", {"refunds": [], "chargebacks": []}, ("0", "0")),
+            ("refunded", {"refunds": [_refund()]}, ("10.00", "0")),
+            ("processing", {"refunds": [_refund(status="processing")]}, ("10.00", "0")),
+            ("queued", {"refunds": [_refund(status="queued")]}, ("0", "0")),
+            ("pending", {"refunds": [_refund(status="pending")]}, ("0", "0")),
+            ("canceled", {"refunds": [_refund(status="canceled")]}, ("0", "0")),
+            ("failed", {"refunds": [_refund(status="failed")]}, ("0", "0")),
+            ("chargeback", {"chargebacks": [_chargeback()]}, ("0", "10.00")),
+            (
+                "reversed chargeback",
+                {"chargebacks": [_chargeback(reversed_at="2026-10-30T09:00:00+00:00")]},
+                ("0", "0"),
+            ),
+            (
+                "several",
+                {
+                    "refunds": [_refund("2.00"), _refund("3.00", status="failed")],
+                    "chargebacks": [_chargeback("1.50")],
+                },
+                ("2.00", "1.50"),
+            ),
+        ):
+            with self.subTest(label):
+                payment = _payment("paid", embedded=embedded).json()
+                self.assertEqual(
+                    mollie.money_returned(payment),
+                    (Decimal(expected[0]), Decimal(expected[1])),
+                )
 
 
 class MollieDonationCheckoutTests(TestCase):
@@ -316,7 +376,11 @@ class MollieWebhookTests(TestCase):
         # The status was re-read from Mollie, not taken from the request.
         self.assertEqual(
             call.call_args.args,
-            ("GET", "https://api.mollie.com/v2/payments/tr_7UhSN1zuXS"),
+            (
+                "GET",
+                "https://api.mollie.com/v2/payments/tr_7UhSN1zuXS"
+                "?embed=refunds,chargebacks",
+            ),
         )
         self.tx.refresh_from_db()
         self.profile.refresh_from_db()
@@ -400,6 +464,190 @@ class MollieWebhookTests(TestCase):
 
     def test_get_is_not_allowed(self):
         self.assertEqual(self.client.get(WEBHOOK).status_code, 405)
+
+
+@override_settings(**MOLLIE_ON)
+class MollieMoneyReturnedTests(TestCase):
+    """Refunds and chargebacks: the payment stays ``paid`` at Mollie throughout."""
+
+    def setUp(self):
+        cache.clear()
+        self.user, self.profile = _member("donor@crush.lu")
+        self.tx = _mollie_donation(self.user)
+        self.client = Client(HTTP_HOST=HOST, enforce_csrf_checks=True)
+        with (
+            mock.patch(REQUEST, return_value=_payment("paid")),
+            mock.patch(RECEIPT),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self._notify()
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.paid_at = self.tx.paid_at
+
+    def _notify(self):
+        return self.client.post(WEBHOOK, {"id": "tr_7UhSN1zuXS"})
+
+    def _deliver(self, payment):
+        with (
+            mock.patch(REQUEST, return_value=payment),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.assertEqual(self._notify().status_code, 200)
+        self.tx.refresh_from_db()
+
+    def test_a_full_refund_marks_the_row_refunded(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING") as logs:
+            self._deliver(_returned(refunds=[_refund()]))
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.tx.failure_reason, "Mollie: EUR 10.00 refunded")
+        self.assertEqual(
+            self.tx.raw_response["_embedded"]["refunds"][0]["status"], "refunded"
+        )
+        self.assertEqual(self.tx.paid_at, self.paid_at)
+        self.assertIn(self.tx.transaction_reference, logs.output[0])
+
+    def test_a_full_chargeback_marks_the_row_refunded_and_says_which(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(chargebacks=[_chargeback()]))
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.tx.failure_reason, "Mollie: EUR 10.00 charged back")
+
+    def test_a_refund_and_a_chargeback_can_add_up_to_all_of_it(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(
+                _returned(refunds=[_refund("3.00")], chargebacks=[_chargeback("7.00")])
+            )
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(
+            self.tx.failure_reason,
+            "Mollie: EUR 3.00 refunded, EUR 7.00 charged back",
+        )
+
+    def test_more_than_was_paid_still_counts_as_all_of_it(self):
+        """Mollie's docs: for some methods a refund can exceed the payment."""
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund("12.00")]))
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_the_funnel_records_one_refund_event(self):
+        with (
+            mock.patch("crush_lu.services.funnel_events.record_refund") as record,
+            self.assertLogs("crush_lu.views_mollie", level="WARNING"),
+        ):
+            self._deliver(_returned(refunds=[_refund()]))
+            self._deliver(_returned(refunds=[_refund()]))
+
+        record.assert_called_once()
+
+    def test_a_repeated_webhook_on_a_refunded_row_changes_nothing(self):
+        """The trap: Mollie still says paid, and that must not re-apply the row."""
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund()]))
+        updated_at = self.tx.updated_at
+
+        with (
+            mock.patch(RECEIPT) as receipt,
+            mock.patch("crush_lu.views_mollie._apply_paid_checkout") as apply_paid,
+            self.assertNoLogs("crush_lu.views_mollie", level="WARNING"),
+        ):
+            self._deliver(_returned(refunds=[_refund()]))
+
+        apply_paid.assert_not_called()
+        receipt.assert_not_called()
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.tx.failure_reason, "Mollie: EUR 10.00 refunded")
+        self.assertEqual(self.tx.updated_at, updated_at)
+
+    def test_a_partial_refund_stays_paid_and_keeps_the_amounts(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING") as logs:
+            self._deliver(_returned(refunds=[_refund("3.00")]))
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.failure_reason, "")
+        self.assertEqual(
+            self.tx.raw_response["_embedded"]["refunds"][0]["amount"]["value"], "3.00"
+        )
+        self.assertIn("EUR 3.00 refunded", logs.output[0])
+
+    def test_a_repeated_partial_refund_is_logged_and_written_once(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund("3.00")]))
+        updated_at = self.tx.updated_at
+
+        with self.assertNoLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund("3.00")]))
+
+        self.tx.refresh_from_db()
+        self.assertEqual(self.tx.updated_at, updated_at)
+
+    def test_partial_refunds_that_reach_the_total_mark_the_row_refunded(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund("3.00")]))
+            self._deliver(_returned(refunds=[_refund("3.00"), _refund("7.00")]))
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(self.tx.failure_reason, "Mollie: EUR 10.00 refunded")
+
+    def test_a_refund_that_can_still_be_canceled_changes_nothing(self):
+        updated_at = self.tx.updated_at
+        with self.assertNoLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund(status="pending")]))
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+        self.assertEqual(self.tx.updated_at, updated_at)
+
+    def test_a_failed_refund_on_a_refunded_row_is_flagged_but_not_undone(self):
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING"):
+            self._deliver(_returned(refunds=[_refund()]))
+
+        with self.assertLogs("crush_lu.views_mollie", level="WARNING") as logs:
+            self._deliver(_returned(refunds=[_refund(status="failed")]))
+
+        self.assertIn("manual follow-up", logs.output[0])
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.REFUNDED)
+
+    def test_a_refund_seen_on_the_first_read_still_records_the_payment(self):
+        """The paid webhook was lost: both facts land, and the member paid once."""
+        pending = _mollie_donation(
+            self.user, payment_id="tr_secondpayment", ref="CRUSH-DON-MOLLIE-2"
+        )
+        with (
+            mock.patch(REQUEST, return_value=_returned(refunds=[_refund()])),
+            mock.patch(RECEIPT) as receipt,
+            self.assertLogs("crush_lu.views_mollie", level="WARNING"),
+            self.captureOnCommitCallbacks(execute=True),
+        ):
+            self.client.post(WEBHOOK, {"id": "tr_secondpayment"})
+
+        pending.refresh_from_db()
+        self.assertEqual(pending.status, PaymentTransaction.Status.REFUNDED)
+        self.assertIsNotNone(pending.paid_at)
+        receipt.assert_called_once()
+
+    def test_a_refund_on_a_payment_for_another_amount_is_not_applied(self):
+        mismatched = _payment(
+            "paid", value="1.00", embedded={"refunds": [_refund("1.00")]}
+        )
+        with self.assertLogs("crush_lu.views_mollie", level="ERROR"):
+            self._deliver(mismatched)
+
+        self.assertEqual(self.tx.status, PaymentTransaction.Status.PAID)
+
+    def test_the_payment_lock_comes_first(self):
+        """SQLite ignores select_for_update, so only the source can show this."""
+        import inspect
+
+        from crush_lu import views_mollie
+
+        source = inspect.getsource(views_mollie._settle_paid)
+        lock = source.index("PaymentTransaction.objects.select_for_update")
+        self.assertLess(lock, source.index("_apply_paid_checkout(locked"))
+        self.assertLess(lock, source.index("locked.save("))
 
 
 @override_settings(**MOLLIE_ON)
