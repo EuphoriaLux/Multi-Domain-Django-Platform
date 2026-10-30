@@ -46810,31 +46810,3 @@ msgstr "Ton der anderen Person"
 
 msgid "If their bar moves but you hear nothing, turn up your device's volume."
 msgstr "Wenn sich der Balken der anderen Person bewegt, du aber nichts hörst, dreh die Lautstärke deines Geräts auf."
-
-msgid "Support us by bank transfer"
-msgstr "Unterstütze uns per Banküberweisung"
-
-msgid "Prefer a bank transfer?"
-msgstr "Lieber per Banküberweisung?"
-
-msgid "QR code for a bank transfer to Crush.lu"
-msgstr "QR-Code für eine Banküberweisung an Crush.lu"
-
-msgid "Scan the QR code with your banking app, or copy the details below. Any amount helps."
-msgstr "Scanne den QR-Code mit deiner Banking-App oder kopiere die Angaben unten. Jeder Betrag hilft."
-
-msgid "Beneficiary"
-msgstr "Empfänger"
-
-msgid "Reference"
-msgstr "Verwendungszweck"
-
-msgid "Please keep the reference so we can match your transfer and add your Community Supporter badge. Transfers can take a few business days to arrive."
-msgstr "Bitte übernimm den Verwendungszweck, damit wir deine Überweisung zuordnen und dir das Community-Unterstützer-Abzeichen geben können. Eine Überweisung kann ein paar Werktage dauern."
-
-msgid "Copy"
-msgstr "Kopieren"
-
-#, python-format
-msgid "Copy %(label)s"
-msgstr "%(label)s kopieren"

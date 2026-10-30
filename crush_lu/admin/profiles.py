@@ -26,7 +26,6 @@ from modeltranslation.admin import TranslationAdmin
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
 from crush_lu.services import funnel_events
-from crush_lu.services.donation_bank_transfer import DONATION_REFERENCE_RE
 from crush_lu.models import (
     CrushCoach,
     CrushProfile,
@@ -605,7 +604,6 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         "send_bulk_email",
         "merge_accounts",
         "lift_photo_review_moderation",
-        "grant_community_supporter",
     ]
     inlines = [ProfileSubmissionProfileInline]
     change_list_template = "admin/crush_lu/crushprofile/change_list.html"
@@ -1672,41 +1670,6 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
             )
         else:
             django_messages.warning(request, _("No users to unban (none were banned)."))
-
-    def get_search_results(self, request, queryset, search_term):
-        # A bank-transfer donation reference pasted from the bank statement
-        # finds its profile, for grant_community_supporter below.
-        match = DONATION_REFERENCE_RE.search(search_term)
-        if match:
-            return queryset.filter(pk=int(match.group(1))), False
-        return super().get_search_results(request, queryset, search_term)
-
-    @admin.action(
-        description=_("💝 Grant Community Supporter badge (bank transfer received)")
-    )
-    def grant_community_supporter(self, request, queryset):
-        """Badge for a donation that did not go through SumUp.
-
-        The support card asks bank-transfer donors to use the reference
-        "Crush.lu support <profile id>"; pasting it into the search box finds
-        the profile (get_search_results). Saved one by one, like the SumUp
-        webhook does, so profile signals still fire.
-        """
-        count = 0
-        for profile in queryset.filter(is_community_supporter=False):
-            profile.is_community_supporter = True
-            profile.save(update_fields=["is_community_supporter"])
-            count += 1
-        if count > 0:
-            django_messages.success(
-                request,
-                _("Granted the Community Supporter badge to %(count)s profile(s).")
-                % {"count": count},
-            )
-        else:
-            django_messages.warning(
-                request, _("The selected profiles are already Community Supporters.")
-            )
 
     @admin.action(description=_("Reset phone verification (allows re-verification)"))
     def reset_phone_verification(self, request, queryset):
