@@ -9612,8 +9612,11 @@ document.addEventListener("alpine:init", function () {
                 })
                     .then(function (res) { return res.json(); })
                     .then(function (data) {
-                        if (data.success && data.widget_url) {
-                            window.location.href = data.widget_url;
+                        // SumUp answers with its widget page, Mollie with its
+                        // hosted checkout (views_mollie).
+                        var target = data.checkout_url || data.widget_url;
+                        if (data.success && target) {
+                            window.location.href = target;
                         } else {
                             throw new Error(data.error || self.msgUnavailable);
                         }

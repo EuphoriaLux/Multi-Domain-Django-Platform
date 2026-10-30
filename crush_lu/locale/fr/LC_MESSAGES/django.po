@@ -47013,3 +47013,6 @@ msgstr "Un membre a quitté ce groupe. Tous les autres gardent leur place et peu
 #, python-format
 msgid "coach accepted fewer dates (at least %(minimum)s)"
 msgstr "le coach a accepté moins de rencontres (au moins %(minimum)s)"
+
+msgid "Secure checkout by Mollie"
+msgstr "Paiement sécurisé via Mollie"

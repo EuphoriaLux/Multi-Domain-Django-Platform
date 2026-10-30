@@ -46886,3 +46886,6 @@ msgstr "Ein Mitglied hat diese Gruppe verlassen. Alle anderen behalten ihren Pla
 #, python-format
 msgid "coach accepted fewer dates (at least %(minimum)s)"
 msgstr "Coach hat weniger Dates akzeptiert (mindestens %(minimum)s)"
+
+msgid "Secure checkout by Mollie"
+msgstr "Sichere Zahlung über Mollie"
