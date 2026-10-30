@@ -307,7 +307,7 @@
                     <p class="text-sm text-center text-lobby-dim mb-4">
                         {% trans "It stays anonymous unless they pick you too. This cannot be undone." %}
                     </p>
-                    <div class="flex items-center justify-center gap-2 mb-6">
+                    <div class="flex items-center justify-center gap-2 mb-3">
                         <span class="text-xs text-lobby-dim">{% trans "This leaves you" %}</span>
                         {# Same server-conditioned overlays as the ledger — the sheet only opens with JS, but keep render-time truth. #}
                         <span class="flex gap-1.5">
@@ -322,6 +322,10 @@
                             <span class="lobby-spark lobby-spark--sm lobby-spark--spent">{% include "shared/icons/spark.html" with class="w-2.5 h-2.5" %}</span>
                         </span>
                     </div>
+                    <button type="button" class="block w-full min-h-11 mb-2 text-xs font-medium text-lobby-dim hover:text-lobby-ink"
+                            x-on:click="reportFromConfirm" x-bind:disabled="sending">
+                        {% trans "Report this photo" %}
+                    </button>
                     <div class="flex gap-3">
                         <button type="button" class="flex-1 px-4 py-2.5 text-sm font-bold text-lobby-ink bg-lobby-edge hover:brightness-125 rounded-xl transition-all"
                                 data-confirm-cancel x-on:click="closeConfirm">
@@ -341,10 +345,6 @@
                             </span>
                         </button>
                     </div>
-                    <button type="button" class="block w-full min-h-11 mt-2 text-xs font-medium text-lobby-dim hover:text-lobby-ink"
-                            x-on:click="reportFromConfirm">
-                        {% trans "Report this photo" %}
-                    </button>
                 </div>
             </div>
         </dialog>
