@@ -28,7 +28,9 @@ RETURN = "/payments/mollie/return/"
 MY_EVENTS = "/en/my-events/"
 CHECKOUT_HREF = "https://www.mollie.com/checkout/select-method/7UhSN1zuXS"
 PAUSED = "Online contributions are paused for now. Thank you for your support!"
-MOLLIE_ON = {"MOLLIE_API_KEY": "test_dHar4XY7LxsDOtmnkVtjNVWXLSlXsM"}
+# Shaped like a key (test_ prefix) but low-entropy, so the secret scanner
+# (gitleaks generic-api-key) does not take it for a real one.
+MOLLIE_ON = {"MOLLIE_API_KEY": "test_xxxxxxxxxxxxxxxxxxxxxxxx"}
 REQUEST = "crush_lu.services.mollie.requests.request"
 RECEIPT = "crush_lu.email_helpers.send_donation_payment_receipt"
 
