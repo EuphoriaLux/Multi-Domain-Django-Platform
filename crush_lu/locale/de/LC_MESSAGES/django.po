@@ -6237,7 +6237,7 @@ msgstr "Richte dein Persönlichkeitsprofil ein"
 #, fuzzy
 #| msgid "Profile photos"
 msgid "Inappropriate photos"
-msgstr "Profilfotos"
+msgstr "Unangemessene Fotos"
 
 #: models/moderation.py:115
 msgid "Spam or solicitation"
@@ -46889,3 +46889,19 @@ msgstr "Coach hat weniger Dates akzeptiert (mindestens %(minimum)s)"
 
 msgid "Secure checkout by Mollie"
 msgstr "Sichere Zahlung über Mollie"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html
+msgid "Report this photo"
+msgstr "Dieses Foto melden"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html
+msgid "Report or block {name}"
+msgstr "{name} melden oder blockieren"
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html
+msgid "Our team reviews every report. They won't be told it was you."
+msgstr "Unser Team prüft jede Meldung. Die Person erfährt nicht, dass du es warst."
+
+#: crush_lu/templates/crush_lu/event_lobby/lobby.html
+msgid "That didn't work. Please try again."
+msgstr "Das hat nicht geklappt. Bitte versuche es noch einmal."

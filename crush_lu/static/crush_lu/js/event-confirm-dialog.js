@@ -38,15 +38,16 @@
             var buttons = controls();
             var first = buttons[0];
             var last = buttons[buttons.length - 1];
+            // Focus can sit on something no longer usable: the send button turns
+            // disabled while it is focused. Native Tab would then leave the dialog.
+            var offList = buttons.indexOf(document.activeElement) === -1;
             if (!first) {
                 event.preventDefault();
                 dialog.focus();
-            } else if (event.shiftKey &&
-                (document.activeElement === first || !dialog.contains(document.activeElement))) {
+            } else if (event.shiftKey && (document.activeElement === first || offList)) {
                 event.preventDefault();
                 last.focus();
-            } else if (!event.shiftKey &&
-                (document.activeElement === last || !dialog.contains(document.activeElement))) {
+            } else if (!event.shiftKey && (document.activeElement === last || offList)) {
                 event.preventDefault();
                 first.focus();
             }

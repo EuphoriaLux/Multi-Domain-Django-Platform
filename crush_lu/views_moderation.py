@@ -7,7 +7,6 @@ by ``services.blocking`` and is silent — the blocked user is never told. Filin
 report drops a record into the admin moderation queue (``UserReportAdmin``).
 """
 
-import logging
 import time
 
 from django.contrib import messages
@@ -19,9 +18,9 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from .decorators import crush_login_required, ratelimit
-from .models import UserBlock, UserReport
+from .models import UserBlock
+from .services.user_reports import file_user_report
 
-logger = logging.getLogger(__name__)
 User = get_user_model()
 
 # Session key carrying the just-removed block to the Blocked members page, which
@@ -47,10 +46,6 @@ def _back(request, default="crush_lu:crush_connect_hub"):
     ):
         return redirect(candidate)
     return redirect(default)
-
-
-# Largest value a PositiveIntegerField accepts on a 32-bit integer backend.
-_MAX_POSITIVE_INT = 2147483647
 
 
 def _block(blocker, blocked, reason=""):
@@ -148,39 +143,17 @@ def report_user(request, user_id: int):
         return _back(request)
 
     target = get_object_or_404(User, pk=user_id)
-    reason = request.POST.get("reason", "other")
-    valid_reasons = {c for c, _label in UserReport.REASON_CHOICES}
-    valid_sources = {c for c, _label in UserReport.SOURCE_CHOICES}
-    source = request.POST.get("source", "")
-
-    # source_id is a client-supplied hidden field feeding a PositiveIntegerField —
-    # coerce it so a tampered value ("abc", "-1") can't turn reporting into a 500.
-    try:
-        source_id = int(request.POST.get("source_id"))
-        if source_id <= 0 or source_id > _MAX_POSITIVE_INT:
-            source_id = None
-    except (TypeError, ValueError):
-        source_id = None
-
-    report = UserReport.objects.create(
-        reporter=request.user,
-        reported_user=target,
-        reason=reason if reason in valid_reasons else "other",
-        details=(request.POST.get("details", "") or "").strip()[:2000],
-        source=source if source in valid_sources else "",
-        source_id=source_id,
+    report = file_user_report(
+        request.user,
+        target,
+        reason=request.POST.get("reason", "other"),
+        details=request.POST.get("details", ""),
+        source=request.POST.get("source", ""),
+        source_id=request.POST.get("source_id"),
     )
 
-    # Notify staff/coaches best-effort — must never block the report flow.
-    try:
-        from .notification_service import notify_report_filed
-
-        notify_report_filed(report)
-    except Exception:  # pragma: no cover - notification must never break reporting
-        logger.exception("Report-filed notification failed for report %s", report.pk)
-
     if request.POST.get("also_block"):
-        _block_for_report(request.user, target, report.source, source_id)
+        _block_for_report(request.user, target, report.source, report.source_id)
 
     messages.success(
         request,

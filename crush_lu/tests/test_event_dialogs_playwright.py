@@ -146,10 +146,15 @@ def test_keyboard_containment_cancel_and_background_restore(
         return style.boxShadow !== 'none' ||
             (style.outlineStyle !== 'none' && parseFloat(style.outlineWidth) > 0);
     }""")
+    # Focus wraps between the first and last controls. Cancel opens focused but
+    # isn't always first: the lobby sheet has "Report this photo" above it.
+    first = dialog.locator("button").first
+    first.focus()
     page.keyboard.press("Shift+Tab")
     expect(confirm).to_be_focused()
     page.keyboard.press("Tab")
-    expect(cancel).to_be_focused()
+    expect(first).to_be_focused()
+    cancel.focus()
     page.locator("#outside").evaluate("element => element.focus()")
     expect(cancel).to_be_focused()
     page.keyboard.press("Escape")

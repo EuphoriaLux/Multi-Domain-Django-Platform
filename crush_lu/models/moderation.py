@@ -129,6 +129,7 @@ class UserReport(models.Model):
         ("connect_chat", _("Connect chat")),
         # max_length is 16, so the value cannot be "real_person_check".
         ("real_person", _("Real-person check")),
+        ("event_lobby", _("Event Lobby")),
     ]
 
     STATUS_CHOICES = [

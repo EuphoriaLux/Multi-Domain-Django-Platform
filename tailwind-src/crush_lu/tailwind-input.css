@@ -6690,6 +6690,9 @@ body.connect-wizard main.has-bottom-nav {
     .lobby-mutual-item > p {
         @apply mb-0 font-display font-semibold text-lobby-ink;
     }
+    .lobby-mutual-safety {
+        @apply ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lobby-dim hover:text-lobby-ink;
+    }
 }
 
 /* Advent door_default.html (moved from inline <style>) */

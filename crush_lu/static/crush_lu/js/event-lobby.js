@@ -39,6 +39,16 @@ document.addEventListener("alpine:init", function () {
             pollTimer: null,
             tickTimer: null,
             bannerTimer: null,
+            safetyOpen: false,
+            safetyGeneration: 0,
+            safetyDialog: null,
+            safetyHandle: null,
+            safetyName: "",
+            safetyRevealed: false,
+            safetyPhotoUrl: "",
+            safetyPhotoFocus: "",
+            safetySending: false,
+            safetyError: "",
 
             init: function () {
                 var root = this.$el;
@@ -59,8 +69,22 @@ document.addEventListener("alpine:init", function () {
                         return root.querySelector("[data-event-focus]");
                     }
                 );
+                var safetyDialog = root.querySelector("[data-safety-dialog]");
+                if (safetyDialog) {
+                    this.safetyDialog = window.makeEventConfirmDialog(
+                        safetyDialog,
+                        function () { self.closeSafety(); },
+                        function (opener, usable) {
+                            if (self.ended) return root.querySelector("[data-phase-focus]");
+                            if (usable(opener)) return opener;
+                            return root.querySelector("[data-event-focus]");
+                        }
+                    );
+                }
                 this.stateUrl = root.dataset.stateUrl;
                 this.signalUrl = root.dataset.signalUrl;
+                this.reportUrl = root.dataset.reportUrl;
+                this.blockUrl = root.dataset.blockUrl;
                 this.wsPath = root.dataset.wsPath;
                 // Coach preview (no participation): the page may only be read.
                 // The template renders it inert, but every refetch rebuilds the
@@ -85,6 +109,12 @@ document.addEventListener("alpine:init", function () {
                     sentBadge: root.dataset.msgSentBadge || "Signal sent",
                     metBadge: root.dataset.msgMetBadge || "You've already met",
                     signalsRemaining: root.dataset.msgSignalsRemaining || "Signals remaining",
+                    safetyLabel: root.dataset.msgSafetyLabel || "Safety options",
+                    reportPhoto: root.dataset.msgReportPhoto || "Report this photo",
+                    reportOrBlock: root.dataset.msgReportOrBlock || "Report or block {name}",
+                    reported: root.dataset.msgReported || "Thanks. Our team will review this report.",
+                    blocked: root.dataset.msgBlocked || "You've blocked this member.",
+                    safetyError: root.dataset.msgSafetyError || "That didn't work. Please try again.",
                 };
 
                 if (this.phase === "live") {
@@ -95,6 +125,7 @@ document.addEventListener("alpine:init", function () {
                     this.ended = true;
                 }
                 this.bindGrid();
+                this.bindMutuals();
             },
 
             stopUpdates: function () {
@@ -118,6 +149,7 @@ document.addEventListener("alpine:init", function () {
                 this.accessRevoked = true;
                 this.stopUpdates();
                 if (this.confirmDialog) this.confirmDialog.destroy();
+                if (this.safetyDialog) this.safetyDialog.destroy();
             },
 
             // Coach-set focus of the photo being confirmed (photo_framing).
@@ -299,6 +331,149 @@ document.addEventListener("alpine:init", function () {
                     });
             },
 
+            // --- Report / block --------------------------------------------
+            // Addressed by opaque handle, like every other lobby action (§13).
+
+            bindMutuals: function () {
+                var self = this;
+                var list = document.getElementById("lobby-mutuals-list");
+                if (!list) return;
+                list.addEventListener("click", function (evt) {
+                    var button = evt.target.closest("button[data-safety-handle]");
+                    if (!button) return;
+                    self.openSafety(
+                        button.dataset.safetyHandle,
+                        button.dataset.safetyName,
+                        button.dataset.safetyPhotoUrl,
+                        button.dataset.safetyPhotoFocus,
+                        true
+                    );
+                });
+            },
+
+            // Anonymous tile: report only. The server refuses to block it too.
+            reportFromConfirm: function () {
+                var handle = this.confirmHandle;
+                var photoUrl = this.confirmPhotoUrl;
+                var photoFocus = this.confirmPhotoFocus;
+                if (!handle) return;
+                this.closeConfirm();
+                this.openSafety(handle, "", photoUrl, photoFocus, false);
+            },
+
+            openSafety: function (handle, name, photoUrl, photoFocus, revealed) {
+                if (!this.safetyDialog || this.ended) return;
+                var form = this.componentRoot.querySelector("[data-safety-form]");
+                if (form) form.reset();
+                this.safetyGeneration += 1;
+                this.safetySending = false;
+                this.safetyError = "";
+                this.safetyHandle = handle;
+                this.safetyName = name || "";
+                this.safetyRevealed = !!revealed;
+                this.safetyPhotoUrl = photoUrl || "";
+                this.safetyPhotoFocus = photoFocus || "";
+                this.safetyOpen = true;
+                var self = this;
+                var generation = this.safetyGeneration;
+                var opener = document.activeElement;
+                this.$nextTick(function () {
+                    if (self.safetyOpen && generation === self.safetyGeneration) {
+                        self.safetyDialog.open(opener);
+                    }
+                });
+            },
+
+            closeSafety: function () {
+                this.safetyGeneration += 1;
+                this.safetyOpen = false;
+                this.safetySending = false;
+                this.safetyError = "";
+                if (this.safetyDialog) this.safetyDialog.close();
+                this.safetyHandle = null;
+                this.safetyName = "";
+                this.safetyPhotoUrl = "";
+                this.safetyPhotoFocus = "";
+            },
+
+            get safetyTitle() {
+                return this.safetyRevealed
+                    ? this.msgs.reportOrBlock.replace("{name}", this.safetyName)
+                    : this.msgs.reportPhoto;
+            },
+
+            get safetyPhotoStyle() {
+                return this.safetyPhotoFocus
+                    ? "object-position: " + this.safetyPhotoFocus
+                    : "";
+            },
+
+            get hasSafetyError() {
+                return this.safetyError !== "";
+            },
+
+            submitSafetyReport: function () {
+                var form = this.componentRoot.querySelector("[data-safety-form]");
+                var fields = new FormData(form);
+                this.postSafety(
+                    this.reportUrl,
+                    {
+                        handle: this.safetyHandle,
+                        reason: fields.get("reason"),
+                        details: fields.get("details"),
+                        also_block: this.safetyRevealed && fields.get("also_block") === "1",
+                    },
+                    this.msgs.reported
+                );
+            },
+
+            submitSafetyBlock: function () {
+                this.postSafety(this.blockUrl, { handle: this.safetyHandle }, this.msgs.blocked);
+            },
+
+            postSafety: function (url, payload, successMessage) {
+                var self = this;
+                if (this.safetySending || !this.safetyOpen || !this.safetyHandle) return;
+                var generation = this.safetyGeneration;
+                this.safetySending = true;
+                this.safetyError = "";
+                fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "X-CSRFToken": this.getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload),
+                })
+                    .then(function (r) {
+                        return r.json()
+                            .catch(function () { return null; })
+                            .then(function (data) { return { status: r.status, data: data }; });
+                    })
+                    .then(function (reply) {
+                        if (self.accessRevoked || generation !== self.safetyGeneration) return;
+                        if (reply.data && reply.data.ok) {
+                            self.closeSafety();
+                            self.showBanner(successMessage);
+                            self.refetch();
+                        } else if ([403, 404].indexOf(reply.status) !== -1) {
+                            // Authorization/state changed under us — re-sync.
+                            self.closeSafety();
+                            self.refetch();
+                        } else {
+                            // Keep the sheet and what was typed: nothing was filed.
+                            self.safetySending = false;
+                            self.safetyError = self.msgs.safetyError;
+                        }
+                    })
+                    .catch(function () {
+                        if (generation !== self.safetyGeneration) return;
+                        self.safetySending = false;
+                        self.safetyError = self.msgs.safetyError;
+                    });
+            },
+
             // --- Authoritative state ---------------------------------------
 
             refetch: function () {
@@ -440,8 +615,25 @@ document.addEventListener("alpine:init", function () {
                     name.textContent = m.first_name;
                     item.appendChild(img);
                     item.appendChild(name);
+                    if (!this.readOnly) item.appendChild(this.buildSafetyButton(m));
                     list.appendChild(item);
                 }
+            },
+
+            buildSafetyButton: function (mutual) {
+                var button = document.createElement("button");
+                button.type = "button";
+                button.className = "lobby-mutual-safety";
+                button.dataset.safetyHandle = mutual.handle;
+                button.dataset.safetyName = mutual.first_name;
+                button.dataset.safetyPhotoUrl = mutual.photo_url;
+                button.dataset.safetyPhotoFocus = mutual.photo_focus || "";
+                button.setAttribute("aria-label", this.msgs.safetyLabel);
+                var template = document.getElementById("lobby-safety-template");
+                if (template && template.content) {
+                    button.appendChild(template.content.cloneNode(true));
+                }
+                return button;
             },
 
             // --- Banners / reveal announcements ----------------------------
@@ -474,6 +666,7 @@ document.addEventListener("alpine:init", function () {
                 // §7.6: reject-at-end is server-side; this only flips the UI.
                 this.ended = true;
                 this.closeConfirm();
+                this.closeSafety();
                 this.stopUpdates();
             },
 
