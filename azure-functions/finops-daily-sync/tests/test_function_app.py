@@ -452,3 +452,114 @@ def test_missing_configuration_fails_loudly(timer_app, transport, monkeypatch, m
         run(timer_app)
 
     assert transport.posted == []
+
+
+# --- finops_daily_sync: one request per step -------------------------------
+
+COST_WEBHOOK = "https://example.test/finops/api/sync/"
+
+
+@pytest.fixture
+def cost_app(timer_app, monkeypatch):
+    monkeypatch.setenv("FINOPS_SYNC_ENABLED", "true")
+    monkeypatch.setenv("DJANGO_WEBHOOK_URL", COST_WEBHOOK)
+    return timer_app
+
+
+def _step_response(step, status="ok"):
+    return FakeResponse(
+        200,
+        {
+            "success": True,
+            "message": "done",
+            "steps": [{"step": step, "status": status, "elapsed": 1.0}],
+        },
+    )
+
+
+def _run_cost_sync(app):
+    app.daily_cost_sync(SimpleNamespace(past_due=False))
+
+
+def test_cost_sync_posts_one_step_per_request(cost_app, monkeypatch):
+    bodies, timeouts = [], []
+
+    def fake_post(url, **kwargs):
+        assert url == COST_WEBHOOK
+        bodies.append(kwargs["json"])
+        timeouts.append(kwargs["timeout"])
+        return _step_response(kwargs["json"]["steps"][0])
+
+    monkeypatch.setattr(cost_app.requests, "post", fake_post)
+    _run_cost_sync(cost_app)
+
+    assert [b["steps"] for b in bodies] == [[s] for s in cost_app.COST_SYNC_STEPS]
+    assert set(timeouts) == {cost_app.COST_SYNC_STEP_TIMEOUT}
+
+
+def test_cost_sync_timeout_stays_below_the_gateway_ceiling(cost_app):
+    connect, read = cost_app.COST_SYNC_STEP_TIMEOUT
+    assert connect + read < 240
+
+
+def test_cost_sync_stops_after_a_gateway_timeout(cost_app, monkeypatch):
+    posted = []
+
+    def fake_post(url, **kwargs):
+        step = kwargs["json"]["steps"][0]
+        posted.append(step)
+        return FakeResponse(504, {}) if step == "aggregations" else _step_response(step)
+
+    monkeypatch.setattr(cost_app.requests, "post", fake_post)
+    with pytest.raises(RuntimeError, match="aggregations \\(HTTP 504\\)"):
+        _run_cost_sync(cost_app)
+    assert posted == ["import", "aggregations"]
+
+
+def test_cost_sync_a_plain_500_does_not_skip_later_steps(cost_app, monkeypatch):
+    posted = []
+
+    def fake_post(url, **kwargs):
+        step = kwargs["json"]["steps"][0]
+        posted.append(step)
+        return FakeResponse(500, {}) if step == "anomalies" else _step_response(step)
+
+    monkeypatch.setattr(cost_app.requests, "post", fake_post)
+    with pytest.raises(RuntimeError, match="anomalies \\(HTTP 500\\)"):
+        _run_cost_sync(cost_app)
+    assert posted == list(cost_app.COST_SYNC_STEPS)
+
+
+def test_cost_sync_fails_the_invocation_on_an_errored_step(cost_app, monkeypatch):
+    def fake_post(url, **kwargs):
+        step = kwargs["json"]["steps"][0]
+        return _step_response(step, "error" if step == "forecasts" else "ok")
+
+    monkeypatch.setattr(cost_app.requests, "post", fake_post)
+    with pytest.raises(RuntimeError, match="forecasts \\(error\\)"):
+        _run_cost_sync(cost_app)
+
+
+def test_cost_sync_partial_step_warns_but_succeeds(cost_app, monkeypatch, caplog):
+    def fake_post(url, **kwargs):
+        step = kwargs["json"]["steps"][0]
+        return _step_response(step, "partial" if step == "import" else "ok")
+
+    monkeypatch.setattr(cost_app.requests, "post", fake_post)
+    with caplog.at_level(logging.WARNING):
+        _run_cost_sync(cost_app)
+    assert "finished partially" in caplog.text
+
+
+def test_cost_sync_old_django_that_ran_everything_is_not_repeated(
+    cost_app, monkeypatch
+):
+    calls = []
+
+    def fake_post(url, **kwargs):
+        calls.append(kwargs["json"])
+        return FakeResponse(200, {"success": True, "message": "all"})
+
+    monkeypatch.setattr(cost_app.requests, "post", fake_post)
+    _run_cost_sync(cost_app)
+    assert len(calls) == 1

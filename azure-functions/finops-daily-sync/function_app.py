@@ -5,7 +5,7 @@ Automated daily synchronization of Azure Cost Management data.
 Triggers the Django webhook endpoint to refresh cost data.
 
 Schedule: Daily at 3:00 AM UTC (0 0 3 * * *)
-Timeout: 10 minutes
+Timeout: 10 minutes (host.json); each step request is bounded to 235s
 """
 
 import azure.functions as func
@@ -32,6 +32,14 @@ CONNECT_TIMEOUT = 10
 # host.json gives this function 10 minutes. Leave headroom so the run ends with
 # a summary rather than being killed mid-region.
 BUDGET_SECONDS = 8 * 60
+
+# The daily cost sync is posted one step per request. All five together took
+# 250s on 2026-11-01 and the App Service front end answered 504 at ~240s even
+# though Django finished every step. The read timeout sits just under that
+# ceiling, so a hung step fails here with a clear message rather than as a 504,
+# and above Django's own per-step time so Django answers first.
+COST_SYNC_STEPS = ("import", "aggregations", "anomalies", "forecasts", "reservations")
+COST_SYNC_STEP_TIMEOUT = (CONNECT_TIMEOUT, 225)
 
 # One run fits roughly eight regions: in production a region takes 15-100s
 # (throttling from prices.azure.com, not data volume), so nineteen never fit
@@ -61,7 +69,7 @@ def _is_last_run_of_window(now: datetime) -> bool:
     schedule="0 0 3 * * *",  # 3:00 AM UTC daily
     arg_name="timer",
     run_on_startup=False,  # Don't run on deployment
-    use_monitor=True  # Enable monitoring in Azure Portal
+    use_monitor=True,  # Enable monitoring in Azure Portal
 )
 def daily_cost_sync(timer: func.TimerRequest) -> None:
     """
@@ -75,84 +83,107 @@ def daily_cost_sync(timer: func.TimerRequest) -> None:
     timestamp = datetime.utcnow().isoformat()
 
     # Check if sync is enabled
-    if not os.getenv('FINOPS_SYNC_ENABLED', 'false').lower() == 'true':
-        logging.info(f'[{timestamp}] FinOps sync is disabled (FINOPS_SYNC_ENABLED=false)')
+    if not os.getenv("FINOPS_SYNC_ENABLED", "false").lower() == "true":
+        logging.info(
+            f"[{timestamp}] FinOps sync is disabled (FINOPS_SYNC_ENABLED=false)"
+        )
         return
 
     # Get configuration from environment
-    webhook_url = os.getenv('DJANGO_WEBHOOK_URL')
-    sync_token = os.getenv('SECRET_SYNC_TOKEN')
+    webhook_url = os.getenv("DJANGO_WEBHOOK_URL")
+    sync_token = os.getenv("SECRET_SYNC_TOKEN")
 
     # Validate required configuration
     if not webhook_url:
-        logging.error(f'[{timestamp}] Missing required environment variable: DJANGO_WEBHOOK_URL')
-        raise ValueError('DJANGO_WEBHOOK_URL environment variable is required')
+        logging.error(
+            f"[{timestamp}] Missing required environment variable: DJANGO_WEBHOOK_URL"
+        )
+        raise ValueError("DJANGO_WEBHOOK_URL environment variable is required")
 
     if not sync_token:
-        logging.error(f'[{timestamp}] Missing required environment variable: SECRET_SYNC_TOKEN')
-        raise ValueError('SECRET_SYNC_TOKEN environment variable is required')
+        logging.error(
+            f"[{timestamp}] Missing required environment variable: SECRET_SYNC_TOKEN"
+        )
+        raise ValueError("SECRET_SYNC_TOKEN environment variable is required")
 
     # Log sync initiation
     if timer.past_due:
-        logging.warning(f'[{timestamp}] Function past-due warning (cold start delay)')
+        logging.warning(f"[{timestamp}] Function past-due warning (cold start delay)")
 
-    logging.info(f'[{timestamp}] Initiating FinOps daily cost sync')
-    logging.info(f'[{timestamp}] Target webhook: {webhook_url}')
+    logging.info(f"[{timestamp}] Initiating FinOps daily cost sync")
+    logging.info(f"[{timestamp}] Target webhook: {webhook_url}")
 
-    try:
-        # Call Django webhook endpoint
-        response = requests.post(
-            webhook_url,
-            headers={
-                'X-Sync-Token': sync_token,
-                'User-Agent': 'Azure-Function-FinOps-Sync/1.0'
-            },
-            timeout=600  # 10 minutes (same as Azure Function timeout)
+    failures: list[str] = []
+    for step in COST_SYNC_STEPS:
+        try:
+            response = requests.post(
+                webhook_url,
+                headers={
+                    "X-Sync-Token": sync_token,
+                    "User-Agent": "Azure-Function-FinOps-Sync/2.0",
+                },
+                json={"steps": [step]},
+                timeout=COST_SYNC_STEP_TIMEOUT,
+            )
+            response.raise_for_status()
+            result = response.json()
+        except requests.exceptions.Timeout:
+            # Django should answer inside its own time. Stop rather than start
+            # the next step on a worker that may still be busy with this one.
+            logging.error(
+                f"[{timestamp}] {step}: no response within "
+                f"{COST_SYNC_STEP_TIMEOUT[1]}s; stopping the run"
+            )
+            failures.append(f"{step} (timeout)")
+            break
+        except requests.exceptions.HTTPError as e:
+            status = e.response.status_code if e.response is not None else "unknown"
+            body = e.response.text[:500] if e.response is not None else ""
+            logging.error(f"[{timestamp}] {step}: HTTP {status} - {body}")
+            failures.append(f"{step} (HTTP {status})")
+            # A gateway error may mean the worker is still busy with this step,
+            # so stop; any other error is this step's own and the rest can run.
+            if status in (502, 503, 504):
+                break
+            continue
+        except requests.exceptions.RequestException as e:
+            logging.error(f"[{timestamp}] {step}: network error: {e}")
+            failures.append(f"{step} ({type(e).__name__})")
+            break
+        except ValueError as e:
+            logging.error(f"[{timestamp}] {step}: invalid JSON response: {e}")
+            failures.append(f"{step} (invalid response)")
+            break
+
+        results = result.get("steps")
+        logging.info(
+            f'[{timestamp}] {step}: {result.get("message", "No message provided")} '
+            f'{results if results is not None else ""}'
         )
+        if results is None:
+            # A Django build from before per-step requests ignored the body and
+            # ran all five steps in this one call (this app deploys on merge,
+            # Django waits for a slot swap). The work is done; stop here.
+            logging.warning(
+                f"[{timestamp}] Django ran the full sync in one request "
+                "(no per-step support yet)"
+            )
+            break
+        for item in results:
+            if item.get("status") == "error":
+                failures.append(f'{item.get("step")} (error)')
+            elif item.get("status") == "partial":
+                logging.warning(
+                    f'[{timestamp}] {item.get("step")} finished partially; see '
+                    "the [finops_sync] traces for the cause"
+                )
 
-        # Check response status
-        response.raise_for_status()
+    # Every step is attempted unless the request itself failed, and the
+    # invocation fails afterwards so an incomplete night reaches the alert.
+    if failures:
+        raise RuntimeError(f'FinOps daily sync incomplete: {"; ".join(failures)}')
 
-        # Parse response
-        result = response.json()
-        status = result.get('status', 'unknown')
-        message = result.get('message', 'No message provided')
-
-        # Log success
-        logging.info(f'[{timestamp}] Sync completed successfully')
-        logging.info(f'[{timestamp}] Status: {status}')
-        logging.info(f'[{timestamp}] Message: {message}')
-
-        # Log additional details if available
-        if 'details' in result:
-            details = result['details']
-            logging.info(f'[{timestamp}] Details: {details}')
-
-    except requests.exceptions.Timeout:
-        logging.error(f'[{timestamp}] Sync request timed out after 10 minutes')
-        raise
-
-    except requests.exceptions.HTTPError as e:
-        logging.error(f'[{timestamp}] HTTP error during sync: {e}')
-        logging.error(f'[{timestamp}] Response status: {e.response.status_code}')
-        logging.error(f'[{timestamp}] Response body: {e.response.text}')
-        raise
-
-    except requests.exceptions.RequestException as e:
-        logging.error(f'[{timestamp}] Network error during sync: {str(e)}')
-        raise
-
-    except ValueError as e:
-        # JSON parsing error
-        logging.error(f'[{timestamp}] Invalid JSON response from webhook: {str(e)}')
-        logging.error(f'[{timestamp}] Response text: {response.text}')
-        raise
-
-    except Exception as e:
-        logging.error(f'[{timestamp}] Unexpected error during sync: {str(e)}')
-        raise
-
-    logging.info(f'[{timestamp}] FinOps daily sync function completed')
+    logging.info(f"[{timestamp}] FinOps daily sync function completed")
 
 
 @app.function_name(name="retail_price_daily_sync")
