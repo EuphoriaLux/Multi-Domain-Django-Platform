@@ -50,19 +50,66 @@ def _reject_invalid_sync_token(request):
     return None
 
 
+def _requested_cost_sync_steps(request):
+    """Parse the optional ``{"steps": [...], "full": bool}`` request body.
+
+    Returns ``(steps, full, error_response)``. An empty body, or one without
+    ``steps``, means "run everything" - the contract before the Function
+    started spending one request per step, so an older caller keeps working.
+    """
+    from .management.commands.sync_daily_costs import STEPS
+
+    if not request.body:
+        return None, False, None
+    try:
+        payload = json.loads(request.body)
+    except ValueError:
+        return None, False, _bad_request("Body must be JSON")
+    if not isinstance(payload, dict):
+        return None, False, _bad_request("Body must be a JSON object")
+    steps = payload.get("steps")
+    if steps is not None and (
+        not isinstance(steps, list)
+        or not steps
+        or any(step not in STEPS for step in steps)
+    ):
+        return None, False, _bad_request(f"steps must be a non-empty list of {STEPS}")
+    return steps, payload.get("full") is True, None
+
+
+def _bad_request(message):
+    return JsonResponse({"success": False, "error": message}, status=400)
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def trigger_cost_sync(request):
-    """Webhook endpoint to trigger cost data sync"""
+    """Webhook endpoint to trigger cost data sync.
+
+    The whole sync takes ~250s, past the ~240s App Service request ceiling, so
+    the Function posts ``{"steps": ["import"]}`` and so on, one request per
+    step. ``steps`` in the response lets it tell a per-step caller from a Django
+    build that ignored the body and ran everything.
+    """
     denied = _reject_invalid_sync_token(request)
     if denied is not None:
         return denied
 
+    steps, full, invalid = _requested_cost_sync_steps(request)
+    if invalid is not None:
+        return invalid
+
     try:
+        from .management.commands import sync_daily_costs
+
         output_stream = io.StringIO()
         error_stream = io.StringIO()
 
-        call_command("sync_daily_costs", stdout=output_stream, stderr=error_stream)
+        command = sync_daily_costs.Command()
+        options = {"stdout": output_stream, "stderr": error_stream, "full": full}
+        if steps:
+            options["steps"] = steps
+        call_command(command, **options)
 
         output = output_stream.getvalue()
         errors = error_stream.getvalue()
@@ -71,6 +118,7 @@ def trigger_cost_sync(request):
             {
                 "success": True,
                 "message": "Cost sync completed successfully",
+                "steps": command.step_results,
                 "output": output,
                 "errors": errors if errors else None,
             }

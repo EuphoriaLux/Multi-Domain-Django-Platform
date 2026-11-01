@@ -40,6 +40,7 @@ so run_step already sees it as ``status=error``.
 
 import logging
 import time
+from datetime import date
 
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
@@ -53,13 +54,58 @@ from power_up.finops.models import CostExport
 
 logger = logging.getLogger(__name__)
 
+# The five steps, in the order they must run. The webhook can ask for any
+# subset so the Azure Function can spend one request per step: the whole run
+# took 250s on 2026-11-01 (aggregations 176s, anomalies 60s), which crossed the
+# ~240s App Service ceiling and 504'd although every step had succeeded.
+STEPS = ("import", "aggregations", "anomalies", "forecasts", "reservations")
+
+# A nightly import only touches the recent past, so the nightly refresh rebuilds
+# a week. The 60-day rebuild (~176s) catches late corrections to older days and
+# runs on Sundays, or on demand with --full.
+INCREMENTAL_DAYS_BACK = 7
+FULL_DAYS_BACK = 60
+FULL_REFRESH_WEEKDAY = 6  # Sunday
+
+
+def aggregation_days_back(full=False, today=None):
+    """How many days the aggregation step rebuilds on this run."""
+    today = today or date.today()
+    if full or today.weekday() == FULL_REFRESH_WEEKDAY:
+        return FULL_DAYS_BACK
+    return INCREMENTAL_DAYS_BACK
+
 
 class Command(BaseCommand):
     help = "Sync daily Azure cost data (import new exports + refresh aggregations)"
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--step",
+            action="append",
+            choices=STEPS,
+            dest="steps",
+            help="Run only this step (repeatable). Default: all five, in order.",
+        )
+        parser.add_argument(
+            "--full",
+            action="store_true",
+            help=(
+                f"Rebuild {FULL_DAYS_BACK} days of aggregations instead of "
+                f"{INCREMENTAL_DAYS_BACK} (always done on Sundays)."
+            ),
+        )
+
     def handle(self, *args, **options):
+        selected = set(options.get("steps") or STEPS)
+        days_back = aggregation_days_back(full=options.get("full", False))
+        self.step_results = []
         self.stdout.write(self.style.SUCCESS("Starting daily cost data sync"))
-        logger.info("[finops_sync] run started")
+        logger.info(
+            "[finops_sync] run started steps=%s aggregation_days_back=%s",
+            ",".join(s for s in STEPS if s in selected),
+            days_back,
+        )
 
         run_started = time.monotonic()
         timings = []
@@ -76,6 +122,8 @@ class Command(BaseCommand):
             A step returning a string is reporting failures its child swallowed;
             the step is then marked partial rather than ok.
             """
+            if slug not in selected:
+                return
             self.stdout.write(f"\n[{number}/5] {description}...")
             logger.info("[finops_sync] step=%s started", slug)
             started = time.monotonic()
@@ -84,6 +132,9 @@ class Command(BaseCommand):
             except Exception as exc:
                 elapsed = time.monotonic() - started
                 timings.append((slug, elapsed, "error"))
+                self.step_results.append(
+                    {"step": slug, "status": "error", "elapsed": round(elapsed, 1)}
+                )
                 logger.exception(
                     "[finops_sync] step=%s status=error elapsed=%.1fs", slug, elapsed
                 )
@@ -93,6 +144,9 @@ class Command(BaseCommand):
 
             if swallowed:
                 timings.append((slug, elapsed, "partial"))
+                self.step_results.append(
+                    {"step": slug, "status": "partial", "elapsed": round(elapsed, 1)}
+                )
                 logger.warning(
                     "[finops_sync] step=%s status=partial elapsed=%.1fs %s",
                     slug,
@@ -102,6 +156,9 @@ class Command(BaseCommand):
                 return
 
             timings.append((slug, elapsed, "ok"))
+            self.step_results.append(
+                {"step": slug, "status": "ok", "elapsed": round(elapsed, 1)}
+            )
             logger.info("[finops_sync] step=%s status=ok elapsed=%.1fs", slug, elapsed)
 
         def _import():
@@ -131,7 +188,7 @@ class Command(BaseCommand):
             return None
 
         def _aggregations():
-            result = CostAggregator.refresh_all(days_back=60, currency="EUR")
+            result = CostAggregator.refresh_all(days_back=days_back, currency="EUR")
             self.stdout.write(
                 self.style.SUCCESS(
                     f'  ✓ Daily aggregations: {result["daily_aggregations"]}'

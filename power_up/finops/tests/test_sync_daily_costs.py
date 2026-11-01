@@ -371,3 +371,111 @@ class TestForecastRefreshIsNotDestructive:
         remaining = list(CostForecast.objects.all())
         assert len(remaining) == 1
         assert remaining[0].forecast_date == replacement.forecast_date
+
+
+class TestIncrementalAggregation:
+    def test_weekday_refreshes_a_week_and_sunday_the_full_window(self):
+        from datetime import date
+
+        from power_up.finops.management.commands.sync_daily_costs import (
+            FULL_DAYS_BACK,
+            INCREMENTAL_DAYS_BACK,
+            aggregation_days_back,
+        )
+
+        assert aggregation_days_back(today=date(2026, 11, 2)) == INCREMENTAL_DAYS_BACK
+        assert aggregation_days_back(today=date(2026, 11, 1)) == FULL_DAYS_BACK
+        assert (
+            aggregation_days_back(full=True, today=date(2026, 11, 2)) == FULL_DAYS_BACK
+        )
+
+    def test_command_passes_the_window_to_the_aggregator(self, monkeypatch):
+        seen = {}
+
+        class FakeAggregator:
+            @staticmethod
+            def refresh_all(**kwargs):
+                seen.update(kwargs)
+                return {
+                    "daily_aggregations": 1,
+                    "monthly_aggregations": 1,
+                    "period": "",
+                }
+
+        monkeypatch.setattr(f"{MOD}.call_command", clean_children)
+        monkeypatch.setattr(f"{MOD}.CostAggregator", FakeAggregator)
+        monkeypatch.setattr(f"{MOD}.aggregation_days_back", lambda full=False: 7)
+
+        class FakeCostExport:
+            class objects:
+                @staticmethod
+                def filter(**kwargs):
+                    return FakeCostExport.objects
+
+                @staticmethod
+                def count():
+                    return 0
+
+        monkeypatch.setattr(f"{MOD}.CostExport", FakeCostExport)
+        call_command("sync_daily_costs", "--step", "aggregations", stdout=io.StringIO())
+        assert seen["days_back"] == 7
+
+
+class TestStepSelection:
+    def _run(self, monkeypatch, *args):
+        invoked = []
+
+        def children(command_or_name, *a, **kw):
+            invoked.append(child_of(command_or_name))
+            return clean_children(command_or_name, *a, **kw)
+
+        monkeypatch.setattr(f"{MOD}.call_command", children)
+        monkeypatch.setattr(
+            f"{MOD}.CostAggregator",
+            type(
+                "A",
+                (),
+                {
+                    "refresh_all": staticmethod(
+                        lambda **k: {
+                            "daily_aggregations": 0,
+                            "monthly_aggregations": 0,
+                            "period": "",
+                        }
+                    )
+                },
+            ),
+        )
+        monkeypatch.setattr(
+            f"{MOD}.CostExport",
+            type(
+                "E",
+                (),
+                {
+                    "objects": type(
+                        "M", (), {"filter": lambda s, **k: s, "count": lambda s: 0}
+                    )()
+                },
+            ),
+        )
+        from power_up.finops.management.commands.sync_daily_costs import Command
+
+        command = Command()
+        call_command(command, *args, stdout=io.StringIO())
+        return invoked, command.step_results
+
+    def test_only_the_requested_step_runs(self, monkeypatch):
+        invoked, results = self._run(monkeypatch, "--step", "anomalies")
+        assert invoked == ["detect_cost_anomalies"]
+        assert [r["step"] for r in results] == ["anomalies"]
+        assert results[0]["status"] == "ok"
+
+    def test_no_selection_runs_all_five(self, monkeypatch):
+        _, results = self._run(monkeypatch)
+        assert [r["step"] for r in results] == [
+            "import",
+            "aggregations",
+            "anomalies",
+            "forecasts",
+            "reservations",
+        ]

@@ -19,6 +19,21 @@ Management Command (sync_daily_costs)
 Cost Data Import + Aggregation
 ```
 
+**The cost sync is posted one step per request, and this is load-bearing.** The
+five steps (`import`, `aggregations`, `anomalies`, `forecasts`, `reservations`)
+took 250s together on 2026-11-01, past the ~240s App Service request ceiling,
+so the gateway answered 504 and the alert fired although Django had finished
+every step. The Function now sends `{"steps": ["<step>"]}` for each step with a
+10s connect / 225s read timeout, and fails the invocation afterwards if any
+step errored or a request failed. A 502/503/504 stops the run (the worker may
+still be busy); any other HTTP error only skips that step. A Django build that
+predates per-step requests ignores the body and runs everything in one call;
+the Function detects the missing `steps` in the response and does not repeat it.
+
+The aggregation step rebuilds the last 7 days nightly and the full 60 days on
+Sundays (or with `{"full": true}` / `--full`), since a nightly import only
+touches the recent past.
+
 The same Function App also runs `retail_price_daily_sync` every 20 minutes
 from 04:00 to 06:40 UTC. It
 archives every paginated Azure Retail Prices response and appends normalized
