@@ -16,7 +16,7 @@ django-htmx==1.29.0  # HTMX server-side integration
 psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.20.1  # Updated from 65.1.0 (latest stable)
+django-allauth==65.21.0  # Updated from 65.1.0 (latest stable)
 PyJWT==2.15.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.2  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
 google-auth==2.62.0  # Required for Google Wallet API authentication
@@ -30,8 +30,8 @@ google-auth-oauthlib==1.5.0
 
 # Storage
 django-storages==1.14.6  # Updated from 1.14.2
-azure-storage-blob==12.31.0
-azure-identity==1.26.0  # Managed Identity & Azure CLI authentication
+azure-storage-blob==12.31.1
+azure-identity==1.27.0  # Managed Identity & Azure CLI authentication
 
 # Image processing
 Pillow==13.0.0  # Updated from 12.3.0 (security fixes)
@@ -78,7 +78,7 @@ django-modeltranslation==0.20.6
 polib==1.2.0  # .po file parsing for check_translations command and scripts/i18n/ tooling
 
 # Testing
-pytest==9.1.1
+pytest==9.2.0
 pytest-django==4.14.0
 pytest-playwright==0.10.0
 pytest-mock==3.17.0  # Provides 'mocker' fixture for mocking
