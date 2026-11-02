@@ -430,6 +430,40 @@ class MollieEventCheckoutTests(CreditFixture):
         self.assertEqual(moment, parse_datetime(paid_at))
         self.assertEqual(payment.provider, PaymentTransaction.Provider.MOLLIE)
 
+    @override_settings(**MOLLIE_ON)
+    def test_payment_refunded_before_first_sync_grants_no_seat_or_credit(self):
+        from crush_lu.models.credits import CrushCredit
+
+        self.target.is_cancelled = True
+        self.target.save(update_fields=["is_cancelled"])
+        row = self._pending_row()
+        refunded = _response(
+            200,
+            {
+                "id": PAYMENT_ID,
+                "status": "paid",
+                "amount": {"value": f"{FEE:.2f}", "currency": "EUR"},
+                "_embedded": {
+                    "refunds": [
+                        {
+                            "amount": {"value": f"{FEE:.2f}", "currency": "EUR"},
+                            "status": "refunded",
+                        }
+                    ],
+                    "chargebacks": [],
+                },
+            },
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch(REQUEST, return_value=refunded):
+                self.client.post(WEBHOOK, {"id": PAYMENT_ID})
+
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.REFUNDED)
+        self.assertFalse(CrushCredit.objects.filter(user=self.buyer).exists())
+        self.seat.refresh_from_db()
+        self.assertFalse(self.seat.payment_confirmed)
+
     # -- reports ------------------------------------------------------------
 
     def test_mollie_revenue_counts_as_event_cash(self):

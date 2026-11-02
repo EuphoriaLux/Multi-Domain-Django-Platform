@@ -552,6 +552,29 @@ def _settle_paid(tx, payment):
 
         known = sum(mollie.money_returned(locked.raw_response))
         is_event = locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+        if (
+            is_event
+            and locked.status == PaymentTransaction.Status.PENDING
+            and returned >= locked.amount
+        ):
+            # All of it went back before we ever settled the payment. Applying
+            # the capture first would confirm the seat, or for a cancelled
+            # event/registration issue Crush Credit, on money that has already
+            # been returned. Record the charge as REFUNDED and grant nothing.
+            locked.status = PaymentTransaction.Status.REFUNDED
+            locked.raw_response = payment
+            locked.failure_reason = _describe_money_returned(
+                locked, refunded, charged_back
+            )
+            locked.save(
+                update_fields=["status", "raw_response", "failure_reason", "updated_at"]
+            )
+            logger.warning(
+                "Mollie event payment %s was fully returned before it was "
+                "settled; recorded REFUNDED, no seat or credit granted.",
+                locked.transaction_reference,
+            )
+            return
         duplicate_of = (
             _already_paid_by(locked)
             if is_event and locked.status == PaymentTransaction.Status.PENDING
