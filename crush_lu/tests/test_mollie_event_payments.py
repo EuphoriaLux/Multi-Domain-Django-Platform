@@ -287,7 +287,7 @@ class MollieEventCheckoutTests(CreditFixture):
         self.assertIn("CRUSH-EVT-MOLLIE-1", second.failure_reason)
 
     @override_settings(**MOLLIE_ON)
-    def test_full_refund_marks_the_row_refunded_and_leaves_the_registration(self):
+    def test_full_refund_marks_the_row_refunded_and_the_seat_unpaid(self):
         self._pending_row()
         with self.captureOnCommitCallbacks(execute=True):
             with mock.patch(REQUEST, return_value=_payment("paid", checkout=False)):
@@ -317,7 +317,8 @@ class MollieEventCheckoutTests(CreditFixture):
         self.assertEqual(row.status, PaymentTransaction.Status.REFUNDED)
         self.assertIn("refunded", row.failure_reason)
         self.seat.refresh_from_db()
-        self.assertTrue(self.seat.payment_confirmed)
+        self.assertFalse(self.seat.payment_confirmed)
+        self.assertEqual(self.seat.status, "confirmed")
 
     @override_settings(**MOLLIE_ON)
     def test_return_page_lands_on_the_event(self):
@@ -510,6 +511,127 @@ class MollieEventCheckoutTests(CreditFixture):
         self.assertEqual(row.status, PaymentTransaction.Status.REFUNDED)
         self.assertEqual(credit.status, CrushCredit.Status.VOID)
         self.assertEqual(available_credit_cents(self.buyer), 0)
+
+    @override_settings(**MOLLIE_ON)
+    def test_credit_switch_refused_while_a_mollie_checkout_is_being_created(self):
+        from crush_lu.models.credits import CrushCredit
+        from crush_lu.services.credits import issue_credit
+        from crush_lu.tests.test_crush_credit import FEE_CENTS
+
+        issue_credit(self.buyer, FEE_CENTS, CrushCredit.Reason.GOODWILL)
+        self._pending_row(payment_id="")  # row written, Mollie not yet answered
+        with mock.patch(REQUEST) as call:
+            response = self._post({"payment_method": "credit"})
+
+        self.assertEqual(response.status_code, 409)
+        call.assert_not_called()
+        self.seat.refresh_from_db()
+        self.assertFalse(self.seat.payment_confirmed)
+
+    @override_settings(**MOLLIE_ON)
+    def test_mollie_checkout_waits_for_an_in_flight_claim(self):
+        from crush_lu.models.payments import EventCheckoutCreationClaim
+
+        EventCheckoutCreationClaim.objects.create(
+            registration=self.seat,
+            registration_id_snapshot=self.seat.pk,
+            event_id_snapshot=self.target.pk,
+            transaction_reference="CRUSH-EVT-CLAIM",
+            payment_method="credit",
+        )
+        with mock.patch(REQUEST) as call:
+            response = self._post()
+        self.assertEqual(response.status_code, 409)
+        call.assert_not_called()
+        self.assertFalse(self._mollie_rows().exists())
+
+    @override_settings(**MOLLIE_ON)
+    def test_pending_sumup_checkout_is_closed_before_mollie_opens(self):
+        sumup_row = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-OLDSUMUP",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-OLD",
+            amount=FEE,
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.buyer,
+            event_registration=self.seat,
+        )
+        with mock.patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+            return_value=True,
+        ) as closed, mock.patch(
+            "crush_lu.services.sumup.SumUpClient.__init__", return_value=None
+        ), mock.patch(
+            REQUEST, return_value=_payment("open")
+        ):
+            response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        closed.assert_called_once_with("CHK-OLD")
+        sumup_row.refresh_from_db()
+        self.assertEqual(sumup_row.status, PaymentTransaction.Status.CANCELLED)
+
+    @override_settings(**MOLLIE_ON, ONLINE_PAYMENTS_ENABLED=True)
+    def test_unclosable_sumup_checkout_blocks_mollie_when_sumup_is_live(self):
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-OLDSUMUP",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-OLD",
+            amount=FEE,
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.buyer,
+            event_registration=self.seat,
+        )
+        with mock.patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+            return_value=False,
+        ), mock.patch(
+            "crush_lu.services.sumup.SumUpClient.__init__", return_value=None
+        ), mock.patch(
+            REQUEST
+        ) as call:
+            response = self._post()
+
+        self.assertEqual(response.status_code, 409)
+        call.assert_not_called()
+        self.assertFalse(self._mollie_rows().exists())
+
+    @override_settings(**MOLLIE_ON)
+    def test_cancelling_after_a_full_refund_mints_no_credit(self):
+        from crush_lu.models.credits import CrushCredit
+
+        row = self._pending_row()
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch(REQUEST, return_value=_payment("paid", checkout=False)):
+                self.client.post(WEBHOOK, {"id": PAYMENT_ID})
+        refunded = _response(
+            200,
+            {
+                "id": PAYMENT_ID,
+                "status": "paid",
+                "amount": {"value": f"{FEE:.2f}", "currency": "EUR"},
+                "_embedded": {
+                    "refunds": [
+                        {
+                            "amount": {"value": f"{FEE:.2f}", "currency": "EUR"},
+                            "status": "refunded",
+                        }
+                    ],
+                    "chargebacks": [],
+                },
+            },
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch(REQUEST, return_value=refunded):
+                self.client.post(WEBHOOK, {"id": PAYMENT_ID})
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.REFUNDED)
+
+        self._cancel(self.buyer, self.target)
+
+        self.assertFalse(CrushCredit.objects.filter(user=self.buyer).exists())
 
     # -- reports ------------------------------------------------------------
 

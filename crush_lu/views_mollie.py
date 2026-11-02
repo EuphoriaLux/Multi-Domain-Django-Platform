@@ -15,7 +15,8 @@ Neither request is trusted: both re-read the payment from Mollie
 Event seats: ``create_sumup_event_checkout`` hands card payments to
 ``open_mollie_event_checkout`` when ``mollie_event_payments_active()``. Refunds
 of a seat are made by staff in the Mollie dashboard (or by bank transfer); the
-webhook then records REFUNDED on the row but never touches the registration.
+webhook then records REFUNDED on the row, voids the credit it funded and marks
+the seat unpaid (status unchanged, so staff decide about the seat).
 """
 
 import logging
@@ -233,6 +234,29 @@ def _withdraw_event_credits(tx):
         )
 
 
+def _unconfirm_refunded_seat(tx):
+    """Mark the seat unpaid once all of its money went back.
+
+    Left True, ``payment_confirmed`` would let a later cancellation treat the
+    refunded payment as a legacy cash payment and mint Crush Credit for it.
+    The status stays as it is (staff decide about the seat), and the member can
+    pay again. Skipped when another PAID payment still backs the seat. Lock
+    order: the caller holds the payment, then the event, then the registration.
+    """
+    if not tx.event_registration_id or _already_paid_by(tx):
+        return
+    snapshot = EventRegistration.objects.only("event_id").get(
+        pk=tx.event_registration_id
+    )
+    MeetupEvent.objects.select_for_update().get(pk=snapshot.event_id)
+    registration = EventRegistration.objects.select_for_update().get(
+        pk=tx.event_registration_id
+    )
+    if registration.payment_confirmed:
+        registration.payment_confirmed = False
+        registration.save(update_fields=["payment_confirmed"])
+
+
 def _already_paid_by(tx):
     """Reference of another PAID payment for ``tx``'s registration, or None."""
     other = (
@@ -298,6 +322,13 @@ def _event_prepare_state(registration_id, event_id, acting_user):
                 return _being_prepared_response(), None
             now = timezone.now()
             pending = []
+            sumup_pending = [
+                (payment.pk, payment.sumup_checkout_id)
+                for payment in payments
+                if payment.provider == PaymentTransaction.Provider.SUMUP
+                and payment.status == PaymentTransaction.Status.PENDING
+                and payment.sumup_checkout_id
+            ]
             for payment in payments:
                 if (
                     payment.provider != PaymentTransaction.Provider.MOLLIE
@@ -317,6 +348,7 @@ def _event_prepare_state(registration_id, event_id, acting_user):
                     continue
                 pending.append(payment.pk)
             return None, {
+                "sumup_pending": sumup_pending,
                 "pending_ids": pending,
                 "amount": event.registration_fee,
                 "title": event.title,
@@ -324,6 +356,58 @@ def _event_prepare_state(registration_id, event_id, acting_user):
                 "registration_id": registration.pk,
             }
     return _being_prepared_response(), None
+
+
+def _close_sumup_checkouts(pending):
+    """Deactivate earlier SumUp checkouts so only the Mollie one can be paid.
+
+    ``pending`` is ``[(payment pk, checkout id)]``. While SumUp is shut
+    (``ONLINE_PAYMENTS_ENABLED=False``) a checkout SumUp will not close is
+    treated as closed, the accepted risk recorded in
+    ``services.sumup`` (Tom, 2026-10-16); otherwise closure must be proven.
+    Returns False when any checkout is not closed or has since been paid.
+    """
+    from crush_lu.services.event_payments import sumup_payments_paused
+    from crush_lu.services.sumup import SumUpClient, SumUpError
+
+    paused = sumup_payments_paused()
+    try:
+        client = SumUpClient()
+    except SumUpError:
+        client = None
+    closed = {}
+    for payment_pk, checkout_id in pending:
+        try:
+            ok = bool(client and client.ensure_checkout_not_payable(checkout_id))
+        except SumUpError:
+            ok = False
+        if not ok and paused:
+            logger.warning(
+                "[PAYMENTS-PAUSED] SumUp checkout %s not proven closed; "
+                "treated as closed while SumUp is paused.",
+                checkout_id,
+            )
+            ok = True
+        closed[payment_pk] = ok
+    with transaction.atomic():
+        rows = {
+            row.pk: row
+            for row in PaymentTransaction.objects.select_for_update()
+            .filter(pk__in=closed)
+            .order_by("pk")
+        }
+        for payment_pk, ok in closed.items():
+            row = rows.get(payment_pk)
+            if row is None or row.status == PaymentTransaction.Status.PAID or not ok:
+                return False
+            if row.status == PaymentTransaction.Status.PENDING:
+                row.status = PaymentTransaction.Status.CANCELLED
+                row.failure_reason = (
+                    "Superseded by a Mollie checkout - the SumUp checkout was "
+                    "deactivated before any card was charged."
+                )
+                row.save(update_fields=["status", "failure_reason", "updated_at"])
+    return True
 
 
 def open_mollie_event_checkout(request, registration_id):
@@ -355,6 +439,15 @@ def open_mollie_event_checkout(request, registration_id):
     response, state = _event_prepare_state(initial.pk, initial.event_id, request.user)
     if response is not None:
         return response
+
+    if state["sumup_pending"] and not _close_sumup_checkouts(state["sumup_pending"]):
+        return _event_json_error(
+            _(
+                "Your earlier card checkout could not be closed. "
+                "Please wait and try again."
+            ),
+            409,
+        )
 
     client = mollie.MollieClient()
     event_url = reverse("crush_lu:event_detail", kwargs={"event_id": state["event_id"]})
@@ -444,7 +537,12 @@ def open_mollie_event_checkout(request, registration_id):
                     ),
                     409,
                 )
-            if any(
+            # A claim means another checkout (a Crush Credit switch, or a
+            # SumUp creator) is mid-flight for this seat: opening a payable
+            # Mollie checkout beside it would defeat its retirement barrier.
+            if EventCheckoutCreationClaim.objects.filter(
+                registration_id=registration.pk
+            ).exists() or any(
                 p.provider == PaymentTransaction.Provider.MOLLIE
                 and p.status == PaymentTransaction.Status.PENDING
                 for p in payments
@@ -664,6 +762,7 @@ def _settle_paid(tx, payment):
             and locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
         ):
             _withdraw_event_credits(locked)
+            _unconfirm_refunded_seat(locked)
         transaction.on_commit(
             lambda reference=locked.transaction_reference, state=locked.status, kind=(
                 locked.purpose
@@ -675,7 +774,7 @@ def _settle_paid(tx, payment):
                     description,
                     state,
                     (
-                        " Registration not changed; staff review the seat."
+                        " Seat marked unpaid; staff review it."
                         if kind == PaymentTransaction.Purpose.EVENT_REGISTRATION
                         else ""
                     ),

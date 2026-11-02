@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from datetime import timedelta
 import uuid
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from functools import partial
@@ -370,6 +371,26 @@ def create_sumup_event_checkout(request, registration_id):
                 # stopped worker may have created a live checkout whose ID was
                 # never stored, so request traffic never takes over a claim.
                 # The provider-safe cleanup command owns stale retirement.
+                return JsonResponse(
+                    {
+                        "error": _(
+                            "A payment checkout is already being prepared. "
+                            "Please wait and try again."
+                        )
+                    },
+                    status=409,
+                )
+
+            # A Mollie row written before Mollie answered has no payment id to
+            # cancel yet, and its creator will publish a payable checkout once
+            # it does. Switching the seat now would leave that checkout live.
+            if any(
+                payment.provider == PaymentTransaction.Provider.MOLLIE
+                and payment.status == PaymentTransaction.Status.PENDING
+                and not payment.mollie_payment_id
+                and timezone.now() - payment.created_at < timedelta(seconds=120)
+                for payment in payments
+            ):
                 return JsonResponse(
                     {
                         "error": _(
