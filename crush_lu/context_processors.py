@@ -19,7 +19,10 @@ from .models import (
 )
 
 from crush_lu import onboarding
-from crush_lu.services.event_payments import online_payments_paused
+from crush_lu.services.event_payments import (
+    online_payments_paused,
+    sumup_payments_paused,
+)
 from crush_lu.services.mollie import mollie_configured
 from crush_lu.services.member_context import member_context_data
 
@@ -126,6 +129,9 @@ def crush_user_context(request):
         ),
         # No payment provider: card buttons give way to "pay at the door".
         "online_payments_paused": online_payments_paused(),
+        # Premium and SumUp stay shut while SumUp is, even when Mollie takes
+        # event seats: only the event surfaces read the flag above.
+        "premium_payments_paused": sumup_payments_paused(),
         # Donations go through Mollie whenever its key is set, paused or not.
         "mollie_donations_enabled": mollie_configured(),
         # Callable, so only the verification-sent page that reads it pays for

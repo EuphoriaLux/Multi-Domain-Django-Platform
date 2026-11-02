@@ -37,7 +37,7 @@
         </form>
         {% endif %}
       </div>
-      {% if online_payments_paused and pending_premium_state != "manage" and pending_premium_state != "paid" %}
+      {% if premium_payments_paused and pending_premium_state != "manage" and pending_premium_state != "paid" %}
       {# No payment provider: create_sumup_premium_checkout answers 503 while paused. #}
       <p class="text-sm rounded-xl p-3 text-center bg-gray-50 dark:bg-white/10 text-gray-600 dark:text-purple-200 border border-gray-200 dark:border-white/20">{% trans "Online payment for Premium is paused for now. We'll let you know as soon as it is back." %}</p>
       {% elif pending_premium_state != "manage" and pending_premium_state != "paid" %}

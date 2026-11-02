@@ -1080,6 +1080,12 @@ ONLINE_PAYMENTS_ENABLED = _env_bool("ONLINE_PAYMENTS_ENABLED", default=True)
 # Slot-sticky (infra/resources.bicep), so a staging test key never swaps into
 # production.
 MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")
+# Opt-in: take event-seat card payments through Mollie too (needs MOLLIE_API_KEY).
+# Off by default, so deploying the code opens nothing; flip it per slot. Premium
+# and SumUp donations stay behind ONLINE_PAYMENTS_ENABLED either way.
+MOLLIE_EVENT_PAYMENTS_ENABLED = _env_bool(
+    "MOLLIE_EVENT_PAYMENTS_ENABLED", default=False
+)
 # Event sign-ups may bring a guest only when this is on AND the event allows it
 # (MeetupEvent.guests_open). Off since 2026-10-17: guests took seats the
 # capacity checks never counted, so the feature is dropped for now. Decision:

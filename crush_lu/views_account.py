@@ -391,6 +391,35 @@ def _retire_event_checkouts_before_profile_deletion(user):
             )
             if checkout_id
         }
+        pending_mollie = [
+            payment
+            for payment in payments
+            if payment.provider == PaymentTransaction.Provider.MOLLIE
+            and payment.status == PaymentTransaction.Status.PENDING
+        ]
+        if any(not payment.mollie_payment_id for payment in pending_mollie):
+            raise RuntimeError(
+                "Account deletion paused because a Mollie event checkout is "
+                "still being created. Retry after payment reconciliation."
+            )
+        mollie_ids = sorted(payment.mollie_payment_id for payment in pending_mollie)
+
+    if mollie_ids:
+        from crush_lu.services.mollie import MollieClient, MollieError
+
+        try:
+            mollie_client = MollieClient()
+        except MollieError as exc:
+            raise RuntimeError(
+                "Account deletion paused because Mollie cannot be reached to "
+                "close an event checkout. Retry after payment reconciliation."
+            ) from exc
+        if not all(mollie_client.ensure_not_payable(pid) for pid in mollie_ids):
+            raise RuntimeError(
+                "Account deletion paused because a Mollie event checkout could "
+                "not be safely closed (it may already be paid). Retry after "
+                "payment reconciliation."
+            )
 
     client = SumUpClient()
     deactivated = {

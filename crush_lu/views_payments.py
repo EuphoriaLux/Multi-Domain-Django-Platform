@@ -1,6 +1,7 @@
 import json
 import logging
 import time
+from datetime import timedelta
 import uuid
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from functools import partial
@@ -31,8 +32,10 @@ from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransact
 from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.event_payments import (
+    mollie_event_payments_active,
     online_payments_paused,
     registration_is_payable,
+    sumup_payments_paused,
 )
 from crush_lu.services import premium_recovery
 from crush_lu.services.credits import (
@@ -328,6 +331,12 @@ def create_sumup_event_checkout(request, registration_id):
         return JsonResponse({"error": _("Invalid payment method.")}, status=400)
     if payment_method == "card" and online_payments_paused():
         return _online_payments_paused_response()
+    if payment_method == "card" and mollie_event_payments_active():
+        # Mollie is the event provider: same URL and JSON contract, so the
+        # member-facing button is unchanged (its ``widget_url`` is Mollie's page).
+        from crush_lu.views_mollie import open_mollie_event_checkout
+
+        return open_mollie_event_checkout(request, registration_id)
 
     claim_state = None
     for _attempt in range(3):
@@ -372,6 +381,26 @@ def create_sumup_event_checkout(request, registration_id):
                     status=409,
                 )
 
+            # A Mollie row written before Mollie answered has no payment id to
+            # cancel yet, and its creator will publish a payable checkout once
+            # it does. Switching the seat now would leave that checkout live.
+            if any(
+                payment.provider == PaymentTransaction.Provider.MOLLIE
+                and payment.status == PaymentTransaction.Status.PENDING
+                and not payment.mollie_payment_id
+                and timezone.now() - payment.created_at < timedelta(seconds=120)
+                for payment in payments
+            ):
+                return JsonResponse(
+                    {
+                        "error": _(
+                            "A payment checkout is already being prepared. "
+                            "Please wait and try again."
+                        )
+                    },
+                    status=409,
+                )
+
             checkout_ref = f"CRUSH-EVT-{registration.pk}-{uuid.uuid4().hex[:10]}"
             claim = EventCheckoutCreationClaim.objects.create(
                 registration=registration,
@@ -389,7 +418,15 @@ def create_sumup_event_checkout(request, registration_id):
                 if payment.status == PaymentTransaction.Status.PENDING
                 and payment.sumup_checkout_id
             )
+            superseded_mollie = tuple(
+                (payment.pk, payment.mollie_payment_id)
+                for payment in payments
+                if payment.provider == PaymentTransaction.Provider.MOLLIE
+                and payment.status == PaymentTransaction.Status.PENDING
+                and payment.mollie_payment_id
+            )
             claim_state = {
+                "superseded_mollie": superseded_mollie,
                 "token": claim.token,
                 "checkout_ref": checkout_ref,
                 "registration_id": registration.pk,
@@ -422,6 +459,21 @@ def create_sumup_event_checkout(request, registration_id):
         for payment_id, checkout_id in claim_state["superseded"]
     }
 
+    # A still-open Mollie checkout must be closed too, or the seat could be paid
+    # twice (credit here, card there). Unproven closure refuses the switch.
+    mollie_closed = {}
+    if claim_state["superseded_mollie"]:
+        from crush_lu.services.mollie import MollieClient, MollieError
+
+        try:
+            mollie_client = MollieClient()
+        except MollieError:
+            mollie_client = None
+        mollie_closed = {
+            payment_id: bool(mollie_client and mollie_client.ensure_not_payable(mid))
+            for payment_id, mid in claim_state["superseded_mollie"]
+        }
+
     # Publish provider deactivations under the payment rows, then the event and
     # claim.  No network request runs in this transaction.
     supersede_failed = False
@@ -429,9 +481,24 @@ def create_sumup_event_checkout(request, registration_id):
         old_rows = {
             row.pk: row
             for row in PaymentTransaction.objects.select_for_update()
-            .filter(pk__in=deactivated)
+            .filter(pk__in=[*deactivated, *mollie_closed])
             .order_by("pk")
         }
+        for payment_id, closed in mollie_closed.items():
+            row = old_rows.get(payment_id)
+            if (
+                row is None
+                or row.status == PaymentTransaction.Status.PAID
+                or not closed
+            ):
+                supersede_failed = True
+            elif row.status == PaymentTransaction.Status.PENDING:
+                row.status = PaymentTransaction.Status.CANCELLED
+                row.failure_reason = (
+                    "Superseded by a newer checkout - cancelled at Mollie before "
+                    "any payment was taken."
+                )
+                row.save(update_fields=["status", "failure_reason", "updated_at"])
         MeetupEvent.objects.select_for_update().get(pk=claim_state["event_id"])
         EventRegistration.objects.select_for_update().get(
             pk=claim_state["registration_id"]
@@ -980,7 +1047,7 @@ def create_sumup_premium_checkout(request, membership_id):
             {"error": _("Unauthorized access to this membership.")}, status=403
         )
 
-    if online_payments_paused():
+    if sumup_payments_paused():
         return _online_payments_paused_response()
 
     if membership.status != "pending":
@@ -1375,7 +1442,7 @@ def create_sumup_donation_checkout(request):
             {"error": _("Available outside the mobile app.")}, status=403
         )
 
-    if online_payments_paused():
+    if sumup_payments_paused():
         return _online_payments_paused_response()
 
     # Refuse the money we cannot deliver against. The Community Supporter badge
@@ -3156,7 +3223,7 @@ def _sumup_return_response(request, tx_obj):
             elif (
                 registration.event.is_published
                 and registration_is_payable(registration, registration.event)
-                and online_payments_paused()
+                and sumup_payments_paused()
             ):
                 # The card retry is gone while payments are paused; the
                 # verification above still ran, only the advice changes.
@@ -3349,9 +3416,9 @@ def sumup_widget_view(request, checkout_id):
     # to the return page or the status endpoints, which report on money that
     # may already have moved. A settled checkout goes to the return handling
     # instead, so a paid member is never told to pay again at the door.
-    if online_payments_paused() and tx_obj.status != PaymentTransaction.Status.PENDING:
+    if sumup_payments_paused() and tx_obj.status != PaymentTransaction.Status.PENDING:
         return _sumup_return_response(request, tx_obj)
-    if online_payments_paused():
+    if sumup_payments_paused():
         messages.info(
             request,
             _(

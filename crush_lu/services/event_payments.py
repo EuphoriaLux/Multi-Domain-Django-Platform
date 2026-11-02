@@ -17,15 +17,40 @@ invitations do not point to a checkout that is known to reject the seat.
 from django.conf import settings
 
 
-def online_payments_paused():
-    """True while crush.lu takes no card payments (``ONLINE_PAYMENTS_ENABLED``).
+def sumup_payments_paused():
+    """True while SumUp checkouts are closed (``ONLINE_PAYMENTS_ENABLED``).
 
-    One predicate for the checkout endpoints, the card form and the templates
-    (as ``online_payments_paused`` from ``crush_user_context``), so a page
-    never offers a card button the endpoint refuses. Crush Credit and
-    staff-recorded cash payments are not affected.
+    The switch for everything that talks to SumUp: Premium, SumUp donations,
+    the SumUp widget and return pages, and the SumUp refund action.
     """
     return not getattr(settings, "ONLINE_PAYMENTS_ENABLED", True)
+
+
+def mollie_event_payments_active():
+    """True when event seats are paid through Mollie.
+
+    Needs both the opt-in ``MOLLIE_EVENT_PAYMENTS_ENABLED`` and a usable
+    ``MOLLIE_API_KEY``, so a flag without a key never shows a button that fails.
+    """
+    from crush_lu.services.mollie import mollie_configured
+
+    return bool(
+        getattr(settings, "MOLLIE_EVENT_PAYMENTS_ENABLED", False)
+        and mollie_configured()
+    )
+
+
+def online_payments_paused():
+    """True while members cannot pay for an event seat by card.
+
+    One predicate for the event checkout endpoint, the card form and the
+    templates (as ``online_payments_paused`` from ``crush_user_context``), so a
+    page never offers a card button the endpoint refuses. Mollie event payments
+    keep it open even while SumUp is shut. Crush Credit and staff-recorded cash
+    payments are not affected. Premium and SumUp code ask
+    ``sumup_payments_paused`` instead.
+    """
+    return sumup_payments_paused() and not mollie_event_payments_active()
 
 
 # Mirrors the ``registration.status not in (...)`` branch of

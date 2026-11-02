@@ -153,7 +153,10 @@ def _resale_claim_from(source, event):
         source_payment = (
             PaymentTransaction.objects.filter(
                 event_registration=source,
-                provider=PaymentTransaction.Provider.SUMUP,
+                provider__in=(
+                    PaymentTransaction.Provider.SUMUP,
+                    PaymentTransaction.Provider.MOLLIE,
+                ),
                 purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
                 status=PaymentTransaction.Status.PENDING,
             )
