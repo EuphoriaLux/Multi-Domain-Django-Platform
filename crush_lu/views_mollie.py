@@ -1,37 +1,50 @@
-"""Donations through Mollie's hosted checkout (support card).
+"""Donations and event seats through Mollie's hosted checkout.
 
-SumUp refused the platform in 2026-10; donations moved to Mollie first, while
-event seats and Premium stay on views_payments until they move too. A
-donation here ends in the same ``_apply_paid_checkout`` as a SumUp one, so the
-Community Supporter badge and the receipt behave identically.
+SumUp refused the platform in 2026-10; donations moved to Mollie first, then
+event seats (``MOLLIE_EVENT_PAYMENTS_ENABLED``). Premium stays on views_payments.
+A payment here ends in the same ``_apply_paid_checkout`` as a SumUp one, so the
+Community Supporter badge, the seat confirmation, the check-in token and the
+receipts behave identically.
 
-Flow: the card POSTs the amount, a PENDING row is written, Mollie opens a
-payment and the browser goes to Mollie's checkout. Mollie then calls the
-webhook and sends the member back to the return page. Neither request is
-trusted: both re-read the payment from Mollie (``sync_mollie_payment``).
+Flow: the member POSTs (an amount, or the event registration), a PENDING row is
+written, Mollie opens a payment and the browser goes to Mollie's checkout.
+Mollie then calls the webhook and sends the member back to the return page.
+Neither request is trusted: both re-read the payment from Mollie
+(``sync_mollie_payment``).
+
+Event seats: ``create_sumup_event_checkout`` hands card payments to
+``open_mollie_event_checkout`` when ``mollie_event_payments_active()``. Refunds
+of a seat are made by staff in the Mollie dashboard (or by bank transfer); the
+webhook then records REFUNDED on the row but never touches the registration.
 """
 
 import logging
 import uuid
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import transaction
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.translation import override
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.events import EventRegistration, MeetupEvent
+from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
 from crush_lu.models.profiles import CrushProfile
 from crush_lu.services import mollie
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_payments import (
     DONATION_CREATE_COOLDOWN_SECONDS,
     _apply_paid_checkout,
+    _event_checkout_validation_error,
+    _lock_event_checkout_state,
     _native_commerce_suppressed,
     _parse_donation_amount,
     _payment_owner_ids,
@@ -175,6 +188,280 @@ def create_mollie_donation_checkout(request):
     )
 
 
+def _already_paid_by(tx):
+    """Reference of another PAID payment for ``tx``'s registration, or None."""
+    other = (
+        PaymentTransaction.objects.filter(
+            event_registration_id=tx.event_registration_id,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            status=PaymentTransaction.Status.PAID,
+        )
+        .exclude(pk=tx.pk)
+        .order_by("pk")
+        .first()
+    )
+    return other.transaction_reference if other else None
+
+
+# A row written before Mollie is asked has no payment id for a moment. Past this
+# age it is a request that died between the two writes.
+_PREPARING_GRACE = timedelta(seconds=120)
+_OPEN_STATUSES = ("open", "pending", "authorized")
+EVENT_CREATE_COOLDOWN_SECONDS = 5
+
+
+def _event_json_error(message, status):
+    return JsonResponse({"error": message}, status=status)
+
+
+def _being_prepared_response():
+    return _event_json_error(
+        _("A payment checkout is already being prepared. Please wait and try again."),
+        409,
+    )
+
+
+def _event_prepare_state(registration_id, event_id, acting_user):
+    """Phase 1: validate under the payment-first locks and list open Mollie rows.
+
+    Returns ``(response, state)``: a response to send back, or the state the
+    next phases need. No network I/O happens here.
+    """
+    for _attempt in range(3):
+        with transaction.atomic():
+            try:
+                payments, event, registration, scope_changed = (
+                    _lock_event_checkout_state(registration_id, event_id)
+                )
+            except (EventRegistration.DoesNotExist, MeetupEvent.DoesNotExist):
+                return (
+                    _event_json_error(
+                        _("This registration is no longer available."), 409
+                    ),
+                    None,
+                )
+            if scope_changed:
+                continue
+            error = _event_checkout_validation_error(
+                registration, event, acting_user=acting_user, payment_method="card"
+            )
+            if error is not None:
+                return error, None
+            if EventCheckoutCreationClaim.objects.filter(
+                registration_id=registration.pk
+            ).exists():
+                return _being_prepared_response(), None
+            now = timezone.now()
+            pending = []
+            for payment in payments:
+                if (
+                    payment.provider != PaymentTransaction.Provider.MOLLIE
+                    or payment.status != PaymentTransaction.Status.PENDING
+                ):
+                    continue
+                if not payment.mollie_payment_id:
+                    if now - payment.created_at < _PREPARING_GRACE:
+                        return _being_prepared_response(), None
+                    payment.status = PaymentTransaction.Status.CANCELLED
+                    payment.failure_reason = (
+                        "Mollie did not open a checkout for this attempt."
+                    )
+                    payment.save(
+                        update_fields=["status", "failure_reason", "updated_at"]
+                    )
+                    continue
+                pending.append(payment.pk)
+            return None, {
+                "pending_ids": pending,
+                "amount": event.registration_fee,
+                "title": event.title,
+                "event_id": event.pk,
+                "registration_id": registration.pk,
+            }
+    return _being_prepared_response(), None
+
+
+def open_mollie_event_checkout(request, registration_id):
+    """Open (or reuse) a Mollie payment for an event seat.
+
+    Called by ``create_sumup_event_checkout`` once it has parsed the request and
+    found Mollie is the event provider. Three phases, so no provider call runs
+    under a lock: (1) validate and list open Mollie rows, (2) re-read each from
+    Mollie and reuse, close or settle it, (3) write the PENDING row under the
+    same locks, then ask Mollie. Reusing the member's still-open payment, rather
+    than opening a second one beside it, is what stops a double charge.
+    """
+    initial = get_object_or_404(EventRegistration, pk=registration_id)
+    if not mollie.mollie_configured():
+        return _event_json_error(
+            _(
+                "Online card payments are paused for now. For events, "
+                "please pay at the door."
+            ),
+            503,
+        )
+    # None (cache down) is not a live cooldown, as in the donation checkout.
+    claimed = cache.add(
+        f"mollie:event:create:{initial.pk}", 1, timeout=EVENT_CREATE_COOLDOWN_SECONDS
+    )
+    if claimed is False:
+        return _event_json_error(_("Please wait a moment before trying again."), 429)
+
+    response, state = _event_prepare_state(initial.pk, initial.event_id, request.user)
+    if response is not None:
+        return response
+
+    client = mollie.MollieClient()
+    event_url = reverse("crush_lu:event_detail", kwargs={"event_id": state["event_id"]})
+    unavailable = _("Unable to initiate payment at the moment. Please try again later.")
+
+    for payment_pk in state["pending_ids"]:
+        tx = PaymentTransaction.objects.get(pk=payment_pk)
+        try:
+            remote = client.get_payment(tx.mollie_payment_id)
+        except mollie.MollieError as exc:
+            logger.warning(
+                "Mollie event checkout could not re-read %s: %s",
+                tx.mollie_payment_id,
+                exc,
+            )
+            return _event_json_error(unavailable, 502)
+        status = remote.get("status")
+        if status == mollie.STATUS_PAID:
+            try:
+                sync_mollie_payment(tx)
+            except mollie.MollieError:
+                pass  # the webhook settles it; the seat page shows the truth
+            return JsonResponse(
+                {"success": True, "already_paid": True, "widget_url": event_url}
+            )
+        if status in _UNPAID_STATUS:
+            _record_unpaid(tx, status, remote)
+            continue
+        if status in _OPEN_STATUSES:
+            url = mollie.checkout_url(remote)
+            if url and mollie.amount_matches(remote, state["amount"], "EUR"):
+                return JsonResponse(
+                    {
+                        "success": True,
+                        "checkout_url": url,
+                        "widget_url": url,
+                        "checkout_reference": tx.transaction_reference,
+                        "amount": float(state["amount"]),
+                        "currency": "EUR",
+                    }
+                )
+            # Stale price or no link: close it so it can never be paid beside
+            # the replacement. If Mollie will not cancel it, open nothing new.
+            try:
+                client.cancel_payment(tx.mollie_payment_id)
+            except mollie.MollieError as exc:
+                logger.warning(
+                    "Mollie event checkout could not cancel %s: %s",
+                    tx.mollie_payment_id,
+                    exc,
+                )
+                return _event_json_error(
+                    _(
+                        "Your earlier card checkout could not be closed. "
+                        "Please wait and try again."
+                    ),
+                    409,
+                )
+            _record_unpaid(tx, mollie.STATUS_CANCELED, remote)
+
+    # Phase 3: the PENDING row, written under the locks before Mollie is asked.
+    reference = f"CRUSH-EVT-{state['registration_id']}-{uuid.uuid4().hex[:10]}"
+    for _attempt in range(3):
+        with transaction.atomic():
+            try:
+                payments, event, registration, scope_changed = (
+                    _lock_event_checkout_state(
+                        state["registration_id"], state["event_id"]
+                    )
+                )
+            except (EventRegistration.DoesNotExist, MeetupEvent.DoesNotExist):
+                return _event_json_error(
+                    _("This registration is no longer available."), 409
+                )
+            if scope_changed:
+                continue
+            error = _event_checkout_validation_error(
+                registration, event, acting_user=request.user, payment_method="card"
+            )
+            if error is not None:
+                return error
+            if event.registration_fee != state["amount"]:
+                return _event_json_error(
+                    _(
+                        "The event price changed while payment was being "
+                        "prepared. Please try again."
+                    ),
+                    409,
+                )
+            if any(
+                p.provider == PaymentTransaction.Provider.MOLLIE
+                and p.status == PaymentTransaction.Status.PENDING
+                for p in payments
+            ):
+                return _being_prepared_response()
+            tx = PaymentTransaction.objects.create(
+                transaction_reference=reference,
+                provider=PaymentTransaction.Provider.MOLLIE,
+                amount=state["amount"],
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                user=request.user,
+                event_registration=registration,
+            )
+        break
+    else:
+        return _being_prepared_response()
+
+    payment, failure = None, ""
+    try:
+        payment = client.create_payment(
+            amount=state["amount"],
+            description=f"Crush.lu Event: {state['title'][:50]}",
+            redirect_url=request.build_absolute_uri(f"{RETURN_PATH}?ref={reference}"),
+            webhook_url=_webhook_url(request),
+            metadata={"transaction_reference": reference},
+            locale=mollie.mollie_locale(
+                get_onscreen_language(user=request.user, request=request)
+            ),
+        )
+    except mollie.MollieError as exc:
+        failure = str(exc)
+
+    payment_id = (payment or {}).get("id") or ""
+    url = mollie.checkout_url(payment) if payment else None
+    if not mollie.PAYMENT_ID_RE.match(payment_id) or not url:
+        failure = failure or "no payment id or checkout link in the response"
+        logger.error("Mollie event checkout %s not opened: %s", reference, failure)
+        tx.status = PaymentTransaction.Status.FAILED
+        tx.failure_reason = f"Mollie did not open a checkout: {failure}"
+        tx.raw_response = payment or {}
+        tx.save(
+            update_fields=["status", "failure_reason", "raw_response", "updated_at"]
+        )
+        return _event_json_error(unavailable, 502)
+
+    tx.mollie_payment_id = payment_id
+    tx.raw_response = payment
+    tx.save(update_fields=["mollie_payment_id", "raw_response", "updated_at"])
+    return JsonResponse(
+        {
+            "success": True,
+            "checkout_url": url,
+            "widget_url": url,
+            "checkout_reference": reference,
+            "amount": float(state["amount"]),
+            "currency": "EUR",
+        }
+    )
+
+
 def _record_unpaid(tx, mollie_status, payment):
     """Close a still-pending row whose Mollie payment can no longer be paid."""
     with transaction.atomic():
@@ -264,8 +551,30 @@ def _settle_paid(tx, payment):
             return
 
         known = sum(mollie.money_returned(locked.raw_response))
+        is_event = locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+        duplicate_of = (
+            _already_paid_by(locked)
+            if is_event and locked.status == PaymentTransaction.Status.PENDING
+            else None
+        )
         _apply_paid_checkout(locked, payment)
         locked.refresh_from_db()
+        if duplicate_of:
+            # The member paid twice (two open checkouts, or card after credit).
+            # The seat is already settled, so this money has no purchase: keep
+            # the row PAID as the record of the charge and hand it to a human.
+            locked.failure_reason = (
+                f"Duplicate payment: registration already paid by {duplicate_of}; "
+                "refund this charge in Mollie."
+            )
+            locked.save(update_fields=["failure_reason", "updated_at"])
+            logger.critical(
+                "Mollie payment %s duplicates %s for registration %s - "
+                "refund required.",
+                locked.transaction_reference,
+                duplicate_of,
+                locked.event_registration_id,
+            )
         if returned == known:
             return
 
@@ -277,12 +586,26 @@ def _settle_paid(tx, payment):
             locked.failure_reason = description
             update_fields += ["status", "failure_reason"]
         locked.save(update_fields=update_fields)
-        if locked.status == PaymentTransaction.Status.REFUNDED:
+        if (
+            locked.status == PaymentTransaction.Status.REFUNDED
+            and locked.purpose == PaymentTransaction.Purpose.DONATION
+        ):
             _revoke_supporter_badge(locked)
         transaction.on_commit(
-            lambda reference=locked.transaction_reference, state=locked.status: (
+            lambda reference=locked.transaction_reference, state=locked.status, kind=(
+                locked.purpose
+            ): (
                 logger.warning(
-                    "Mollie donation %s: %s; row is %s.", reference, description, state
+                    "Mollie %s payment %s: %s; row is %s.%s",
+                    kind,
+                    reference,
+                    description,
+                    state,
+                    (
+                        " Registration not changed; staff review the seat."
+                        if kind == PaymentTransaction.Purpose.EVENT_REGISTRATION
+                        else ""
+                    ),
                 )
             )
         )
@@ -376,6 +699,18 @@ def mollie_payment_return(request):
     # Outside i18n_patterns, so pick the member's language the way the SumUp
     # return does; the redirect inside the override keeps the same prefix.
     with override(get_onscreen_language(user=request.user, request=request)):
+        if (
+            tx.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+            and tx.event_registration_id
+        ):
+            # Back to the event, whose status card shows the seat's real state.
+            if tx.status == PaymentTransaction.Status.PAID:
+                messages.success(request, _("Payment completed successfully!"))
+            else:
+                messages.warning(request, _("Payment is pending or was not completed."))
+            return redirect(
+                "crush_lu:event_detail", event_id=tx.event_registration.event_id
+            )
         if tx.status == PaymentTransaction.Status.PAID:
             messages.success(request, _("Payment completed successfully! Thank you."))
         else:

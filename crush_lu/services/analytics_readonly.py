@@ -1148,6 +1148,7 @@ def _paid_event_user_ids(alias: str, user_ids) -> set[int]:
         .filter(
             provider__in=(
                 PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MOLLIE,
                 PaymentTransaction.Provider.MANUAL,
             ),
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
@@ -1226,7 +1227,7 @@ def definitions() -> dict:
             "seat_holder": f"registration status in {SEAT_HOLDING_STATUSES}",
             "checked_in": "registration status 'attended' or checked_in_at set",
             "paid_event_revenue": (
-                "PaymentTransaction.paid_event_registrations(): providers sumup/manual, "
+                "PaymentTransaction.paid_event_registrations(): providers sumup/mollie/manual, "
                 "purpose event_registration, status paid. Crush Credit redemptions are a "
                 "payment method, not new revenue, and are reported separately."
             ),

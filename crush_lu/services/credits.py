@@ -168,6 +168,7 @@ def void_credit(
             and source_payment.provider
             in {
                 PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MOLLIE,
                 PaymentTransaction.Provider.MANUAL,
             }
             and source_payment.status == PaymentTransaction.Status.PAID
@@ -1051,7 +1052,8 @@ def _issue_cancelled_event_remedy(
     award = max(event_cancelled_premium_cents(), paid_cents)
     refundable = (
         payment is not None
-        and payment.provider == PaymentTransaction.Provider.SUMUP
+        and payment.provider
+        in (PaymentTransaction.Provider.SUMUP, PaymentTransaction.Provider.MOLLIE)
         and payment.status == PaymentTransaction.Status.PAID
     )
 
@@ -1139,7 +1141,11 @@ def credit_registration_for_unavailable_curated_group(
     refundable = (
         payment is not None
         and payment.provider
-        in (PaymentTransaction.Provider.SUMUP, PaymentTransaction.Provider.MANUAL)
+        in (
+            PaymentTransaction.Provider.SUMUP,
+            PaymentTransaction.Provider.MOLLIE,
+            PaymentTransaction.Provider.MANUAL,
+        )
         and payment.status == PaymentTransaction.Status.PAID
     )
     credits = _issue_payment_return_credits(

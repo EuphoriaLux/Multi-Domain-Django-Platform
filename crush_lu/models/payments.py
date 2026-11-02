@@ -25,6 +25,7 @@ class PaymentTransactionQuerySet(models.QuerySet):
         return self.filter(
             provider__in=(
                 PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MOLLIE,
                 PaymentTransaction.Provider.MANUAL,
             ),
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,

@@ -1171,6 +1171,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             event=obj,
             provider__in=(
                 PaymentTransaction.Provider.SUMUP,
+                PaymentTransaction.Provider.MOLLIE,
                 PaymentTransaction.Provider.MANUAL,
             ),
             purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,

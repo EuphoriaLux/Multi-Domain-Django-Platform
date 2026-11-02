@@ -31,8 +31,10 @@ from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransact
 from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.event_payments import (
+    mollie_event_payments_active,
     online_payments_paused,
     registration_is_payable,
+    sumup_payments_paused,
 )
 from crush_lu.services import premium_recovery
 from crush_lu.services.credits import (
@@ -328,6 +330,12 @@ def create_sumup_event_checkout(request, registration_id):
         return JsonResponse({"error": _("Invalid payment method.")}, status=400)
     if payment_method == "card" and online_payments_paused():
         return _online_payments_paused_response()
+    if payment_method == "card" and mollie_event_payments_active():
+        # Mollie is the event provider: same URL and JSON contract, so the
+        # member-facing button is unchanged (its ``widget_url`` is Mollie's page).
+        from crush_lu.views_mollie import open_mollie_event_checkout
+
+        return open_mollie_event_checkout(request, registration_id)
 
     claim_state = None
     for _attempt in range(3):
@@ -980,7 +988,7 @@ def create_sumup_premium_checkout(request, membership_id):
             {"error": _("Unauthorized access to this membership.")}, status=403
         )
 
-    if online_payments_paused():
+    if sumup_payments_paused():
         return _online_payments_paused_response()
 
     if membership.status != "pending":
@@ -1375,7 +1383,7 @@ def create_sumup_donation_checkout(request):
             {"error": _("Available outside the mobile app.")}, status=403
         )
 
-    if online_payments_paused():
+    if sumup_payments_paused():
         return _online_payments_paused_response()
 
     # Refuse the money we cannot deliver against. The Community Supporter badge
@@ -3156,7 +3164,7 @@ def _sumup_return_response(request, tx_obj):
             elif (
                 registration.event.is_published
                 and registration_is_payable(registration, registration.event)
-                and online_payments_paused()
+                and sumup_payments_paused()
             ):
                 # The card retry is gone while payments are paused; the
                 # verification above still ran, only the advice changes.
@@ -3349,9 +3357,9 @@ def sumup_widget_view(request, checkout_id):
     # to the return page or the status endpoints, which report on money that
     # may already have moved. A settled checkout goes to the return handling
     # instead, so a paid member is never told to pay again at the door.
-    if online_payments_paused() and tx_obj.status != PaymentTransaction.Status.PENDING:
+    if sumup_payments_paused() and tx_obj.status != PaymentTransaction.Status.PENDING:
         return _sumup_return_response(request, tx_obj)
-    if online_payments_paused():
+    if sumup_payments_paused():
         messages.info(
             request,
             _(

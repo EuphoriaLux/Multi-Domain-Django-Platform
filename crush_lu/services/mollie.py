@@ -192,6 +192,17 @@ class MollieClient:
             payload["locale"] = locale
         return self._request("POST", "/payments", payload)
 
+    def cancel_payment(self, payment_id):
+        """Cancel a payment that is still open, so it can never be paid.
+
+        Mollie refuses (422) once a payment is no longer cancelable, which the
+        caller treats as "do not open a second one".
+        https://docs.mollie.com/reference/cancel-payment
+        """
+        if not PAYMENT_ID_RE.match(payment_id or ""):
+            raise MollieError("Not a Mollie payment id")
+        return self._request("DELETE", f"/payments/{payment_id}")
+
     def get_payment(self, payment_id):
         if not PAYMENT_ID_RE.match(payment_id or ""):
             raise MollieError("Not a Mollie payment id")

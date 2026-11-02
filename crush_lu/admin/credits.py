@@ -44,7 +44,9 @@ from crush_lu.services.credits import (
     restore_cash_refund_lease,
     void_credit,
 )
-from crush_lu.services.event_payments import online_payments_paused
+from crush_lu.services.event_payments import (
+    sumup_payments_paused as online_payments_paused,
+)
 from crush_lu.services.sumup import (
     SumUpClient,
     SumUpError,

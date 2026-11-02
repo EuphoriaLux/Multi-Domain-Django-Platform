@@ -21,9 +21,9 @@ def _closed_locally_while_paused(checkout_id, reason):
     such case is logged with the ``[PAYMENTS-PAUSED]`` marker so it can be
     reconciled later. Outside a pause the caller's strict behaviour stands.
     """
-    from crush_lu.services.event_payments import online_payments_paused
+    from crush_lu.services.event_payments import sumup_payments_paused
 
-    if not online_payments_paused():
+    if not sumup_payments_paused():
         return False
     logger.warning(
         "[PAYMENTS-PAUSED] SumUp did not close checkout %s (%s); treated as "
