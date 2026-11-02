@@ -26,6 +26,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -186,6 +187,50 @@ def create_mollie_donation_checkout(request):
             "currency": "EUR",
         }
     )
+
+
+def _withdraw_event_credits(tx):
+    """Void the Crush Credit this payment funded, now that its money went back.
+
+    Mirrors ``reconcile_sumup_payments._reconcile_refunded``: otherwise a
+    cancellation credit issued from the capture stays spendable beside the
+    refund. The caller holds the PaymentTransaction lock; credits are locked
+    after it, status-blind and in PK order. Credit already spent cannot be
+    undone, so it is logged critical for staff and left on the ledger.
+    """
+    from crush_lu.models.credits import CreditRedemption, CrushCredit
+    from crush_lu.services.credits import void_credit
+
+    filters = Q(source_payment=tx)
+    if tx.event_registration_id:
+        filters |= Q(
+            source_registration_id=tx.event_registration_id,
+            source_payment__isnull=True,
+        )
+    list(
+        CrushCredit.objects.select_for_update()
+        .filter(filters)
+        .order_by("pk")
+        .values_list("pk", flat=True)
+    )
+    spent = list(
+        CreditRedemption.objects.filter(
+            credit__in=CrushCredit.objects.filter(filters)
+        ).values_list("credit_id", "event_registration_id", "amount_cents")
+    )
+    for credit in CrushCredit.objects.filter(filters, status=CrushCredit.Status.ACTIVE):
+        void_credit(
+            credit.pk,
+            note="Voided: Mollie refund or chargeback on the funding payment.",
+            require_unspent=False,
+        )
+    if spent:
+        logger.critical(
+            "Mollie payment %s was returned but credit it funded was already "
+            "spent (credit, registration, cents: %s) - staff review required.",
+            tx.transaction_reference,
+            spent,
+        )
 
 
 def _already_paid_by(tx):
@@ -614,6 +659,11 @@ def _settle_paid(tx, payment):
             and locked.purpose == PaymentTransaction.Purpose.DONATION
         ):
             _revoke_supporter_badge(locked)
+        if (
+            locked.status == PaymentTransaction.Status.REFUNDED
+            and locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+        ):
+            _withdraw_event_credits(locked)
         transaction.on_commit(
             lambda reference=locked.transaction_reference, state=locked.status, kind=(
                 locked.purpose

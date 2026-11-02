@@ -5,11 +5,13 @@ the SumUp event URL and JSON contract, so these tests post to that URL.
 """
 
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
 
 from django.core.cache import cache
 from django.test import override_settings
+from django.utils import timezone
 from django.urls import reverse
 
 from crush_lu.models.payments import PaymentTransaction
@@ -463,6 +465,51 @@ class MollieEventCheckoutTests(CreditFixture):
         self.assertFalse(CrushCredit.objects.filter(user=self.buyer).exists())
         self.seat.refresh_from_db()
         self.assertFalse(self.seat.payment_confirmed)
+
+    @override_settings(**MOLLIE_ON)
+    def test_chargeback_after_settlement_voids_the_credit_it_funded(self):
+        from crush_lu.models.credits import CrushCredit
+        from crush_lu.services.credits import available_credit_cents
+
+        row = self._pending_row()
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch(REQUEST, return_value=_payment("paid", checkout=False)):
+                self.client.post(WEBHOOK, {"id": PAYMENT_ID})
+        # A credit the capture earned (e.g. a late cancellation remedy).
+        credit = CrushCredit.objects.create(
+            user=self.buyer,
+            amount_cents=1550,
+            reason=CrushCredit.Reason.GOODWILL,
+            source_payment=row,
+            expires_at=timezone.now() + timedelta(days=30),
+        )
+        self.assertEqual(available_credit_cents(self.buyer), 1550)
+        charged_back = _response(
+            200,
+            {
+                "id": PAYMENT_ID,
+                "status": "paid",
+                "amount": {"value": f"{FEE:.2f}", "currency": "EUR"},
+                "_embedded": {
+                    "refunds": [],
+                    "chargebacks": [
+                        {
+                            "amount": {"value": f"{FEE:.2f}", "currency": "EUR"},
+                            "reversedAt": None,
+                        }
+                    ],
+                },
+            },
+        )
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch(REQUEST, return_value=charged_back):
+                self.client.post(WEBHOOK, {"id": PAYMENT_ID})
+
+        row.refresh_from_db()
+        credit.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.REFUNDED)
+        self.assertEqual(credit.status, CrushCredit.Status.VOID)
+        self.assertEqual(available_credit_cents(self.buyer), 0)
 
     # -- reports ------------------------------------------------------------
 
