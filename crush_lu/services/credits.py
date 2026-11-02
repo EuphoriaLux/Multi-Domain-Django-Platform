@@ -780,6 +780,19 @@ def _replacement_capture_moment(promoted_registration):
 
     # Defensive about shape throughout: this is a live provider payload.
     raw = payment.raw_response if isinstance(payment.raw_response, dict) else {}
+    if payment.provider == PaymentTransaction.Provider.MOLLIE:
+        # Mollie's own capture clock, ISO 8601 with an offset. paid_at is when
+        # our webhook or return page ran, which can be hours after the card.
+        stamp = raw.get("paidAt")
+        if isinstance(stamp, str):
+            try:
+                parsed = parse_datetime(stamp)
+            except ValueError:
+                parsed = None
+            if parsed is not None:
+                if timezone.is_naive(parsed):
+                    parsed = parsed.replace(tzinfo=dt_timezone.utc)
+                return parsed, payment
     transactions = raw.get("transactions")
     captured = []
     if isinstance(transactions, list):

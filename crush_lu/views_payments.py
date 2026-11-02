@@ -397,7 +397,15 @@ def create_sumup_event_checkout(request, registration_id):
                 if payment.status == PaymentTransaction.Status.PENDING
                 and payment.sumup_checkout_id
             )
+            superseded_mollie = tuple(
+                (payment.pk, payment.mollie_payment_id)
+                for payment in payments
+                if payment.provider == PaymentTransaction.Provider.MOLLIE
+                and payment.status == PaymentTransaction.Status.PENDING
+                and payment.mollie_payment_id
+            )
             claim_state = {
+                "superseded_mollie": superseded_mollie,
                 "token": claim.token,
                 "checkout_ref": checkout_ref,
                 "registration_id": registration.pk,
@@ -430,6 +438,21 @@ def create_sumup_event_checkout(request, registration_id):
         for payment_id, checkout_id in claim_state["superseded"]
     }
 
+    # A still-open Mollie checkout must be closed too, or the seat could be paid
+    # twice (credit here, card there). Unproven closure refuses the switch.
+    mollie_closed = {}
+    if claim_state["superseded_mollie"]:
+        from crush_lu.services.mollie import MollieClient, MollieError
+
+        try:
+            mollie_client = MollieClient()
+        except MollieError:
+            mollie_client = None
+        mollie_closed = {
+            payment_id: bool(mollie_client and mollie_client.ensure_not_payable(mid))
+            for payment_id, mid in claim_state["superseded_mollie"]
+        }
+
     # Publish provider deactivations under the payment rows, then the event and
     # claim.  No network request runs in this transaction.
     supersede_failed = False
@@ -437,9 +460,24 @@ def create_sumup_event_checkout(request, registration_id):
         old_rows = {
             row.pk: row
             for row in PaymentTransaction.objects.select_for_update()
-            .filter(pk__in=deactivated)
+            .filter(pk__in=[*deactivated, *mollie_closed])
             .order_by("pk")
         }
+        for payment_id, closed in mollie_closed.items():
+            row = old_rows.get(payment_id)
+            if (
+                row is None
+                or row.status == PaymentTransaction.Status.PAID
+                or not closed
+            ):
+                supersede_failed = True
+            elif row.status == PaymentTransaction.Status.PENDING:
+                row.status = PaymentTransaction.Status.CANCELLED
+                row.failure_reason = (
+                    "Superseded by a newer checkout - cancelled at Mollie before "
+                    "any payment was taken."
+                )
+                row.save(update_fields=["status", "failure_reason", "updated_at"])
         MeetupEvent.objects.select_for_update().get(pk=claim_state["event_id"])
         EventRegistration.objects.select_for_update().get(
             pk=claim_state["registration_id"]

@@ -337,6 +337,99 @@ class MollieEventCheckoutTests(CreditFixture):
         self.assertEqual(response.status_code, 302)
         call.assert_not_called()
 
+    # -- the three Codex P1 gaps -------------------------------------------
+
+    @override_settings(**MOLLIE_ON)
+    def test_credit_payment_closes_an_open_mollie_checkout_first(self):
+        from crush_lu.models.credits import CrushCredit
+        from crush_lu.services.credits import issue_credit
+        from crush_lu.tests.test_crush_credit import FEE_CENTS
+
+        issue_credit(self.buyer, FEE_CENTS, CrushCredit.Reason.GOODWILL)
+        row = self._pending_row()
+        calls = [
+            _payment("open"),  # GET
+            _response(200, {"id": PAYMENT_ID, "status": "canceled"}),  # DELETE
+        ]
+        with self.captureOnCommitCallbacks(execute=True):
+            with mock.patch(REQUEST, side_effect=calls) as call:
+                response = self._post({"payment_method": "credit"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual([c.args[0] for c in call.call_args_list], ["GET", "DELETE"])
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+        self.seat.refresh_from_db()
+        self.assertTrue(self.seat.payment_confirmed)
+
+    @override_settings(**MOLLIE_ON)
+    def test_credit_payment_refused_when_mollie_checkout_cannot_be_closed(self):
+        from crush_lu.models.credits import CrushCredit
+        from crush_lu.services.credits import available_credit_cents, issue_credit
+        from crush_lu.tests.test_crush_credit import FEE_CENTS
+
+        issue_credit(self.buyer, FEE_CENTS, CrushCredit.Reason.GOODWILL)
+        row = self._pending_row()
+        calls = [_payment("open"), _response(422, {"detail": "not cancelable"})]
+        with mock.patch(REQUEST, side_effect=calls):
+            response = self._post({"payment_method": "credit"})
+
+        self.assertEqual(response.status_code, 409)
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.PENDING)
+        self.seat.refresh_from_db()
+        self.assertFalse(self.seat.payment_confirmed)
+        self.assertEqual(available_credit_cents(self.buyer), FEE_CENTS)
+
+    @override_settings(**MOLLIE_ON)
+    def test_account_erasure_cancels_open_mollie_checkouts(self):
+        from crush_lu.views_account import (
+            _retire_event_checkouts_before_profile_deletion,
+        )
+
+        row = self._pending_row()
+        calls = [_payment("open"), _response(200, {"status": "canceled"})]
+        with mock.patch(REQUEST, side_effect=calls) as call:
+            _retire_event_checkouts_before_profile_deletion(self.buyer)
+
+        self.assertIn("DELETE", [c.args[0] for c in call.call_args_list])
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+
+    @override_settings(**MOLLIE_ON)
+    def test_account_erasure_pauses_when_mollie_checkout_is_already_paid(self):
+        from crush_lu.views_account import (
+            _retire_event_checkouts_before_profile_deletion,
+        )
+
+        row = self._pending_row()
+        with mock.patch(REQUEST, return_value=_payment("paid", checkout=False)):
+            with self.assertRaises(RuntimeError):
+                _retire_event_checkouts_before_profile_deletion(self.buyer)
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.PENDING)
+
+    def test_resale_capture_time_is_mollies_paid_at_not_processing_time(self):
+        from django.utils.dateparse import parse_datetime
+
+        from crush_lu.services.credits import _replacement_capture_moment
+
+        paid_at = "2026-11-20T17:55:00+00:00"
+        PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-MOLLIE-CAP",
+            provider=PaymentTransaction.Provider.MOLLIE,
+            mollie_payment_id=PAYMENT_ID,
+            amount=FEE,
+            status=PaymentTransaction.Status.PAID,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=self.buyer,
+            event_registration=self.seat,
+            raw_response={"id": PAYMENT_ID, "status": "paid", "paidAt": paid_at},
+        )
+        moment, payment = _replacement_capture_moment(self.seat)
+        self.assertEqual(moment, parse_datetime(paid_at))
+        self.assertEqual(payment.provider, PaymentTransaction.Provider.MOLLIE)
+
     # -- reports ------------------------------------------------------------
 
     def test_mollie_revenue_counts_as_event_cash(self):
