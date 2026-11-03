@@ -38,6 +38,7 @@ from crush_lu.services.photo_review import (
     undo_last_photo_review,
 )
 from crush_lu.templatetags.crush_media import member_photo_review
+from crush_lu.tests.photo_storage_helpers import stub_photo_deletes
 from crush_lu.tests.test_coach_photo_review import _make_candidate, _make_coach
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
@@ -54,12 +55,7 @@ def deleted_blobs(monkeypatch):
     """Record storage deletes instead of touching files."""
     cache.clear()
     deleted = []
-    for field in ("photo_1", "photo_2", "photo_3"):
-        monkeypatch.setattr(
-            CrushProfile._meta.get_field(field).storage,
-            "delete",
-            lambda name: deleted.append(name),
-        )
+    stub_photo_deletes(monkeypatch, lambda name: deleted.append(name))
     return deleted
 
 
