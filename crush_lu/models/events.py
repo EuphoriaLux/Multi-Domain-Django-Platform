@@ -3867,9 +3867,12 @@ def _degrade_curated_group_before_registration_erasure(
             protect_live_event_checkout_deletion,
         )
 
+        # The event is locked for the group writes below, but only this
+        # registration's own checkouts can block its deletion.
         protect_live_event_checkout_deletion(
-            event_ids=[instance.event_id],
+            event_ids=(),
             registration_ids=[instance.pk],
+            lock_event_ids=[instance.event_id],
             using=using,
         )
         if isinstance(origin, MeetupEvent) or origin_model is MeetupEvent:
