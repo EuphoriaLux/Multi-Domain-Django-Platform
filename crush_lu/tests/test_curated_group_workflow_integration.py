@@ -1360,6 +1360,118 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         self.assertTrue(PaymentTransaction.objects.filter(pk=payment.pk).exists())
         self.assertTrue(EventCheckoutCreationClaim.objects.filter(pk=claim.pk).exists())
 
+    def make_live_checkout(self, registration, reference):
+        payment = PaymentTransaction.objects.create(
+            transaction_reference=reference,
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id=f"CHK-{reference}",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=registration.user,
+            event_registration=registration,
+        )
+        claim = EventCheckoutCreationClaim.objects.create(
+            registration=registration,
+            registration_id_snapshot=registration.pk,
+            event_id_snapshot=registration.event_id,
+            transaction_reference=reference,
+            payment_method="card",
+            provider_checkout_id=payment.sumup_checkout_id,
+        )
+        return payment, claim
+
+    def test_co_registrants_live_checkout_only_protects_event_deletion(self):
+        event = self.make_event()
+        leaving, staying = self.make_applicants(event, 2)
+        payment, claim = self.make_live_checkout(staying, "CRUSH-EVT-CO-REGISTRANT")
+
+        with transaction.atomic():
+            leaving.delete()
+
+        self.assertFalse(EventRegistration.objects.filter(pk=leaving.pk).exists())
+        payment.refresh_from_db()
+        claim.refresh_from_db()
+        self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
+        self.assertEqual(claim.state, EventCheckoutCreationClaim.State.ACTIVE)
+
+        with self.assertRaises(ProtectedError) as event_error:
+            with transaction.atomic():
+                event.delete()
+
+        self.assertIn(payment, event_error.exception.protected_objects)
+        self.assertIn(claim, event_error.exception.protected_objects)
+        self.assertTrue(EventRegistration.objects.filter(pk=staying.pk).exists())
+
+    @patch("crush_lu.storage.delete_user_storage", return_value=(True, 0))
+    def test_account_deletion_ignores_a_co_registrants_abandoned_checkout(
+        self, delete_storage
+    ):
+        # Production 2026-11-03: four abandoned SumUp checkouts of other
+        # members on one event blocked a member's own profile deletion.
+        from crush_lu.views_account import delete_crushlu_profile_only
+
+        event = self.make_event()
+        leaving, *others = self.make_applicants(event, 5)
+        checkouts = [
+            self.make_live_checkout(other, f"CRUSH-EVT-ABANDONED-{index}")
+            for index, other in enumerate(others)
+        ]
+
+        with patch(
+            "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable"
+        ) as ensure_not_payable:
+            delete_crushlu_profile_only(leaving.user)
+
+        ensure_not_payable.assert_not_called()
+        delete_storage.assert_called_once_with(leaving.user.pk)
+        self.assertFalse(CrushProfile.objects.filter(user=leaving.user).exists())
+        self.assertFalse(EventRegistration.objects.filter(pk=leaving.pk).exists())
+        consent = UserDataConsent.objects.get(user=leaving.user)
+        self.assertEqual(consent.crushlu_ban_reason, "user_deletion")
+        for payment, claim in checkouts:
+            payment.refresh_from_db()
+            claim.refresh_from_db()
+            self.assertEqual(payment.status, PaymentTransaction.Status.PENDING)
+            self.assertIsNotNone(payment.event_registration_id)
+            self.assertEqual(claim.state, EventCheckoutCreationClaim.State.ACTIVE)
+
+    def test_erasure_leaves_a_group_members_checkout_to_the_group_repair(self):
+        event, registrations, group = self.certify_one_group()
+        erased, selected = registrations[0], registrations[2]
+        payment = PaymentTransaction.objects.create(
+            transaction_reference="CURATED-PENDING-CO-ERASURE",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-CURATED-PENDING-CO-ERASURE",
+            amount=Decimal("15.00"),
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=selected.user,
+            event_registration=selected,
+        )
+
+        with (
+            patch(
+                "crush_lu.services.sumup.SumUpClient.ensure_checkout_not_payable",
+                return_value=True,
+            ) as ensure_not_payable,
+            patch(
+                "crush_lu.services.curated_group_notifications."
+                "deliver_curated_group_notifications"
+            ),
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                erased.delete()
+
+        # The same on_commit repair a cancellation schedules retires it.
+        ensure_not_payable.assert_called_once_with(payment.sumup_checkout_id)
+        group.refresh_from_db()
+        payment.refresh_from_db()
+        self.assertEqual(group.status, CuratedEventGroup.STATUS_CANCELLED)
+        self.assertEqual(payment.status, PaymentTransaction.Status.CANCELLED)
+
     def test_deletion_in_progress_middleware_allows_only_retry_routes(self):
         from crush_lu.consent_middleware import CrushConsentMiddleware
 
