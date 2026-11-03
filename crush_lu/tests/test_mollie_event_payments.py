@@ -169,11 +169,52 @@ class MollieEventCheckoutTests(CreditFixture):
         calls = [
             _payment("open", value="9.00"),
             _response(422, {"detail": "not cancelable"}),
+            _payment("open", value="9.00"),  # GET re-read: genuinely still open
         ]
         with mock.patch(REQUEST, side_effect=calls) as call:
             response = self._post()
 
         self.assertEqual(response.status_code, 409)
+        self.assertNotIn("POST", [c.args[0] for c in call.call_args_list])
+        self.assertEqual(self._mollie_rows().count(), 1)
+        self.assertEqual(
+            self._mollie_rows().get().status, PaymentTransaction.Status.PENDING
+        )
+
+    @override_settings(**MOLLIE_ON)
+    def test_cancel_refused_for_an_already_canceled_payment_opens_a_new_one(self):
+        self._pending_row()
+        calls = [
+            _payment("open", value="9.00"),  # GET: stale price, still open
+            _response(422, {"detail": "The payment cannot be cancelled"}),
+            _response(200, {"id": PAYMENT_ID, "status": "canceled"}),  # GET re-read
+            _payment("open", payment_id="tr_NewPayment1"),  # POST
+        ]
+        with mock.patch(REQUEST, side_effect=calls) as call:
+            response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [c.args[0] for c in call.call_args_list], ["GET", "DELETE", "GET", "POST"]
+        )
+        old, new = self._mollie_rows().order_by("pk")
+        self.assertEqual(old.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(new.mollie_payment_id, "tr_NewPayment1")
+
+    @override_settings(**MOLLIE_ON)
+    def test_cancel_refused_for_a_paid_payment_reports_already_paid(self):
+        self._pending_row()
+        calls = [
+            _payment("open", value="9.00"),
+            _response(422, {"detail": "The payment cannot be cancelled"}),
+            _payment("paid", value="9.00"),  # GET re-read: paid meanwhile
+            _payment("paid", value="9.00"),  # GET inside sync_mollie_payment
+        ]
+        with mock.patch(REQUEST, side_effect=calls) as call:
+            response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["already_paid"])
         self.assertNotIn("POST", [c.args[0] for c in call.call_args_list])
         self.assertEqual(self._mollie_rows().count(), 1)
 
