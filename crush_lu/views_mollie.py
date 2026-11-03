@@ -499,6 +499,25 @@ def open_mollie_event_checkout(request, registration_id):
                     tx.mollie_payment_id,
                     exc,
                 )
+                # Mollie answers 422 for a payment that already ended (the
+                # member backed out of the checkout page): re-read before
+                # deciding it is genuinely stuck.
+                try:
+                    latest = client.get_payment(tx.mollie_payment_id)
+                except mollie.MollieError:
+                    latest = None
+                latest_status = latest.get("status") if latest else None
+                if latest_status == mollie.STATUS_PAID:
+                    try:
+                        sync_mollie_payment(tx)
+                    except mollie.MollieError:
+                        pass  # the webhook settles it
+                    return JsonResponse(
+                        {"success": True, "already_paid": True, "widget_url": event_url}
+                    )
+                if latest_status in _UNPAID_STATUS:
+                    _record_unpaid(tx, latest_status, latest)
+                    continue
                 return _event_json_error(
                     _(
                         "Your earlier card checkout could not be closed. "
