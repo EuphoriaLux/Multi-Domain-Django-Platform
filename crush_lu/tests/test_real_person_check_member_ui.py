@@ -35,6 +35,7 @@ from crush_lu.models import (
     UserReport,
 )
 from crush_lu.real_person_check_rules import DECLINE_COOLDOWN
+from crush_lu.tests.photo_storage_helpers import stub_photo_deletes
 from crush_lu.tests.real_person_check_helpers import (
     make_coach,
     make_member,
@@ -804,10 +805,7 @@ def test_the_showcase_deck_cost_does_not_grow_with_badged_cards(
     from crush_lu.tests.test_connect_showcase import _member
     from crush_lu.tests.test_coach_photo_review import _make_coach
 
-    for field in ("photo_1", "photo_2", "photo_3"):
-        monkeypatch.setattr(
-            CrushProfile._meta.get_field(field).storage, "delete", lambda name: None
-        )
+    stub_photo_deletes(monkeypatch, lambda name: None)
     coach = _make_coach("rpc_ui_showcase_coach")
     client.force_login(coach.user)
     for number in range(2):

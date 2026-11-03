@@ -25,6 +25,7 @@ from crush_lu.services.photo_review import (
     submit_photo_review,
     undo_last_photo_review,
 )
+from crush_lu.tests.photo_storage_helpers import stub_photo_deletes
 from crush_lu.tests.test_coach_photo_review import _make_candidate, _make_coach
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
@@ -36,9 +37,7 @@ REASONS = {"approved": "", "flagged_fake": "fake_profile", "needs_revision": "ot
 @pytest.fixture(autouse=True)
 def isolate_side_effects(monkeypatch):
     cache.clear()
-    monkeypatch.setattr(
-        CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
-    )
+    stub_photo_deletes(monkeypatch, lambda name: None)
     with patch("crush_lu.services.photo_review.notify_photo_revision"):
         yield
 
