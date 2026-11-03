@@ -24,7 +24,6 @@ from django.utils import timezone
 
 from crush_lu.models import (
     CrushCoach,
-    CrushProfile,
     EventRegistration,
     MeetupEvent,
     PublishedProfilePhoto,
@@ -35,6 +34,7 @@ from crush_lu.services.connect_showcase import (
     get_showcase_pool,
 )
 from crush_lu.services.photo_publication import get_public_photo_key
+from crush_lu.tests.photo_storage_helpers import stub_photo_deletes
 from crush_lu.tests.test_coach_photo_review import _make_candidate, _make_coach
 
 pytestmark = pytest.mark.django_db
@@ -47,10 +47,7 @@ def _isolated(monkeypatch):
     # Every test's viewer shares one ratelimit counter (AGENTS.md trap), and
     # replacing a photo must not touch storage.
     cache.clear()
-    for field in ("photo_1", "photo_2", "photo_3"):
-        monkeypatch.setattr(
-            CrushProfile._meta.get_field(field).storage, "delete", lambda name: None
-        )
+    stub_photo_deletes(monkeypatch, lambda name: None)
 
 
 @pytest.fixture

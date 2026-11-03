@@ -30,6 +30,7 @@ from crush_lu.services.photo_framing import (
     set_focus,
     square_crop_box,
 )
+from crush_lu.tests.photo_storage_helpers import stub_photo_deletes
 from crush_lu.tests.test_coach_photo_review import _make_candidate, _make_coach
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
@@ -541,9 +542,7 @@ def test_a_discarded_file_takes_its_focus_with_it(monkeypatch):
     from crush_lu.services.photo_publication import publish_photo
 
     deleted = []
-    monkeypatch.setattr(
-        CrushProfile._meta.get_field("photo_1").storage, "delete", deleted.append
-    )
+    stub_photo_deletes(monkeypatch, deleted.append)
     profile = _held_replacement(_make_candidate())  # KEY published, NEW_KEY live
     _frame(profile, KEY, 10, 10)
     _frame(profile, NEW_KEY, 20, 20)
@@ -567,9 +566,7 @@ def test_a_discarded_file_takes_its_focus_with_it(monkeypatch):
 def test_a_failed_photo_save_keeps_the_focus(monkeypatch):
     """The focus goes in the save's own transaction: a save that rolls back
     keeps the photo it kept framed."""
-    monkeypatch.setattr(
-        CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
-    )
+    stub_photo_deletes(monkeypatch, lambda name: None)
     monkeypatch.setattr(
         "crush_lu.services.photo_publication.record_photo_upload",
         MagicMock(side_effect=RuntimeError("receiver failed")),

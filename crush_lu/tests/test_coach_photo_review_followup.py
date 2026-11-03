@@ -24,6 +24,7 @@ from crush_lu.services.photo_review import (
     submit_photo_review,
     undo_last_photo_review,
 )
+from crush_lu.tests.photo_storage_helpers import stub_photo_deletes
 from crush_lu.tests.test_coach_photo_review import _make_candidate, _make_coach
 
 pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")]
@@ -32,9 +33,7 @@ pytestmark = [pytest.mark.django_db, pytest.mark.urls("azureproject.urls_crush")
 @pytest.fixture(autouse=True)
 def safe_side_effects(monkeypatch):
     cache.clear()
-    monkeypatch.setattr(
-        CrushProfile._meta.get_field("photo_1").storage, "delete", lambda name: None
-    )
+    stub_photo_deletes(monkeypatch, lambda name: None)
     monkeypatch.setattr("crush_lu.email_helpers.can_send_email", lambda *args: True)
     with patch.object(NotificationService, "_send_email", return_value=True) as email:
         yield email
