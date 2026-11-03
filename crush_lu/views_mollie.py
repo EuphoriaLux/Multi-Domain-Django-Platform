@@ -276,11 +276,43 @@ def _already_paid_by(tx):
 # age it is a request that died between the two writes.
 _PREPARING_GRACE = timedelta(seconds=120)
 _OPEN_STATUSES = ("open", "pending", "authorized")
+# Started at Mollie: no checkout link, and Mollie may refuse to cancel them
+# (it did for a pending one on 2026-11-03).
+_IN_PROGRESS_STATUSES = ("pending", "authorized")
 EVENT_CREATE_COOLDOWN_SECONDS = 5
 
 
 def _event_json_error(message, status):
     return JsonResponse({"error": message}, status=status)
+
+
+def _payment_in_progress_response(request, event_id):
+    """Send the member back to the event while Mollie still processes a payment.
+
+    Such a payment may still turn into paid (Pay by Bank stays pending until
+    the transfer lands, up to 2-3 business days for a standard one), so it is
+    not cancelled and nothing new is opened beside it. An abandoned one ends by
+    itself: Mollie's docs give an open card payment 30 minutes and a Pay by
+    Bank session an hour. The button only follows ``widget_url``, so the copy
+    goes out as a message on the event page, in the language that page opens in.
+    """
+    with override(get_onscreen_language(user=request.user, request=request)):
+        message = _(
+            "Your earlier payment is still being processed. If you completed "
+            "it, your seat is confirmed automatically, so there is no need to "
+            "pay again. If you did not finish it, it closes by itself, usually "
+            "within an hour. You can then pay here, or pay at the door."
+        )
+        event_url = reverse("crush_lu:event_detail", kwargs={"event_id": event_id})
+    messages.warning(request, message)
+    return JsonResponse(
+        {
+            "success": True,
+            "payment_in_progress": True,
+            "message": message,
+            "widget_url": event_url,
+        }
+    )
 
 
 def _being_prepared_response():
@@ -416,9 +448,10 @@ def open_mollie_event_checkout(request, registration_id):
     Called by ``create_sumup_event_checkout`` once it has parsed the request and
     found Mollie is the event provider. Three phases, so no provider call runs
     under a lock: (1) validate and list open Mollie rows, (2) re-read each from
-    Mollie and reuse, close or settle it, (3) write the PENDING row under the
-    same locks, then ask Mollie. Reusing the member's still-open payment, rather
-    than opening a second one beside it, is what stops a double charge.
+    Mollie and reuse, close, settle or wait for it, (3) write the PENDING row
+    under the same locks, then ask Mollie. Reusing the member's still-open
+    payment, rather than opening a second one beside it, is what stops a double
+    charge.
     """
     initial = get_object_or_404(EventRegistration, pk=registration_id)
     if not mollie.mollie_configured():
@@ -478,7 +511,8 @@ def open_mollie_event_checkout(request, registration_id):
             continue
         if status in _OPEN_STATUSES:
             url = mollie.checkout_url(remote)
-            if url and mollie.amount_matches(remote, state["amount"], "EUR"):
+            price_matches = mollie.amount_matches(remote, state["amount"], "EUR")
+            if url and price_matches:
                 return JsonResponse(
                     {
                         "success": True,
@@ -489,8 +523,11 @@ def open_mollie_event_checkout(request, registration_id):
                         "currency": "EUR",
                     }
                 )
-            # Stale price or no link: close it so it can never be paid beside
-            # the replacement. If Mollie will not cancel it, open nothing new.
+            if status in _IN_PROGRESS_STATUSES and price_matches:
+                return _payment_in_progress_response(request, state["event_id"])
+            # Stale price, or open without a link: close it so it can never be
+            # paid beside the replacement. If Mollie will not cancel it, open
+            # nothing new.
             try:
                 client.cancel_payment(tx.mollie_payment_id)
             except mollie.MollieError as exc:
@@ -518,6 +555,11 @@ def open_mollie_event_checkout(request, registration_id):
                 if latest_status in _UNPAID_STATUS:
                     _record_unpaid(tx, latest_status, latest)
                     continue
+                if latest_status in _IN_PROGRESS_STATUSES and mollie.amount_matches(
+                    latest, state["amount"], "EUR"
+                ):
+                    # The member started paying between the two reads.
+                    return _payment_in_progress_response(request, state["event_id"])
                 return _event_json_error(
                     _(
                         "Your earlier card checkout could not be closed. "
