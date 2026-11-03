@@ -9,12 +9,14 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest import mock
 
+from django.contrib.messages import get_messages
 from django.core.cache import cache
 from django.test import override_settings
 from django.utils import timezone
 from django.urls import reverse
 
 from crush_lu.models.payments import PaymentTransaction
+from crush_lu.models.profiles import CrushProfile
 from crush_lu.services.event_payments import (
     mollie_event_payments_active,
     online_payments_paused,
@@ -141,8 +143,84 @@ class MollieEventCheckoutTests(CreditFixture):
             response = self._post()
 
         self.assertEqual(response.json()["widget_url"], CHECKOUT_HREF)
+        self.assertNotIn("payment_in_progress", response.json())
         self.assertEqual(self._mollie_rows().count(), 1)
         self.assertEqual({c.args[0] for c in call.call_args_list}, {"GET"})
+
+    # Production, 2026-11-03: a member left Mollie's page mid-payment, and the
+    # next click tried to cancel the pending payment and answered 409.
+    @override_settings(**MOLLIE_ON)
+    def test_started_payment_at_the_current_price_is_left_to_finish(self):
+        row = self._pending_row()
+        for status in ("pending", "authorized"):
+            with self.subTest(status=status):
+                cache.clear()
+                with mock.patch(
+                    REQUEST, return_value=_payment(status, checkout=False)
+                ) as call:
+                    response = self._post()
+
+                self.assertEqual(response.status_code, 200)
+                data = response.json()
+                self.assertTrue(data["success"])
+                self.assertTrue(data["payment_in_progress"])
+                self.assertEqual(data["widget_url"], f"/en/events/{self.target.pk}/")
+                self.assertIn("usually within an hour", data["message"])
+                self.assertIn(
+                    data["message"],
+                    [str(m) for m in get_messages(response.wsgi_request)],
+                )
+                self.assertEqual([c.args[0] for c in call.call_args_list], ["GET"])
+                self.assertEqual(self._mollie_rows().count(), 1)
+                row.refresh_from_db()
+                self.assertEqual(row.status, PaymentTransaction.Status.PENDING)
+
+    @override_settings(**MOLLIE_ON)
+    def test_started_payment_message_follows_the_members_language(self):
+        CrushProfile.objects.filter(user=self.buyer).update(preferred_language="fr")
+        self._pending_row()
+        with mock.patch(REQUEST, return_value=_payment("pending", checkout=False)):
+            data = self._post().json()
+
+        self.assertEqual(data["widget_url"], f"/fr/events/{self.target.pk}/")
+        self.assertTrue(data["message"].startswith("Votre paiement précédent"))
+
+    @override_settings(**MOLLIE_ON)
+    def test_started_payment_at_a_stale_price_still_has_to_be_cancelled(self):
+        self._pending_row()
+        calls = [
+            _payment("pending", value="9.00", checkout=False),
+            _response(422, {"detail": "The payment cannot be cancelled"}),
+            _payment("pending", value="9.00", checkout=False),  # GET re-read
+        ]
+        with mock.patch(REQUEST, side_effect=calls) as call:
+            response = self._post()
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(
+            [c.args[0] for c in call.call_args_list], ["GET", "DELETE", "GET"]
+        )
+        self.assertEqual(
+            self._mollie_rows().get().status, PaymentTransaction.Status.PENDING
+        )
+
+    @override_settings(**MOLLIE_ON)
+    def test_payment_started_while_being_cancelled_is_left_to_finish(self):
+        self._pending_row()
+        calls = [
+            _payment("open", checkout=False),  # GET: no link to send them back to
+            _response(422, {"detail": "The payment cannot be cancelled"}),
+            _payment("pending", checkout=False),  # GET re-read: member is paying
+        ]
+        with mock.patch(REQUEST, side_effect=calls) as call:
+            response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["payment_in_progress"])
+        self.assertNotIn("POST", [c.args[0] for c in call.call_args_list])
+        self.assertEqual(
+            self._mollie_rows().get().status, PaymentTransaction.Status.PENDING
+        )
 
     @override_settings(**MOLLIE_ON)
     def test_stale_priced_payment_is_cancelled_before_a_new_one_opens(self):

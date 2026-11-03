@@ -46905,3 +46905,16 @@ msgstr "Unser Team prüft jede Meldung. Die Person erfährt nicht, dass du es wa
 #: crush_lu/templates/crush_lu/event_lobby/lobby.html
 msgid "That didn't work. Please try again."
 msgstr "Das hat nicht geklappt. Bitte versuche es noch einmal."
+
+#: crush_lu/views_mollie.py
+msgid ""
+"Your earlier payment is still being processed. If you completed it, your "
+"seat is confirmed automatically, so there is no need to pay again. If you "
+"did not finish it, it closes by itself, usually within an hour. You can then "
+"pay here, or pay at the door."
+msgstr ""
+"Deine vorherige Zahlung wird noch bearbeitet. Wenn du sie abgeschlossen "
+"hast, wird dein Platz automatisch bestätigt, du musst also nicht noch "
+"einmal bezahlen. Wenn du sie nicht abgeschlossen hast, verfällt sie von "
+"selbst, meist innerhalb einer Stunde. Danach kannst du hier oder an der "
+"Tür bezahlen."

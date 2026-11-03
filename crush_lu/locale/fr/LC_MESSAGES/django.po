@@ -47032,3 +47032,16 @@ msgstr "Notre équipe examine chaque signalement. Cette personne ne saura pas qu
 #: crush_lu/templates/crush_lu/event_lobby/lobby.html
 msgid "That didn't work. Please try again."
 msgstr "Cela n'a pas fonctionné. Veuillez réessayer."
+
+#: crush_lu/views_mollie.py
+msgid ""
+"Your earlier payment is still being processed. If you completed it, your "
+"seat is confirmed automatically, so there is no need to pay again. If you "
+"did not finish it, it closes by itself, usually within an hour. You can then "
+"pay here, or pay at the door."
+msgstr ""
+"Votre paiement précédent est toujours en cours de traitement. Si vous "
+"l'avez finalisé, votre place sera confirmée automatiquement : inutile de "
+"payer à nouveau. Si vous ne l'avez pas terminé, il expirera de lui-même, "
+"généralement en moins d'une heure. Vous pourrez alors payer ici, ou payer "
+"à l'entrée."
