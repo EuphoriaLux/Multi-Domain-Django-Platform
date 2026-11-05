@@ -46918,3 +46918,10 @@ msgstr ""
 "einmal bezahlen. Wenn du sie nicht abgeschlossen hast, verfällt sie von "
 "selbst, meist innerhalb einer Stunde. Danach kannst du hier oder an der "
 "Tür bezahlen."
+
+#: templates/admin/crush_lu/poll_analytics_detail.html
+#: templates/crush_lu/event_voting_results.html
+msgid "vote"
+msgid_plural "votes"
+msgstr[0] "Stimme"
+msgstr[1] "Stimmen"

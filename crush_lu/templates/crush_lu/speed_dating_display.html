@@ -118,6 +118,8 @@
          data-str-non-binary="{% trans 'Non-binary' %}"
          data-str-other="{% trans 'Other' %}"
          data-str-votes-for="{% trans 'votes' %}"
+         data-str-votes-submitted="{% trans 'votes submitted' %}"
+         data-str-votes-cast="{% trans 'votes cast' %}"
          data-str-presented="{% trans 'presented' %}"
          data-str-total="{% trans 'total' %}"
          data-str-presenter="{% trans 'Presenter' %}"
@@ -270,7 +272,7 @@
                         <h2 class="text-5xl font-black text-white">{% trans "Cast Your Vote!" %}</h2>
                         <p class="text-xl text-gray-400 mt-1">
                             <span class="text-white font-bold" x-text="totalVotes"></span>
-                            {% trans "votes submitted" %}
+                            <span x-text="votesSubmittedLabel">{% trans "votes submitted" %}</span>
                         </p>
                     </div>
                     <!-- Countdown -->
@@ -327,7 +329,7 @@
                     <h2 class="text-6xl font-black text-white mb-3">{% trans "The Votes Are In!" %}</h2>
                     <p class="text-gray-400 text-xl">
                         <span class="text-white font-bold" x-text="totalVotes"></span>
-                        {% trans "votes cast" %}
+                        <span x-text="votesCastLabel">{% trans "votes cast" %}</span>
                     </p>
                 </div>
 
@@ -447,8 +449,9 @@
 
     </div><!-- /x-data -->
 
-    {# Scripts: component first, then Alpine CSP runner #}
-    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/speed-dating-display.js' %}?v=2"></script>
+    {# Scripts: component first, then the JS catalog (plural vote labels), then Alpine CSP runner #}
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/speed-dating-display.js' %}?v=3"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% url 'javascript-catalog-lang' LANGUAGE_CODE %}"></script>
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/alpinejs-csp-3.13.3.min.js' %}"></script>
 </body>
 </html>

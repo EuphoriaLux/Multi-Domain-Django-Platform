@@ -3579,18 +3579,6 @@ html.dark .cta-section {
     letter-spacing: 0.02em;
 }
 
-.cta-subtext span {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.cta-subtext span:not(:last-child)::after {
-    content: "•";
-    margin-left: 0.5rem;
-    opacity: 0.6;
-}
-
 /* Gift landing page CTA overrides */
 .gift-landing .cta-section {
     background: linear-gradient(135deg, var(--crush-purple), var(--crush-pink));
@@ -3637,14 +3625,6 @@ html.dark .cta-section {
     .cta-section .btn-cta {
         padding: 0.875rem 2rem;
         font-size: 1rem;
-    }
-
-    .cta-subtext span {
-        display: block;
-    }
-
-    .cta-subtext span:not(:last-child)::after {
-        display: none;
     }
 }
 

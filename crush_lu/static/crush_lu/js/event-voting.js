@@ -224,6 +224,19 @@ class EventVotingManager {
                 countElement.textContent = option.vote_count;
             }
 
+            // The JS catalog (deferred in base.html) carries the plural rule
+            // of the page language; until it loads, keep the rendered label.
+            var labelElement = document.getElementById(
+                "option-" + option.id + "-count-label",
+            );
+            if (labelElement && typeof window.ngettext === "function") {
+                labelElement.textContent = window.ngettext(
+                    "vote",
+                    "votes",
+                    option.vote_count,
+                );
+            }
+
             var percentElement = document.getElementById(
                 "option-" + option.id + "-percent",
             );

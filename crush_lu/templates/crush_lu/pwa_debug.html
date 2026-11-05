@@ -517,8 +517,16 @@
         }
     }
 
+    // This page is for broken installs, so keep working if confirm-sheet.js
+    // itself failed to load.
+    function askConfirm(message) {
+        return typeof window.crushConfirm === 'function'
+            ? window.crushConfirm(message)
+            : Promise.resolve(window.confirm(message));
+    }
+
     async function unregisterSW() {
-        if (!confirm('Are you sure you want to unregister the service worker?')) return;
+        if (!(await askConfirm('Are you sure you want to unregister the service worker?'))) return;
 
         addLog('Unregistering service worker...');
         try {
@@ -534,7 +542,7 @@
     }
 
     async function clearAllCaches() {
-        if (!confirm('Are you sure you want to clear all caches?')) return;
+        if (!(await askConfirm('Are you sure you want to clear all caches?'))) return;
 
         addLog('Clearing all caches...');
         try {

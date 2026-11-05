@@ -47045,3 +47045,10 @@ msgstr ""
 "payer à nouveau. Si vous ne l'avez pas terminé, il expirera de lui-même, "
 "généralement en moins d'une heure. Vous pourrez alors payer ici, ou payer "
 "à l'entrée."
+
+#: templates/admin/crush_lu/poll_analytics_detail.html
+#: templates/crush_lu/event_voting_results.html
+msgid "vote"
+msgid_plural "votes"
+msgstr[0] "vote"
+msgstr[1] "votes"

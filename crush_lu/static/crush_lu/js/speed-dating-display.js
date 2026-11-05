@@ -23,6 +23,8 @@ document.addEventListener("alpine:init", function () {
         var strNonBinary = el.dataset.strNonBinary || "Non-binary";
         var strOther = el.dataset.strOther || "Other";
         var strVotesFor = el.dataset.strVotesFor || "votes";
+        var strVotesSubmitted = el.dataset.strVotesSubmitted || "votes submitted";
+        var strVotesCast = el.dataset.strVotesCast || "votes cast";
         var strPresented = el.dataset.strPresented || "presented";
         var strTotal = el.dataset.strTotal || "total";
         var strPresenter = el.dataset.strPresenter || "Presenter";
@@ -62,6 +64,15 @@ document.addEventListener("alpine:init", function () {
         // ─────────────────────────────────────────────────────────────────
         // IMPERATIVE RENDER HELPERS
         // ─────────────────────────────────────────────────────────────────
+        // Count-aware labels from the JS catalog, which carries the page
+        // language's plural rule. Until it loads, use the plural strings
+        // the template injected.
+        function plural(singular, pluralForm, count, fallback) {
+            return typeof window.ngettext === "function"
+                ? window.ngettext(singular, pluralForm, count)
+                : fallback;
+        }
+
         function pct(count, list) {
             if (!list || !list.length) return 0;
             var total = list.reduce(function (s, o) {
@@ -88,7 +99,7 @@ document.addEventListener("alpine:init", function () {
                     '    <span class="text-gray-300 font-bold tabular-nums text-lg">' +
                     opt.count +
                     " " +
-                    strVotesFor +
+                    plural("vote", "votes", opt.count, strVotesFor) +
                     "</span>" +
                     "  </div>" +
                     '  <div class="h-9 bg-slate-700/70 rounded-xl overflow-hidden">' +
@@ -276,6 +287,17 @@ document.addEventListener("alpine:init", function () {
             },
             get totalVotes() {
                 return this.phaseData.total_votes || 0;
+            },
+            get votesSubmittedLabel() {
+                return plural(
+                    "vote submitted",
+                    "votes submitted",
+                    this.totalVotes,
+                    strVotesSubmitted,
+                );
+            },
+            get votesCastLabel() {
+                return plural("vote cast", "votes cast", this.totalVotes, strVotesCast);
             },
             get votingTimer() {
                 return this.formatTime(this.phaseData.time_remaining || 0);
