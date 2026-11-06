@@ -147,7 +147,7 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-                                    <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                                    <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> <span id="option-{{ option.id }}-count-label">{% blocktrans count votes=option.vote_count %}vote{% plural %}votes{% endblocktrans %}</span></span>
                                     <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                                 </div>
                             </div>
@@ -183,7 +183,7 @@
                                     </div>
                                 </div>
                                 <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-                                    <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                                    <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> <span id="option-{{ option.id }}-count-label">{% blocktrans count votes=option.vote_count %}vote{% plural %}votes{% endblocktrans %}</span></span>
                                     <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                                 </div>
                             </div>
@@ -359,7 +359,7 @@
                             </div>
                         </div>
                         <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-                            <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                            <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> <span id="option-{{ option.id }}-count-label">{% blocktrans count votes=option.vote_count %}vote{% plural %}votes{% endblocktrans %}</span></span>
                             <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                         </div>
                     </div>
@@ -398,7 +398,7 @@
                             </div>
                         </div>
                         <div class="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1 px-1">
-                            <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> {% trans "votes" %}</span>
+                            <span><span id="option-{{ option.id }}-count">{{ option.vote_count }}</span> <span id="option-{{ option.id }}-count-label">{% blocktrans count votes=option.vote_count %}vote{% plural %}votes{% endblocktrans %}</span></span>
                             <span id="option-{{ option.id }}-percent">{{ option.vote_percentage }}%</span>
                         </div>
                     </div>

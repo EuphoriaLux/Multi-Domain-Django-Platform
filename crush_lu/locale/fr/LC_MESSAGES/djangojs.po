@@ -344,3 +344,22 @@ msgstr "Imprimante injoignable. Sur un ordinateur, lancez le pont d'impression (
 #: static/crush_lu/js/alpine/coach.js
 msgid "The print bridge could not print this ticket. Its window shows why."
 msgstr "Le pont d'impression n'a pas pu imprimer ce ticket. Sa fenêtre en indique la raison."
+
+#: static/crush_lu/js/event-voting.js
+#: static/crush_lu/js/speed-dating-display.js
+msgid "vote"
+msgid_plural "votes"
+msgstr[0] "vote"
+msgstr[1] "votes"
+
+#: static/crush_lu/js/speed-dating-display.js
+msgid "vote submitted"
+msgid_plural "votes submitted"
+msgstr[0] "vote enregistré"
+msgstr[1] "votes enregistrés"
+
+#: static/crush_lu/js/speed-dating-display.js
+msgid "vote cast"
+msgid_plural "votes cast"
+msgstr[0] "vote exprimé"
+msgstr[1] "votes exprimés"

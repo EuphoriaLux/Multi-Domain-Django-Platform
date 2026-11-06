@@ -103,7 +103,7 @@
                     {% endif %}
                 </div>
                 <div class="result-count">
-                    <strong>{{ r.vote_count }}</strong> {% trans "votes" %} ({{ r.percentage }}%)
+                    <strong>{{ r.vote_count }}</strong> {% blocktrans count votes=r.vote_count %}vote{% plural %}votes{% endblocktrans %} ({{ r.percentage }}%)
                 </div>
             </div>
             <div class="bar-track">

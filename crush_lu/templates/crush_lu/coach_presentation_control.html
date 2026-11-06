@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (advanceBtn) {
         advanceBtn.addEventListener('click', async () => {
-            if (!confirm('Advance to the next presenter?')) {
+            if (!(await window.crushConfirm('Advance to the next presenter?', {style: 'neutral'}))) {
                 return;
             }
 

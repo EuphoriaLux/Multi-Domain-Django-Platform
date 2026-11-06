@@ -274,7 +274,7 @@ class EventConnection(models.Model):
         ("declined", "Declined"),
         ("coach_reviewing", "Coach Reviewing"),
         ("coach_approved", "Coach Approved - Ready to Share"),
-        ("shared", "Contact Info Shared"),
+        ("shared", "Introduction made"),
     ]
 
     # "My Crush!" post-event flow (spec 2026-07-21-crush-my-crush-post-event-flow §7)
