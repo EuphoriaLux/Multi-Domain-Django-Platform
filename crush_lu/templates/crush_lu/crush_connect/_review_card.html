@@ -19,32 +19,41 @@ Context:
 UX Wave 3 · WP12 (6-06): always-visible photo (no collapsed <details> hiding
 it at decision time). "Choose" opens a native <dialog> confirmation —
 template-local until Wave 2's shared confirm-sheet component lands.
+
+The card is half the width of a phone, so "coach-reviewed" is a check icon in
+the photo's corner, not the text pill of the full-width cards: the DE/FR pill
+covered the top of the photo and ran into "Suggested connection". The review
+page's header explains the icon once. Every photo opens full screen
+(crush_connect/_photo_viewer.html, one gallery per card).
 {% endcomment %}
 {% load i18n crush_media %}
 <article class="rounded-2xl overflow-hidden ring-1 ring-gray-200/60 dark:ring-slate-700/60 bg-white dark:bg-slate-800 shadow-crush-sm flex flex-col"
+         data-photo-viewer-group
          aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Review card for {{ name }}{% endblocktrans %}">
     <div class="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name zoomable=True %}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none"></div>
 
         {% if target.pk == highlight_user_id %}
-        <div class="absolute top-2 left-2 z-10">
-            <span class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-crush-purple">
-                {% include "shared/icons/star.html" with class="w-2.5 h-2.5" %}
+        {# right-10 keeps the pill clear of the check icon: on a phone it wraps instead of running under it. #}
+        <div class="absolute top-2 left-2 right-10 z-10 pointer-events-none">
+            <span class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-crush-purple to-crush-pink px-2 py-0.5 text-[10px] font-semibold uppercase leading-tight tracking-wide text-white shadow-crush-purple">
+                {% include "shared/icons/star.html" with class="w-2.5 h-2.5 shrink-0" %}
                 {% trans "Suggested connection" %}
             </span>
         </div>
         {% endif %}
 
         {% if target_profile.is_photo_review_approved %}
-        <div class="absolute top-2 right-2 z-10">
-            <span class="inline-flex rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white ring-1 ring-white/20" title="{% trans 'A Crush Coach reviewed this specific photo' %}">
-                {% trans "Coach-reviewed photo" %}
+        <div class="absolute top-2 right-2 z-10 pointer-events-none">
+            <span class="inline-flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/30">
+                {% include "shared/icons/check-badge.html" with class="w-4 h-4" %}
+                <span class="sr-only">{% trans "Coach-reviewed photo" %}</span>
             </span>
         </div>
         {% endif %}
 
-        <div class="absolute inset-x-2.5 bottom-2.5 flex items-end justify-between gap-2">
+        <div class="absolute inset-x-2.5 bottom-2.5 flex items-end justify-between gap-2 pointer-events-none">
             <h3 class="font-display text-base font-semibold leading-none text-white truncate">
                 {{ target.first_name|default:_("A member") }}
             </h3>
@@ -56,10 +65,10 @@ template-local until Wave 2's shared confirm-sheet component lands.
         </div>
     </div>
 
-    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}
+    {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile compact=True %}
 
     <div class="p-3 flex flex-col gap-2 flex-1">
-        {# Inline, not an overlay: this card's top-right corner already holds the coach-reviewed pill. #}
+        {# Inline, not an overlay: this card's top-right corner already holds the coach-reviewed icon. #}
         {% include "crush_lu/components/coach_verified_badge.html" with profile=target_profile variant="inline" css_class="self-start" %}
         {% if answers %}
         <ul class="space-y-1 mb-0 list-none pl-0 text-xs text-gray-600 dark:text-gray-300">

@@ -47052,3 +47052,15 @@ msgid "vote"
 msgid_plural "votes"
 msgstr[0] "vote"
 msgstr[1] "votes"
+
+#: templates/crush_lu/components/profile_photo.html
+msgid "View photo full screen"
+msgstr "Voir la photo en plein écran"
+
+#: templates/crush_lu/crush_connect/_photo_viewer.html
+msgid "Full-screen photo"
+msgstr "Photo en plein écran"
+
+#: templates/crush_lu/crush_connect/week_review.html
+msgid "Tap a photo to view it full screen."
+msgstr "Appuyez sur une photo pour l’afficher en plein écran."

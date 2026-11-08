@@ -1,17 +1,35 @@
 {% load i18n crush_media %}
 {% comment %}
+The member's coach-reviewed secondary photos (photo_2 / photo_3).
+
+Each thumbnail carries a small check icon in its corner, not a text caption:
+on a half-width review card a caption wrapped to four lines and covered the
+face (DE "Vom Coach geprüftes Foto"). The label stays for screen readers in
+the figcaption, and the main photo's pill (or the review page's legend) says
+what the icon means.
+
+Tapping a thumbnail opens it full screen with the rest of the card's photos
+(crush_connect/_photo_viewer.html), except on the Showcase.
+
 public_view — optional; set on the Connect Showcase, which a coach's phone
 shows to a guest: each photo loads as other members see it (profile_photo).
+The guest swipes the card there, so a tap must not open the viewer.
+compact     — optional; tighter spacing for the half-width review card.
 {% endcomment %}
 {% with reviewed_fields=profile.get_coach_reviewed_secondary_photo_fields %}
 {% if reviewed_fields %}
-<div class="grid grid-cols-2 gap-3 px-4 pb-4" aria-label="{% trans 'Coach-reviewed profile photos' %}">
+<div class="grid grid-cols-2 {% if compact %}gap-2 px-3 pt-2{% else %}gap-3 px-4 pb-4{% endif %}" aria-label="{% trans 'Coach-reviewed profile photos' %}">
     {% for photo_field in reviewed_fields %}
-    <figure class="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-slate-700">
-        {% profile_photo profile photo_field css_class="w-full aspect-[4/5] object-cover" alt_text=profile.display_name public_view=public_view %}
-        <figcaption class="absolute inset-x-1 bottom-1 text-center rounded-full bg-black/70 px-2 py-1 text-[10px] font-semibold text-white">
-            {% trans "Coach-reviewed photo" %}
-        </figcaption>
+    <figure class="relative overflow-hidden rounded-xl bg-gray-100 dark:bg-slate-700 m-0">
+        {% if public_view %}
+        {% profile_photo profile photo_field css_class="w-full aspect-[4/5] object-cover" alt_text=profile.display_name public_view=True %}
+        {% else %}
+        {% profile_photo profile photo_field css_class="w-full aspect-[4/5] object-cover" alt_text=profile.display_name zoomable=True %}
+        {% endif %}
+        <span class="pointer-events-none absolute top-1.5 right-1.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white ring-1 ring-white/30" aria-hidden="true">
+            {% include "shared/icons/check-badge.html" with class="w-4 h-4" %}
+        </span>
+        <figcaption class="sr-only">{% trans "Coach-reviewed photo" %}</figcaption>
     </figure>
     {% endfor %}
 </div>

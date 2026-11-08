@@ -1,0 +1,34 @@
+{% load i18n static %}
+{% comment %}
+Full-screen photo viewer for Crush Connect cards: one native <dialog> per page.
+
+A photo rendered with {% profile_photo ... zoomable=True %} is a button marked
+data-photo-viewer-open; connect-photo-viewer.js opens it here, with the other
+photos of its data-photo-viewer-group (one member's card) as a gallery:
+arrows, swipe or arrow keys move between them, Escape / the close button /
+a tap beside the photo closes it.
+
+The viewer reuses the address the card's <img> already loaded, so it never
+shows a photo the card did not: unapproved and hidden photos stay with
+profile_photo and the photo endpoint (views_media.can_view_profile_photo).
+
+Included by _base_connect.html and the staff card preview. A page that shows a
+zoomable photo must include it, or the photo's button does nothing.
+{% endcomment %}
+<dialog class="crush-photo-viewer" data-photo-viewer aria-label="{% trans 'Full-screen photo' %}">
+    <div class="crush-photo-viewer__stage" data-photo-viewer-stage>
+        <img class="crush-photo-viewer__image" data-photo-viewer-image alt="" decoding="async">
+    </div>
+    {# First and autofocus: showModal() lands here, so Enter or Space closes it again. #}
+    <button type="button" class="crush-photo-viewer__btn crush-photo-viewer__close" data-photo-viewer-close autofocus aria-label="{% trans 'Close' %}">
+        {% include "shared/icons/x-mark.html" with class="w-6 h-6" %}
+    </button>
+    <button type="button" class="crush-photo-viewer__btn crush-photo-viewer__prev" data-photo-viewer-prev aria-label="{% trans 'Previous photo' %}" hidden>
+        {% include "shared/icons/chevron-left.html" with class="w-6 h-6" %}
+    </button>
+    <button type="button" class="crush-photo-viewer__btn crush-photo-viewer__next" data-photo-viewer-next aria-label="{% trans 'Next photo' %}" hidden>
+        {% include "shared/icons/chevron-right.html" with class="w-6 h-6" %}
+    </button>
+    <p class="crush-photo-viewer__counter" data-photo-viewer-counter aria-live="polite" hidden></p>
+</dialog>
+<script src="{% static 'crush_lu/js/connect-photo-viewer.js' %}" defer></script>
