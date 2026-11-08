@@ -109,6 +109,7 @@ def profile_photo(
     fallback="initials",
     hide_photo=False,
     public_view=False,
+    zoomable=False,
 ):
     """
     Render a profile photo with consistent fallback.
@@ -131,6 +132,10 @@ def profile_photo(
         public_view: show what other members see even to a coach, decided by
                   the endpoint when the image loads (``?view=public``) — for
                   a page a coach shows to someone else (Connect Showcase)
+        zoomable: wrap the photo in a button that opens it full screen
+                  (crush_connect/_photo_viewer.html, connect-photo-viewer.js).
+                  The page must include that viewer. A fallback stays a
+                  plain placeholder, never a button.
 
     Returns:
         Rendered component
@@ -170,6 +175,7 @@ def profile_photo(
         "display_name": profile.display_name if profile else "User",
         "fallback": fallback,
         "focus_style": focus_style,
+        "zoomable": zoomable,
     }
 
 

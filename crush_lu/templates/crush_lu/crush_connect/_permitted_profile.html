@@ -1,9 +1,10 @@
 {% load i18n crush_media %}
-<div class="space-y-3">
+{# Its photos open full screen as one gallery (crush_connect/_photo_viewer.html). #}
+<div class="space-y-3" data-photo-viewer-group>
     <div class="relative">
-        {% profile_photo target_profile 'photo_1' css_class='w-full rounded-xl object-cover max-h-80' alt_text=target.first_name %}
+        {% profile_photo target_profile 'photo_1' css_class='w-full rounded-xl object-cover max-h-80' alt_text=target.first_name zoomable=True %}
         {% if target_profile.is_photo_review_approved %}
-        <span class="absolute bottom-2 right-2 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white">{% trans "Coach-reviewed photo" %}</span>
+        <span class="pointer-events-none absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white">{% include "shared/icons/check-badge.html" with class="w-3.5 h-3.5 shrink-0" %}{% trans "Coach-reviewed photo" %}</span>
         {% endif %}
     </div>
     {% include "crush_lu/crush_connect/_reviewed_secondary_photos.html" with profile=target_profile %}

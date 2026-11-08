@@ -11,27 +11,33 @@ Context:
 Reuses the "Read-the-Photo" gate questions from the target's Connect profile
 — guesses here are private cycle signals and post to connect_week_card_answer.
 Submitting the card has no matching or notification side effect.
+
+Every photo opens full screen (crush_connect/_photo_viewer.html), the card's
+photos as one gallery.
 {% endcomment %}
 {% load i18n crush_media moderation_tags %}
 <article
     class="card card-bordered overflow-hidden flex flex-col bg-white dark:bg-slate-800 ring-1 ring-gray-200/60 dark:ring-slate-700/60 rounded-2xl shadow-crush-md"
+    data-photo-viewer-group
     aria-label="{% blocktrans with name=target.first_name|default:_('A Crush Connect member') %}Connect Week card for {{ name }}{% endblocktrans %}"
 >
     <div class="relative aspect-[4/5] sm:aspect-[5/4] overflow-hidden bg-gradient-to-br from-crush-purple to-crush-pink">
-        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name %}
+        {% profile_photo target_profile 'photo_1' css_class='w-full h-full object-cover' alt_text=target.first_name zoomable=True %}
         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/15 pointer-events-none"></div>
 
         {% include "crush_lu/components/coach_verified_badge.html" with profile=target_profile %}
         {% if target_profile.is_photo_review_approved %}
         {# One row down while the in-person pill holds the top row: the DE/FR labels of the two run into each other on a phone. #}
         <div class="absolute {% if target_profile.is_photo_verified %}top-11{% else %}top-3{% endif %} left-3 z-10">
-            <span class="inline-flex items-center rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20" title="{% trans 'A Crush Coach reviewed this specific photo' %}">
+            <span class="inline-flex items-center rounded-full bg-black/70 gap-1 px-2.5 py-1 text-xs font-semibold text-white ring-1 ring-white/20" title="{% trans 'A Crush Coach reviewed this specific photo' %}">
+                {# The same icon marks the secondary photos below (_reviewed_secondary_photos.html). #}
+                {% include "shared/icons/check-badge.html" with class="w-3.5 h-3.5 shrink-0" %}
                 {% trans "Coach-reviewed photo" %}
             </span>
         </div>
         {% endif %}
 
-        <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3">
+        <div class="absolute inset-x-4 bottom-4 flex items-end justify-between gap-3 pointer-events-none">
             <div class="min-w-0">
                 <h3 class="font-display text-2xl font-semibold leading-none text-white truncate">
                     {{ target.first_name|default:_("A member") }}

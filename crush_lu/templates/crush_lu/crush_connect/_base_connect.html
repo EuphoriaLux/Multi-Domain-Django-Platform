@@ -22,4 +22,6 @@ the whole Connect area free of it.
 {% endif %}
 {% block connect_content %}{% endblock %}
 </div>
+{# Outside .connect-shell: its 44px button floor and focus ring are not for the viewer. #}
+{% include 'crush_lu/crush_connect/_photo_viewer.html' %}
 {% endblock %}

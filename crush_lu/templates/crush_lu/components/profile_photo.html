@@ -15,16 +15,24 @@ and the initial-text colour & weight.
 Photos keep the upper part of the image when cropped (`object-face`), or the
 focus point a coach set for that file (`focus_style`, services/photo_framing).
 
+`zoomable` wraps a real photo in a button that connect-photo-viewer.js opens
+full screen (the page includes crush_connect/_photo_viewer.html). The button
+fills its box (`block w-full h-full`), so the caller's sizing on the image
+still decides the layout.
+
 Args (resolved by the {% profile_photo %} inclusion_tag in crush_media):
-  has_photo, photo_url, alt_text, css_class, display_name, fallback, focus_style
+  has_photo, photo_url, alt_text, css_class, display_name, fallback, focus_style,
+  zoomable
 {% endcomment %}
 {% load i18n %}
 {% if has_photo %}
+    {% if zoomable %}<button type="button" data-photo-viewer-open class="block w-full h-full p-0 m-0 border-0 bg-transparent cursor-zoom-in">{% endif %}
     <img src="{{ photo_url }}"
          alt="{{ alt_text }}"
          class="{{ css_class }} object-cover object-face"
          {% if focus_style %}style="{{ focus_style }}"{% endif %}
          loading="lazy">
+    {% if zoomable %}<span class="sr-only">{% trans "View photo full screen" %}</span></button>{% endif %}
 {% elif fallback == "icon" %}
     <div class="{{ css_class }} flex items-center justify-center bg-gray-100 dark:bg-gray-700"
          aria-label="{% blocktrans with name=display_name %}{{ name }} — no photo{% endblocktrans %}">
