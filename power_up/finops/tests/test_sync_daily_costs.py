@@ -71,7 +71,7 @@ def run_sync(monkeypatch, fake_call_command):
 
     class FakeAggregator:
         @staticmethod
-        def refresh_all(**kwargs):
+        def refresh_windows(**kwargs):
             return {
                 "daily_aggregations": 7,
                 "monthly_aggregations": 2,
@@ -373,28 +373,119 @@ class TestForecastRefreshIsNotDestructive:
         assert remaining[0].forecast_date == replacement.forecast_date
 
 
-class TestIncrementalAggregation:
-    def test_weekday_refreshes_a_week_and_sunday_the_full_window(self):
+class TestAggregationWindows:
+    """Each night rebuilds the last week plus one rotating older slice.
+
+    This replaced a Sunday-only 60-day rebuild that ran as one request: 176s
+    on 2026-11-01 and 190s on 2026-11-08, against the Function's 225s read
+    timeout.
+    """
+
+    @staticmethod
+    def _windows(**kwargs):
+        from power_up.finops.management.commands.sync_daily_costs import (
+            aggregation_windows,
+        )
+
+        return aggregation_windows(**kwargs)
+
+    @staticmethod
+    def _covers(windows, day):
+        return any(start <= day <= end for start, end in windows)
+
+    def test_monday_rebuilds_the_last_week_and_offsets_8_to_15(self):
         from datetime import date
+
+        assert self._windows(today=date(2026, 11, 2)) == [
+            (date(2026, 10, 26), date(2026, 11, 2)),
+            (date(2026, 10, 18), date(2026, 10, 25)),
+        ]
+
+    def test_sunday_rebuilds_the_last_week_and_offsets_56_to_63(self):
+        from datetime import date
+
+        assert self._windows(today=date(2026, 11, 8)) == [
+            (date(2026, 11, 1), date(2026, 11, 8)),
+            (date(2026, 9, 6), date(2026, 9, 13)),
+        ]
+
+    def test_full_is_still_one_sixty_day_window(self):
+        from datetime import date
+
+        assert self._windows(full=True, today=date(2026, 11, 4)) == [
+            (date(2026, 9, 5), date(2026, 11, 4))
+        ]
+
+    def test_no_night_rebuilds_more_than_sixteen_days(self):
+        from datetime import date, timedelta
+
+        for offset in range(7):
+            today = date(2026, 11, 2) + timedelta(days=offset)
+            recent, older = self._windows(today=today)
+            assert older[1] < recent[0], "the two windows must not overlap"
+            days = sum((end - start).days + 1 for start, end in (recent, older))
+            assert days == 16
+
+    def test_a_week_of_nights_reaches_back_past_the_old_full_window(self):
+        from datetime import date, timedelta
 
         from power_up.finops.management.commands.sync_daily_costs import (
             FULL_DAYS_BACK,
-            INCREMENTAL_DAYS_BACK,
-            aggregation_days_back,
         )
 
-        assert aggregation_days_back(today=date(2026, 11, 2)) == INCREMENTAL_DAYS_BACK
-        assert aggregation_days_back(today=date(2026, 11, 1)) == FULL_DAYS_BACK
-        assert (
-            aggregation_days_back(full=True, today=date(2026, 11, 2)) == FULL_DAYS_BACK
+        for first in range(7):
+            ages = set()
+            for night in range(7):
+                today = date(2026, 11, 2) + timedelta(days=first + night)
+                for start, end in self._windows(today=today):
+                    ages |= set(range((today - end).days, (today - start).days + 1))
+            assert ages == set(range(64))
+            assert set(range(FULL_DAYS_BACK + 1)) <= ages
+
+    def test_no_recent_day_waits_more_than_eight_nights(self):
+        """Every day is rebuilt at least once in any 8 consecutive nights
+        until it is older than the old 60-day window (the Sunday rebuild
+        managed 7)."""
+        from datetime import date, timedelta
+
+        from power_up.finops.management.commands.sync_daily_costs import (
+            FULL_DAYS_BACK,
         )
 
-    def test_command_passes_the_window_to_the_aggregator(self, monkeypatch):
+        for first in range(14):
+            day = date(2026, 11, 2) + timedelta(days=first)
+            last_rebuilt = None
+            for age in range(FULL_DAYS_BACK + 1):
+                if self._covers(self._windows(today=day + timedelta(days=age)), day):
+                    last_rebuilt = age
+                assert last_rebuilt is not None
+                assert age - last_rebuilt <= 7, (day, age)
+
+    def test_the_weekday_comes_from_the_aggregator_clock(self, monkeypatch):
+        """The weekday and the dates must come from one clock; date.today()
+        and timezone.now() can disagree around midnight."""
+        from datetime import date, datetime, timezone as dt_timezone
+
+        monkeypatch.setattr(
+            f"{MOD}.timezone.now",
+            lambda: datetime(2026, 11, 8, 23, 30, tzinfo=dt_timezone.utc),
+        )
+        assert self._windows()[0] == (date(2026, 11, 1), date(2026, 11, 8))
+
+    def test_command_passes_tonights_windows_to_the_aggregator(
+        self, monkeypatch, sync_log
+    ):
+        from datetime import date
+
         seen = {}
+        windows = [
+            (date(2026, 11, 2), date(2026, 11, 9)),
+            (date(2026, 10, 10), date(2026, 10, 17)),
+        ]
 
         class FakeAggregator:
             @staticmethod
-            def refresh_all(**kwargs):
+            def refresh_windows(**kwargs):
                 seen.update(kwargs)
                 return {
                     "daily_aggregations": 1,
@@ -404,7 +495,9 @@ class TestIncrementalAggregation:
 
         monkeypatch.setattr(f"{MOD}.call_command", clean_children)
         monkeypatch.setattr(f"{MOD}.CostAggregator", FakeAggregator)
-        monkeypatch.setattr(f"{MOD}.aggregation_days_back", lambda full=False: 7)
+        monkeypatch.setattr(
+            f"{MOD}.aggregation_windows", lambda full=False, today=None: windows
+        )
 
         class FakeCostExport:
             class objects:
@@ -418,7 +511,66 @@ class TestIncrementalAggregation:
 
         monkeypatch.setattr(f"{MOD}.CostExport", FakeCostExport)
         call_command("sync_daily_costs", "--step", "aggregations", stdout=io.StringIO())
-        assert seen["days_back"] == 7
+        assert seen["windows"] == windows
+        assert any(
+            "aggregation_windows=2026-11-02..2026-11-09,2026-10-10..2026-10-17" in m
+            for m in messages(sync_log)
+        )
+
+
+class TestRefreshWindows:
+    """The aggregator side: daily per window, each touched month once."""
+
+    def _record(self, monkeypatch):
+        from power_up.finops.utils.aggregation import CostAggregator
+
+        calls = {"daily": [], "monthly": []}
+
+        def daily(start, end, currency):
+            calls["daily"].append((start, end))
+            return (end - start).days + 1
+
+        def monthly(year, month, currency):
+            calls["monthly"].append((year, month))
+            return 1
+
+        monkeypatch.setattr(CostAggregator, "aggregate_daily", staticmethod(daily))
+        monkeypatch.setattr(CostAggregator, "aggregate_monthly", staticmethod(monthly))
+        return CostAggregator, calls
+
+    def test_a_month_touched_by_both_windows_is_rolled_up_once(self, monkeypatch):
+        from datetime import date
+
+        aggregator, calls = self._record(monkeypatch)
+        result = aggregator.refresh_windows(
+            [
+                (date(2026, 10, 29), date(2026, 11, 5)),
+                (date(2026, 10, 13), date(2026, 10, 20)),
+            ]
+        )
+        assert calls["daily"] == [
+            (date(2026, 10, 29), date(2026, 11, 5)),
+            (date(2026, 10, 13), date(2026, 10, 20)),
+        ]
+        assert calls["monthly"] == [(2026, 10), (2026, 11)]
+        assert result == {
+            "daily_aggregations": 16,
+            "monthly_aggregations": 2,
+            "period": "2026-10-29 to 2026-11-05, 2026-10-13 to 2026-10-20",
+        }
+
+    def test_refresh_all_is_one_window_ending_today(self, monkeypatch):
+        from datetime import date, datetime, timezone as dt_timezone
+
+        aggregator, calls = self._record(monkeypatch)
+        monkeypatch.setattr(
+            "power_up.finops.utils.aggregation.timezone.now",
+            lambda: datetime(2026, 11, 8, 3, 0, tzinfo=dt_timezone.utc),
+        )
+        result = aggregator.refresh_all(days_back=60)
+        assert calls["daily"] == [(date(2026, 9, 9), date(2026, 11, 8))]
+        assert calls["monthly"] == [(2026, 9), (2026, 10), (2026, 11)]
+        assert result["period"] == "2026-09-09 to 2026-11-08"
 
 
 class TestStepSelection:
@@ -436,7 +588,7 @@ class TestStepSelection:
                 "A",
                 (),
                 {
-                    "refresh_all": staticmethod(
+                    "refresh_windows": staticmethod(
                         lambda **k: {
                             "daily_aggregations": 0,
                             "monthly_aggregations": 0,

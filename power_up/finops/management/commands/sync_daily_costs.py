@@ -40,10 +40,11 @@ so run_step already sees it as ``status=error``.
 
 import logging
 import time
-from datetime import date
+from datetime import timedelta
 
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
+from django.utils import timezone
 from power_up.finops.management.commands import (
     generate_cost_forecasts,
     import_cost_data,
@@ -60,20 +61,44 @@ logger = logging.getLogger(__name__)
 # ~240s App Service ceiling and 504'd although every step had succeeded.
 STEPS = ("import", "aggregations", "anomalies", "forecasts", "reservations")
 
-# A nightly import only touches the recent past, so the nightly refresh rebuilds
-# a week. The 60-day rebuild (~176s) catches late corrections to older days and
-# runs on Sundays, or on demand with --full.
+# A nightly import mostly touches the recent past, so every night rebuilds the
+# last week (offsets 0-7). Late corrections to older days are caught by one
+# rotating 8-day slice per night: Monday rebuilds offsets 8-15, Tuesday 16-23,
+# ... Sunday 56-63. A week of nights covers every offset from 0 to 63, and no
+# day younger than 61 days goes more than 8 nights between rebuilds; the old
+# Sunday-only 60-day rebuild managed 7. Making that 7 again with age-based
+# slices would mean rebuilding about 21 days a night instead of 16.
+#
+# That Sunday rebuild ran as one request: 176s on 2026-11-01 and 190s on
+# 2026-11-08, against the Function's 225s read timeout and the ~240s App
+# Service ceiling, and it grows with the data. Two windows of 8 days each stay
+# far below that. --full (or the webhook's "full": true) still rebuilds 60 days
+# in one go, for a manual catch-up.
 INCREMENTAL_DAYS_BACK = 7
+ROTATING_SLICE_DAYS = 8
 FULL_DAYS_BACK = 60
-FULL_REFRESH_WEEKDAY = 6  # Sunday
 
 
-def aggregation_days_back(full=False, today=None):
-    """How many days the aggregation step rebuilds on this run."""
-    today = today or date.today()
-    if full or today.weekday() == FULL_REFRESH_WEEKDAY:
-        return FULL_DAYS_BACK
-    return INCREMENTAL_DAYS_BACK
+def aggregation_windows(full=False, today=None):
+    """The ``(start, end)`` date windows the aggregation step rebuilds tonight.
+
+    Both ends are inclusive. ``today`` defaults to ``timezone.now().date()``,
+    the clock ``CostAggregator.refresh_all`` uses, so the weekday that picks
+    the slice and the dates it covers come from the same clock.
+    """
+    today = today or timezone.now().date()
+    if full:
+        return [(today - timedelta(days=FULL_DAYS_BACK), today)]
+    recent = (today - timedelta(days=INCREMENTAL_DAYS_BACK), today)
+    newest = INCREMENTAL_DAYS_BACK + 1 + ROTATING_SLICE_DAYS * today.weekday()
+    oldest = newest + ROTATING_SLICE_DAYS - 1
+    older = (today - timedelta(days=oldest), today - timedelta(days=newest))
+    return [recent, older]
+
+
+def describe_windows(windows):
+    """Windows as ``start..end`` pairs, the form the run-started log line uses."""
+    return ",".join(f"{start}..{end}" for start, end in windows)
 
 
 class Command(BaseCommand):
@@ -91,20 +116,20 @@ class Command(BaseCommand):
             "--full",
             action="store_true",
             help=(
-                f"Rebuild {FULL_DAYS_BACK} days of aggregations instead of "
-                f"{INCREMENTAL_DAYS_BACK} (always done on Sundays)."
+                f"Rebuild {FULL_DAYS_BACK} days of aggregations in one window "
+                "instead of the last week plus tonight's rotating older slice."
             ),
         )
 
     def handle(self, *args, **options):
         selected = set(options.get("steps") or STEPS)
-        days_back = aggregation_days_back(full=options.get("full", False))
+        windows = aggregation_windows(full=options.get("full", False))
         self.step_results = []
         self.stdout.write(self.style.SUCCESS("Starting daily cost data sync"))
         logger.info(
-            "[finops_sync] run started steps=%s aggregation_days_back=%s",
+            "[finops_sync] run started steps=%s aggregation_windows=%s",
             ",".join(s for s in STEPS if s in selected),
-            days_back,
+            describe_windows(windows),
         )
 
         run_started = time.monotonic()
@@ -164,8 +189,8 @@ class Command(BaseCommand):
         def _import():
             command = import_cost_data.Command()
             # --skip-aggregation: the child would otherwise run a full 60-day
-            # CostAggregator.refresh_all itself, which step 2 then repeats
-            # verbatim — duplicated work in a command that already times out.
+            # CostAggregator.refresh_all itself, which step 2 then partly
+            # repeats — duplicated work in a command that already times out.
             # It also swallows its own refresh failure into a stdout warning
             # raised *after* the import tally, so leaving it on would hide a
             # failure behind status=ok.
@@ -188,7 +213,7 @@ class Command(BaseCommand):
             return None
 
         def _aggregations():
-            result = CostAggregator.refresh_all(days_back=days_back, currency="EUR")
+            result = CostAggregator.refresh_windows(windows=windows, currency="EUR")
             self.stdout.write(
                 self.style.SUCCESS(
                     f'  ✓ Daily aggregations: {result["daily_aggregations"]}'
