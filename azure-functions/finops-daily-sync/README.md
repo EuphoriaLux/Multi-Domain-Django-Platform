@@ -30,9 +30,13 @@ still be busy); any other HTTP error only skips that step. A Django build that
 predates per-step requests ignores the body and runs everything in one call;
 the Function detects the missing `steps` in the response and does not repeat it.
 
-The aggregation step rebuilds the last 7 days nightly and the full 60 days on
-Sundays (or with `{"full": true}` / `--full`), since a nightly import only
-touches the recent past.
+The aggregation step rebuilds the last 7 days every night plus one rotating
+8-day older slice (Monday offsets 8-15, ... Sunday 56-63), so a week of nights
+covers 64 days without any one request rebuilding more than 16. Django picks
+the windows; this Function sends nothing extra. `{"full": true}` / `--full`
+still rebuilds 60 days in one request, for a manual catch-up. The Sunday-only
+60-day rebuild this replaced took 190s on 2026-11-08, close to the 225s read
+timeout.
 
 The same Function App also runs `retail_price_daily_sync` every 20 minutes
 from 04:00 to 06:40 UTC. It

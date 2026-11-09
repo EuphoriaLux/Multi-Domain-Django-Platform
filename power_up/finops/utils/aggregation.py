@@ -342,27 +342,48 @@ class CostAggregator:
         """
         end_date = timezone.now().date()
         start_date = end_date - timedelta(days=days_back)
+        return CostAggregator.refresh_windows([(start_date, end_date)], currency)
 
-        # Generate daily aggregations
-        daily_count = CostAggregator.aggregate_daily(start_date, end_date, currency)
+    @staticmethod
+    def refresh_windows(windows, currency="EUR"):
+        """
+        Refresh daily aggregations for each date window, then the monthly
+        aggregations of every month those windows touch.
 
-        # Generate monthly aggregations
+        A monthly rollup recomputes its whole month from ``CostRecord`` no
+        matter how few of its days changed, and costs roughly as much as a
+        dozen daily ones (about 30s for a full month in production, estimated
+        from the 2026-11 nightly step timings). So a month touched by two
+        windows is rolled up once, not once per window.
+
+        Args:
+            windows: Iterable of ``(start_date, end_date)``, both inclusive
+            currency: Currency filter
+
+        Returns:
+            dict: Summary of aggregations created
+        """
+        windows = list(windows)
+        daily_count = 0
+        months = []
+
+        for start_date, end_date in windows:
+            daily_count += CostAggregator.aggregate_daily(
+                start_date, end_date, currency
+            )
+            current_date = start_date
+            while current_date <= end_date:
+                year_month = (current_date.year, current_date.month)
+                if year_month not in months:
+                    months.append(year_month)
+                current_date += timedelta(days=1)
+
         monthly_count = 0
-        current_date = start_date
-        processed_months = set()
-
-        while current_date <= end_date:
-            year_month = (current_date.year, current_date.month)
-            if year_month not in processed_months:
-                monthly_count += CostAggregator.aggregate_monthly(
-                    current_date.year, current_date.month, currency
-                )
-                processed_months.add(year_month)
-
-            current_date += timedelta(days=1)
+        for year, month in sorted(months):
+            monthly_count += CostAggregator.aggregate_monthly(year, month, currency)
 
         return {
             "daily_aggregations": daily_count,
             "monthly_aggregations": monthly_count,
-            "period": f"{start_date} to {end_date}",
+            "period": ", ".join(f"{start} to {end}" for start, end in windows),
         }
