@@ -4,7 +4,7 @@
 # which 6.1 removed, so azureproject/urls.py failed to import. DRF 3.18.0 replaced it
 # with split_header_value, guarded on django.VERSION >= (6, 1). The matching Dependabot
 # `ignore` for Django >=6.1 was dropped in the same change, as that comment required.
-Django==6.1.2  # Requires Python 3.12+
+Django==6.1.3  # Requires Python 3.12+
 djangorestframework==3.18.3
 djangorestframework-simplejwt==5.5.1
 django-crispy-forms==2.7
@@ -19,7 +19,7 @@ psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 django-allauth==65.21.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.15.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.2  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
-google-auth==2.62.0  # Required for Google Wallet API authentication
+google-auth==2.62.1  # Required for Google Wallet API authentication
 
 # Analytics reporting (GA4 Data API + Search Console) — used by scripts/ga4_report.py,
 # gsc_report.py, seo_funnel_report.py for SEO/traffic reporting.
@@ -68,7 +68,7 @@ pywebpush==2.5.0
 
 # Azure Application Insights - SDK-based for exception filtering
 # IMPORTANT: Set ApplicationInsightsAgent_EXTENSION_VERSION=disabled in Azure App Service
-azure-monitor-opentelemetry==1.8.11
+azure-monitor-opentelemetry==1.8.12
 
 # Cookie Consent (GDPR/ePrivacy)
 django-cookie-consent==1.0.0
