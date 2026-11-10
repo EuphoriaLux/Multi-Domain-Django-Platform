@@ -1,8 +1,9 @@
 {% load i18n %}
 {% comment %}
-Message list of a coach WhatsApp thread — the innerHTML of #messages-container.
-Rendered inline by coach_whatsapp_thread.html and re-rendered by the
-coach_whatsapp_messages polling endpoint (HTMX innerHTML swap).
+Message list of a coach or support WhatsApp thread — the innerHTML of
+#messages-container. Rendered inline by coach_whatsapp_thread.html and
+re-rendered by the inbox's polling endpoint (HTMX innerHTML swap). Callers
+pass `wa_urls` (the inbox's URL names) for the media links.
 {% endcomment %}
 {% for item in items %}
     {% include "crush_lu/_coach_whatsapp_message.html" with item=item %}
