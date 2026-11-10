@@ -2,14 +2,14 @@
 {% load i18n static %}
 {% block pre_alpine_js %}{{ block.super }}{% include "crush_lu/partials/alpine_bundle.html" with bundle="coach" %}{% endblock %}
 
-{% block title %}{{ conv.display_name }} - {% trans "WhatsApp" %} - Crush.lu{% endblock %}
+{% block title %}{{ conv.display_name }} - {% if support %}{% trans "WhatsApp support" %}{% else %}{% trans "WhatsApp" %}{% endif %} - Crush.lu{% endblock %}
 {% block meta_robots %}noindex, nofollow{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto">
     <div class="mb-6">
-        <a href="{% url 'crush_lu:coach_whatsapp_inbox' %}{% if read_only %}?coach={{ inbox_coach.pk }}{% endif %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
-            &larr; {% trans "Back to WhatsApp" %}
+        <a href="{% url wa_urls.inbox %}{% if read_only %}?coach={{ inbox_coach.pk }}{% endif %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
+            &larr; {% if support %}{% trans "Back to WhatsApp support" %}{% else %}{% trans "Back to WhatsApp" %}{% endif %}
         </a>
     </div>
 
@@ -21,8 +21,11 @@
             </h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 m-0">
                 +{{ conv.from_number }}
-                {% if not conv.profile %} · {% trans "Not a member" %}{% endif %}
+                {% if not conv.profile %} · {% trans "Not a member" %}{% elif can_open_member %} · <a href="{% url 'crush_lu:coach_member_overview' conv.profile.user_id %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "View profile" %}</a>{% endif %}
             </p>
+            {% if wrote_to_label %}
+                <p class="text-xs text-amber-700 dark:text-amber-400 mt-1 mb-0">{{ wrote_to_label }}</p>
+            {% endif %}
         </div>
 
         {% comment %}
@@ -32,7 +35,7 @@
            the `connection-message-sent` event; it relies on these element ids.
         {% endcomment %}
         <div id="messages-container" class="space-y-3 mb-6 max-h-[60vh] overflow-y-auto"
-             hx-get="{% url 'crush_lu:coach_whatsapp_messages' conv.id %}"
+             hx-get="{% url wa_urls.messages conv.id %}"
              hx-trigger="every 20s, chat:refresh"
              hx-swap="innerHTML"
              data-htmx-error-toast="off">
@@ -43,7 +46,7 @@
             <p class="text-sm text-gray-500 dark:text-gray-400 m-0">{% trans "Read-only: only the coach can reply from this number." %}</p>
         {% elif conv.window_open %}
             <form id="connection-compose-form" method="post"
-                  hx-post="{% url 'crush_lu:coach_whatsapp_thread' conv.id %}"
+                  hx-post="{% url wa_urls.thread conv.id %}"
                   hx-target="#messages-container"
                   hx-swap="beforeend">
                 {% csrf_token %}
@@ -57,7 +60,7 @@
                               class="w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 p-3 text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors"></textarea>
                     <div id="chat-compose-error" class="text-sm text-red-600 dark:text-red-400" aria-live="polite"></div>
                     <div class="flex items-center justify-between gap-3">
-                        <small class="text-gray-500 dark:text-gray-400">{% trans "Sent from your Crush WhatsApp number." %}</small>
+                        <small class="text-gray-500 dark:text-gray-400">{% if support %}{% trans "Sent from the Crush.lu WhatsApp number, with your first name shown to other coaches." %}{% else %}{% trans "Sent from your Crush WhatsApp number." %}{% endif %}</small>
                         <button type="submit" class="btn-crush-solid btn-sm inline-flex items-center gap-2">
                             {% include "shared/icons/paper-airplane.html" with class="w-4 h-4" %}
                             {% trans "Send" %}

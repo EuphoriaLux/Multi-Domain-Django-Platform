@@ -345,6 +345,15 @@
                                             {% endif %}
                                         </a>
                                     {% endif %}
+                                    {% if support_whatsapp_enabled %}
+                                        <a class="dropdown-item" href="{% url 'crush_lu:support_whatsapp_inbox' %}">
+                                            {% include "shared/icons/whatsapp.html" with class="w-4 h-4 inline mr-2" %}
+                                            {% trans "WhatsApp support" %}
+                                            {% if support_whatsapp_unread > 0 %}
+                                                <span class="badge badge-success ml-2">{{ support_whatsapp_unread }}</span>
+                                            {% endif %}
+                                        </a>
+                                    {% endif %}
                                     <a class="dropdown-item" href="{% url 'crush_lu:coach_profiles' %}">
                                         {% include "shared/icons/clipboard.html" with class="w-4 h-4 inline mr-2" %}
                                         {% trans "Profile Queue" %}
@@ -905,6 +914,15 @@
                                     {% trans "WhatsApp" %}
                                     {% if coach_whatsapp_unread > 0 %}
                                         <span class="badge badge-success ml-1">{{ coach_whatsapp_unread }}</span>
+                                    {% endif %}
+                                </a>
+                            {% endif %}
+                            {% if support_whatsapp_enabled %}
+                                <a class="nav-link block" href="{% url 'crush_lu:support_whatsapp_inbox' %}">
+                                    {% include "shared/icons/whatsapp.html" with class="w-4 h-4 inline mr-2" %}
+                                    {% trans "WhatsApp support" %}
+                                    {% if support_whatsapp_unread > 0 %}
+                                        <span class="badge badge-success ml-1">{{ support_whatsapp_unread }}</span>
                                     {% endif %}
                                 </a>
                             {% endif %}

@@ -19,6 +19,14 @@ template can reach them, so the composer closes.
 To write first, a coach sends the follow-up template from the screening tab
 (``send_followup``): a business-initiated message, so it needs the member's
 WhatsApp opt-in. Their reply opens a conversation here like any other.
+
+The same functions also serve the WhatsApp support inbox (``SUPPORT``):
+members' messages to the main Crush.lu number, plus any number no active
+coach owns (``hub.whatsapp_service.shared_inbox_messages``). Every active
+coach reads and answers it. Pass ``SUPPORT`` wherever a coach is expected;
+only ``inbound_for``, ``_outbound_for`` and ``reply_number_id`` tell the two
+apart. A support reply goes out from the number the member last wrote to,
+because Meta's 24-hour window belongs to that number.
 """
 
 from __future__ import annotations
@@ -48,12 +56,14 @@ from hub.whatsapp_service import (
     meta_settings_ok,
     queue_whatsapp_template,
     send_whatsapp_text,
+    shared_inbox_messages,
 )
 
 logger = logging.getLogger(__name__)
 
 REPLY_WINDOW = timedelta(hours=24)
 NOTIFICATION_TYPE = "coach_whatsapp_message"
+SUPPORT_NOTIFICATION_TYPE = "support_whatsapp_message"
 # One push per conversation per this many seconds: a member typing five short
 # messages in a row should buzz the coach's phone once, not five times.
 PUSH_THROTTLE_SECONDS = 300
@@ -72,6 +82,33 @@ INLINE_MEDIA_PREFIXES = ("image/jpeg", "image/png", "image/webp", "audio/", "vid
 # One follow-up template per member per coach number in this period: each is a
 # billed message the member didn't ask for.
 FOLLOWUP_COOLDOWN = timedelta(hours=24)
+
+
+class SupportInbox:
+    """The shared WhatsApp support inbox; pass ``SUPPORT`` where a coach goes."""
+
+    pk = None
+
+    def __repr__(self) -> str:
+        return "<SupportInbox>"
+
+
+SUPPORT = SupportInbox()
+
+
+def is_support(owner) -> bool:
+    return isinstance(owner, SupportInbox)
+
+
+def _active_coach_number_ids():
+    """Numbers whose chats belong to an active coach's own inbox (a subquery)."""
+    from crush_lu.models import CrushCoach
+
+    return (
+        CrushCoach.objects.filter(is_active=True)
+        .exclude(whatsapp_phone_number_id="")
+        .values("whatsapp_phone_number_id")
+    )
 
 
 class CoachWhatsAppError(Exception):
@@ -94,6 +131,10 @@ class Conversation:
     last_is_outbound: bool
     unread: int
     window_open: bool
+    # The business number the member last wrote to (support replies go out
+    # from it) and, in the support inbox, who sent the last reply.
+    last_number_id: str = ""
+    last_sender: str = ""
 
 
 @dataclass
@@ -113,6 +154,8 @@ class ThreadItem:
     status: str = ""
     inbound_id: int | None = None
     media: dict | None = field(default=None)
+    # Support inbox only: the first name of whoever sent this reply.
+    sender_name: str = ""
 
 
 def _digits(value: str) -> str:
@@ -120,16 +163,35 @@ def _digits(value: str) -> str:
 
 
 def has_inbox(coach) -> bool:
+    if is_support(coach):
+        return True
     return bool(coach and coach.whatsapp_phone_number_id)
 
 
 def inbound_for(coach):
     """The coach's inbound rows (erased members' messages left out)."""
+    if is_support(coach):
+        return shared_inbox_messages().exclude(from_number=ERASED_SENDER)
     if not has_inbox(coach):
         return WhatsAppInboundMessage.objects.none()
     return WhatsAppInboundMessage.objects.filter(
         business_phone_number_id=coach.whatsapp_phone_number_id
     ).exclude(from_number=ERASED_SENDER)
+
+
+def reply_number_id(coach, conv) -> str:
+    """The business number a reply into ``conv`` goes out from.
+
+    A coach answers from their own number. The support inbox answers from
+    the number the member last wrote to, blank for the main number, so the
+    row stays in ``main_number_messages`` like every main-number send.
+    """
+    if not is_support(coach):
+        return coach.whatsapp_phone_number_id
+    number = conv.last_number_id
+    if number in ("", getattr(settings, "META_PHONE_NUMBER_ID", "")):
+        return ""
+    return number
 
 
 def unread_count(coach) -> int:
@@ -231,10 +293,29 @@ def _outbound_text(msg) -> str:
     return msg.template_name
 
 
+def sender_first_name(msg) -> str:
+    user = msg.user
+    if user is None:
+        return ""
+    return (user.first_name or "").strip() or user.get_username()
+
+
 def _outbound_for(coach, from_numbers=None):
-    qs = WhatsAppMessage.objects.filter(
-        business_phone_number_id=coach.whatsapp_phone_number_id
-    ).exclude(recipient="")
+    if is_support(coach):
+        # Everything sent from a number no active coach owns: the main
+        # number's replies, campaigns and alerts (blank number id), and a
+        # deactivated coach's number, mirroring ``shared_inbox_messages``.
+        qs = (
+            WhatsAppMessage.objects.exclude(
+                business_phone_number_id__in=_active_coach_number_ids()
+            )
+            .exclude(recipient="")
+            .select_related("user")
+        )
+    else:
+        qs = WhatsAppMessage.objects.filter(
+            business_phone_number_id=coach.whatsapp_phone_number_id
+        ).exclude(recipient="")
     if from_numbers is not None:
         candidates = set(from_numbers) | {f"+{n}" for n in from_numbers}
         qs = qs.filter(recipient__in=candidates)
@@ -268,6 +349,7 @@ def conversations_for(coach) -> list[Conversation]:
         last_out[_digits(msg.recipient)] = msg
     profiles = profiles_by_digits(numbers)
     now = timezone.now()
+    support = is_support(coach)
 
     conversations = []
     for g in groups:
@@ -276,6 +358,7 @@ def conversations_for(coach) -> list[Conversation]:
         out = last_out.get(_digits(number))
         outbound_last = out is not None and out.created_at > last_in.received_at
         profile = profiles.get(_digits(number))
+        last_sender = sender_first_name(out) if (support and outbound_last) else ""
         conversations.append(
             Conversation(
                 id=g["first_id"],
@@ -296,6 +379,8 @@ def conversations_for(coach) -> list[Conversation]:
                 last_is_outbound=outbound_last,
                 unread=g["unread"],
                 window_open=window_open(g["last_inbound_at"], now),
+                last_number_id=last_in.business_phone_number_id,
+                last_sender=last_sender,
             )
         )
     conversations.sort(key=lambda c: c.last_at, reverse=True)
@@ -330,12 +415,14 @@ def thread(coach, from_number: str) -> list[ThreadItem]:
         )
         for row in inbound_for(coach).filter(from_number=from_number)
     ]
+    support = is_support(coach)
     items += [
         ThreadItem(
             outbound=True,
             at=msg.created_at,
             text=_outbound_text(msg),
             status=msg.status,
+            sender_name=sender_first_name(msg) if support else "",
         )
         for msg in _outbound_for(coach, [from_number])
     ]
@@ -344,11 +431,31 @@ def thread(coach, from_number: str) -> list[ThreadItem]:
 
 
 def mark_read(coach, from_number: str) -> int:
-    return (
+    """Mark the conversation's messages read.
+
+    In the support inbox this also clears every coach's unread bell for the
+    conversation: once one coach has it open, the others needn't come.
+    """
+    updated = (
         inbound_for(coach)
         .filter(from_number=from_number, is_read=False)
         .update(is_read=True)
     )
+    if is_support(coach):
+        from crush_lu.models import Notification
+
+        conversation_id = (
+            inbound_for(coach)
+            .filter(from_number=from_number)
+            .aggregate(first=Min("pk"))["first"]
+        )
+        if conversation_id is not None:
+            Notification.objects.filter(
+                notification_type=SUPPORT_NOTIFICATION_TYPE,
+                read_at__isnull=True,
+                metadata__conversation_id=conversation_id,
+            ).update(read_at=timezone.now())
+    return updated
 
 
 def send_reply(coach, conv: Conversation, text: str, sender) -> WhatsAppMessage:
@@ -378,7 +485,7 @@ def send_reply(coach, conv: Conversation, text: str, sender) -> WhatsAppMessage:
         sender=sender,
         recipient=conv.from_number,
         text=text,
-        phone_number_id=coach.whatsapp_phone_number_id,
+        phone_number_id=reply_number_id(coach, conv),
     )
 
 
@@ -531,14 +638,19 @@ def on_inbound(row) -> None:
     from crush_lu.models import CrushCoach, Notification
     from crush_lu.push_notifications import user_language_context
 
-    if not row.business_phone_number_id or row.from_number == ERASED_SENDER:
+    if row.from_number == ERASED_SENDER:
         return
-    coach = (
-        CrushCoach.objects.select_related("user")
-        .filter(whatsapp_phone_number_id=row.business_phone_number_id, is_active=True)
-        .first()
-    )
+    coach = None
+    if row.business_phone_number_id:
+        coach = (
+            CrushCoach.objects.select_related("user")
+            .filter(
+                whatsapp_phone_number_id=row.business_phone_number_id, is_active=True
+            )
+            .first()
+        )
     if coach is None:
+        _alert_support(row)
         return
 
     conversation_id = (
@@ -546,12 +658,7 @@ def on_inbound(row) -> None:
         .filter(from_number=row.from_number)
         .aggregate(first=Min("pk"))["first"]
     )
-    profile = profiles_by_digits([row.from_number]).get(_digits(row.from_number))
-    name = (
-        profile.user.first_name
-        if profile is not None and profile.user.first_name
-        else _display_name(profile, row.contact_name, row.from_number)
-    )
+    name = _alert_name(row)
 
     with user_language_context(coach.user):
         url = reverse(
@@ -597,3 +704,93 @@ def on_inbound(row) -> None:
             tag=f"coach-whatsapp-{conversation_id}",
             deadline=time.monotonic() + PUSH_BUDGET_SECONDS,
         )
+
+
+def _alert_name(row) -> str:
+    """How an alert names the sender: a member's first name, else WhatsApp's."""
+    profile = profiles_by_digits([row.from_number]).get(_digits(row.from_number))
+    if profile is not None and profile.user.first_name:
+        return profile.user.first_name
+    return _display_name(profile, row.contact_name, row.from_number)
+
+
+def _alert_support(row) -> None:
+    """Alert every active coach that someone wrote to the support inbox.
+
+    Same shape as a coach alert: one unread bell row per coach per
+    conversation, refreshed on each new message, and one push round per
+    conversation every ``PUSH_THROTTLE_SECONDS`` within ``PUSH_BUDGET_SECONDS``
+    overall. Never the message text. ``mark_read`` clears everyone's bell
+    once one coach opens the conversation.
+    """
+    from crush_lu.coach_notifications import notify_coach_whatsapp_message
+    from crush_lu.models import CrushCoach, Notification
+    from crush_lu.push_notifications import user_language_context
+
+    conversation_id = (
+        inbound_for(SUPPORT)
+        .filter(from_number=row.from_number)
+        .aggregate(first=Min("pk"))["first"]
+    )
+    if conversation_id is None:
+        return
+    name = _alert_name(row)
+    coaches = list(
+        CrushCoach.objects.filter(is_active=True).select_related("user").order_by("pk")
+    )
+    alerts = []
+    for coach in coaches:
+        with user_language_context(coach.user):
+            url = reverse(
+                "crush_lu:support_whatsapp_thread",
+                args=[conversation_id],
+                urlconf="azureproject.urls_crush",
+            )
+            title = _("New WhatsApp support message")
+            body = _("%(name)s wrote to Crush.lu on WhatsApp.") % {"name": name}
+        alerts.append((coach, url, title, body))
+
+    now = timezone.now()
+    with transaction.atomic():
+        existing = {
+            n.user_id: n
+            for n in Notification.objects.select_for_update().filter(
+                user__in=[coach.user for coach in coaches],
+                notification_type=SUPPORT_NOTIFICATION_TYPE,
+                read_at__isnull=True,
+                metadata__conversation_id=conversation_id,
+            )
+        }
+        for coach, url, title, body in alerts:
+            bell = existing.get(coach.user_id)
+            if bell is not None:
+                Notification.objects.filter(pk=bell.pk).update(
+                    created_at=now, body=body
+                )
+            else:
+                Notification.objects.create(
+                    user=coach.user,
+                    notification_type=SUPPORT_NOTIFICATION_TYPE,
+                    title=title,
+                    body=body,
+                    link_url=url,
+                    metadata={"conversation_id": conversation_id},
+                )
+
+    if not cache.add(f"support-wa-push:{conversation_id}", 1, PUSH_THROTTLE_SECONDS):
+        return
+    deadline = time.monotonic() + PUSH_BUDGET_SECONDS
+    for coach, url, title, body in alerts:
+        if time.monotonic() >= deadline:
+            break
+        try:
+            notify_coach_whatsapp_message(
+                coach,
+                title=title,
+                body=body,
+                url=url,
+                tag=f"support-whatsapp-{conversation_id}",
+                deadline=deadline,
+            )
+        except Exception:  # one coach's push must not stop the rest
+            logger.exception("Support WhatsApp push failed for coach %s", coach.pk)

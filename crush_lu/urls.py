@@ -1064,6 +1064,28 @@ urlpatterns = [
         views_coach_whatsapp.coach_whatsapp_media,
         name="coach_whatsapp_media",
     ),
+    # WhatsApp support inbox (members' messages to the main Crush.lu number),
+    # shared by every active coach
+    path(
+        "coach/whatsapp/support/",
+        views_coach_whatsapp.support_whatsapp_inbox,
+        name="support_whatsapp_inbox",
+    ),
+    path(
+        "coach/whatsapp/support/<int:conversation_id>/",
+        views_coach_whatsapp.support_whatsapp_thread,
+        name="support_whatsapp_thread",
+    ),
+    path(
+        "coach/whatsapp/support/<int:conversation_id>/messages/",
+        views_coach_whatsapp.support_whatsapp_messages,
+        name="support_whatsapp_messages",
+    ),
+    path(
+        "coach/whatsapp/support/media/<int:inbound_id>/",
+        views_coach_whatsapp.support_whatsapp_media,
+        name="support_whatsapp_media",
+    ),
     # In-app video calls (real-person check, D12): relay credentials minted
     # when a call starts, and the superuser test room.
     path(

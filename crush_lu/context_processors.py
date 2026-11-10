@@ -311,6 +311,19 @@ def crush_user_context(request):
                 context["coach_whatsapp_enabled"] = True
                 context["coach_whatsapp_unread"] = unread_count(coach)
 
+            # WhatsApp support inbox (the main Crush.lu number): every active
+            # coach answers it, once WhatsApp is configured on the server.
+            from hub.whatsapp_service import meta_settings_ok
+
+            if meta_settings_ok():
+                from crush_lu.services.coach_whatsapp import SUPPORT
+                from crush_lu.services.coach_whatsapp import (
+                    unread_count as wa_unread_count,
+                )
+
+                context["support_whatsapp_enabled"] = True
+                context["support_whatsapp_unread"] = wa_unread_count(SUPPORT)
+
             # Count pending invitations to review (future feature)
             context["pending_invitations_count"] = 0
 

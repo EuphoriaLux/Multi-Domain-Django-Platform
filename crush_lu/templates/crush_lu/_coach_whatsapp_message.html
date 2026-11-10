@@ -1,10 +1,11 @@
 {% load i18n %}
-{% comment %}One message in a coach WhatsApp thread. `item` is a
-coach_whatsapp.ThreadItem: outbound = the coach's reply, else the member's
-message (text, or media streamed through coach_whatsapp_media).{% endcomment %}
+{% comment %}One message in a coach or support WhatsApp thread. `item` is a
+coach_whatsapp.ThreadItem: outbound = our reply, else the member's message
+(text, or media streamed through the inbox's media view, `wa_urls.media`).
+In the support inbox an outbound item names the coach who sent it.{% endcomment %}
 <div class="{% if item.outbound %}msg-bubble msg-bubble-sent{% else %}msg-bubble msg-bubble-received{% endif %}">
     {% if item.media %}
-        {% url 'crush_lu:coach_whatsapp_media' item.inbound_id as media_url %}
+        {% url wa_urls.media item.inbound_id as media_url %}
         {% if item.media.kind == "image" or item.media.kind == "sticker" %}
             {% if item.media.inline %}
                 <a href="{{ media_url }}" target="_blank" rel="noopener">
@@ -26,7 +27,7 @@ message (text, or media streamed through coach_whatsapp_media).{% endcomment %}
     {% endif %}
     {% if item.text %}<p class="mb-0 text-gray-700 dark:text-gray-200 whitespace-pre-line">{{ item.text }}</p>{% endif %}
     <small class="block mt-1 text-gray-500 dark:text-gray-400">
-        {{ item.at|date:"SHORT_DATETIME_FORMAT" }}
+        {% if item.sender_name %}{{ item.sender_name }} · {% endif %}{{ item.at|date:"SHORT_DATETIME_FORMAT" }}
         {% if item.outbound %}
             ·
             {% if item.status == "read" %}{% trans "Read" context "whatsapp status" %}
