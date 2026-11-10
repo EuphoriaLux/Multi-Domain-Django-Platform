@@ -766,6 +766,15 @@ CONNECT_REAL_PERSON_BADGE_VISIBLE = _env_bool(
     "CONNECT_REAL_PERSON_BADGE_VISIBLE", default=False
 )
 
+# January video admission: separate from optional badge visibility. Pin both
+# slot-sticky before a pilot. Existing checks remain badge-only; public access
+# does not change until the new policy is explicitly enabled.
+# Spec: ai-memory-hub/specs/2026-11-10-crush-january-video-verification-funnel.md
+CONNECT_VIDEO_VERIFICATION_MODE = os.getenv("CONNECT_VIDEO_VERIFICATION_MODE", "off")
+CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED = _env_bool(
+    "CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED", default=False
+)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 

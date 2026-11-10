@@ -693,6 +693,11 @@ ACCOUNT_EXPORT_REAL_PERSON_CHECK_EXCLUDED = {
         "revoked_at": "staff moderation decision",
         "revoked_by": "staff identity",
         "revoke_reason": "staff-written moderation note",
+        "purpose": "internal workflow routing; participation is exported by outcome",
+        "admission_policy_version": "internal access-policy version",
+        "admission_profile_approved_at": "internal validity snapshot",
+        "admission_granted_at": "internal entitlement decision; passed call date is exported",
+        "admission_invalidated_at": "internal validity/moderation decision",
     },
     "badge_fields": {
         "profile": "the account block already exports the account",
