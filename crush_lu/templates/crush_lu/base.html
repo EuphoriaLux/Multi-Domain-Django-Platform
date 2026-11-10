@@ -159,11 +159,11 @@
     <!-- Critical CSS - Inlined for fastest FCP/LCP (above-the-fold styles) -->
     <style>
         /* Critical CSS for Crush.lu - prevents FOUC and enables fast first paint */
-        :root{--crush-pink:#FF6B9D;--crush-purple:#9B59B6;--crush-dark:#2C3E50;--crush-light:#EDE8F4;--bg-primary:#EDE8F4;--bg-secondary:#F0ECF5;--text-primary:#2C3E50;--text-secondary:#64748b;--border-color:#ddd8e6}
+        :root{--crush-pink:#FF6B9D;--crush-purple:#9B59B6;--crush-dark:#2C3E50;--crush-light:#F8F9FA;--bg-primary:#EDE8F4;--bg-secondary:#F0ECF5;--text-primary:#2C3E50;--text-secondary:#64748b;--border-color:#ddd8e6}
         html.dark{--bg-primary:#0f172a;--bg-secondary:#1e293b;--text-primary:#f1f5f9;--text-secondary:#94a3b8;--border-color:#334155;--crush-purple:#A78BFA;--crush-pink:#FB7185}
         [x-cloak]{display:none!important}
         *,::before,::after{box-sizing:border-box}
-        body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-primary);color:var(--text-primary);-webkit-font-smoothing:antialiased;transition:background-color 0.3s ease,color 0.3s ease}
+        body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg-primary);color:var(--text-primary);-webkit-font-smoothing:antialiased;transition:background-color 0.3s ease,color 0.3s ease}
         body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.04;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.17  0 0 0 0 0.05  0 0 0 0 0.27  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")}
         html.dark body::after{display:none}
         .container{max-width:1200px;margin-inline:auto;padding-inline:1rem}
@@ -172,9 +172,13 @@
         .navbar-brand{color:#fff;font-weight:700;font-size:1.5rem;text-decoration:none}
         .nav-link{display:inline-flex;align-items:center;gap:.375rem;color:rgba(255,255,255,.9);padding:.5rem .75rem;text-decoration:none;font-weight:500}
         #page-loading-overlay{position:fixed;top:0;left:0;right:0;height:3px;display:none;pointer-events:none;z-index:9999}
-        .hidden{display:none}
-        /* Unlayered shim beats Tailwind's @layer rules, so only mirror lg:hidden's
-           desktop half — forcing display:block on mobile would stomp flex/grid layouts */
+        /* No .hidden rule here on purpose. Everything in this block is unlayered and
+           so beats Tailwind's layered utilities: a .hidden here kept every
+           "hidden sm:flex" / "hidden md:table-cell" element hidden at all widths.
+           Tailwind's own .hidden does the job, and the stylesheet is render-blocking.
+           The same trap in reverse: .flex below would beat lg:hidden, so only
+           mirror lg:hidden's desktop half — forcing display:block on mobile would
+           stomp flex/grid layouts */
         @media(min-width:1024px){.lg\:hidden{display:none}}
         .flex{display:flex}.items-center{align-items:center}.justify-between{justify-content:space-between}
         /* Same shim gap as lg:hidden above, but this rule must come AFTER .flex:
