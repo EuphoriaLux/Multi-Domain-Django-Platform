@@ -18,6 +18,12 @@ MEDIUM_VIDEO = "video"
 MEDIUM_VOICE = "voice"
 MEDIUMS = (MEDIUM_VIDEO, MEDIUM_VOICE)
 
+# January admission is explicit evidence, separate from the optional photo badge.
+PURPOSE_BADGE_ONLY = "badge_only"
+PURPOSE_CONNECT_WEEK = "connect_week"
+CONNECT_VIDEO_ADMISSION_POLICY_VERSION = 1
+CONNECT_VIDEO_PILOT_GROUP = "connect_video_verification_pilot"
+
 # Every key must be ticked for a pass; video adds the two keys that tie the
 # live person to photo_1. The server rejects any other key.
 REQUIRED_CHECKLIST_KEYS = {

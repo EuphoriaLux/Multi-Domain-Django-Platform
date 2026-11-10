@@ -1021,9 +1021,13 @@ def revoke_check(actor, check_id, reason="", *, now=None):
         check.revoked_at = now
         check.revoked_by = actor
         check.revoke_reason = (reason or "").strip()[:255]
-        check.save(
-            update_fields=["status", "revoked_at", "revoked_by", "revoke_reason"]
-        )
+        update_fields = ["status", "revoked_at", "revoked_by", "revoke_reason"]
+        from crush_lu.real_person_check_rules import PURPOSE_CONNECT_WEEK
+
+        if check.purpose == PURPOSE_CONNECT_WEEK:
+            check.admission_invalidated_at = now
+            update_fields.append("admission_invalidated_at")
+        check.save(update_fields=update_fields)
         ConnectRealPersonBadge.objects.filter(
             profile_id=profile_id, source_check=check
         ).delete()

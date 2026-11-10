@@ -4,6 +4,7 @@ from collections.abc import Iterable
 from datetime import datetime
 
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Case, F, Value, When
 
 from crush_lu.models import CrushProfile, EventRegistration, ProfilePhotoReviewState
@@ -178,6 +179,7 @@ def release_booked_screening_slots(
     return slots
 
 
+@transaction.atomic
 def transition_unverified_profile(
     profile: CrushProfile,
     *,
@@ -212,6 +214,9 @@ def transition_unverified_profile(
     if not transitioned:
         return False
 
+    from crush_lu.services.connect_verification import invalidate_video_admissions
+
+    invalidate_video_admissions(profile.pk)
     if review_reset:
         _clear_reset_primary_photo_approval(profile)
 
@@ -232,6 +237,7 @@ def transition_unverified_profile(
     return True
 
 
+@transaction.atomic
 def reject_door_verification(
     profile: CrushProfile,
     *,
@@ -259,6 +265,9 @@ def reject_door_verification(
     if not updated:
         return False
 
+    from crush_lu.services.connect_verification import invalidate_video_admissions
+
+    invalidate_video_admissions(profile.pk)
     if review_reset:
         _clear_reset_primary_photo_approval(profile)
 

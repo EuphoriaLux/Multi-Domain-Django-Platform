@@ -1,4 +1,6 @@
-from django.db import models
+from contextlib import nullcontext
+
+from django.db import models, transaction
 from django.contrib.auth.models import User
 from django.core.validators import RegexValidator
 from django.utils import timezone
@@ -1273,7 +1275,7 @@ class CrushProfile(models.Model):
         return granted_badge_medium(self)
 
     def end_real_person_badge_if_deverified(self, was_verified: bool) -> None:
-        """Delete the Connect real-person badge when this profile left verified.
+        """End the Connect badge and video admission when this profile left verified.
 
         ``was_verified`` is the stored status before the write. The badge's
         ``approved_at`` snapshot already ends it for every writer that moves
@@ -1286,9 +1288,13 @@ class CrushProfile(models.Model):
         Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
         """
         if was_verified and self.verification_status != "verified":
+            from crush_lu.services.connect_verification import (
+                invalidate_video_admissions,
+            )
             from crush_lu.services.real_person_check import discard_badge
 
             discard_badge(self.pk)
+            invalidate_video_admissions(self.pk)
 
     @property
     def is_photo_review_approved(self) -> bool:
@@ -1824,30 +1830,34 @@ class CrushProfile(models.Model):
                 and field.attname in self.__dict__
                 and field.attname not in omit_review_fields
             }
-        if uploaded_slots or cleared_slots or discarded_keys:
-            from django.db import transaction
-
-            from crush_lu.models.moderation import ProfilePhotoFraming
-            from crush_lu.services import photo_publication
-
-            # One transaction: the cleared field and its removed publication
-            # commit together, and a removed file is deleted only after both.
-            with transaction.atomic():
-                super().save(*args, **kwargs)
-                for field_name in uploaded_slots:
-                    photo_publication.record_photo_upload(self, field_name)
-                for field_name in cleared_slots:
-                    photo_publication.drop_publication(self, field_name)
-                ProfilePhotoFraming.objects.filter(
-                    profile_id=self.pk, photo_key__in=discarded_keys
-                ).delete()
-        else:
-            super().save(*args, **kwargs)
-        # A save that took the profile out of "verified" ends its Connect
-        # real-person badge; only a write that carried the status counts.
         written_fields = kwargs.get("update_fields")
-        if written_fields is None or "verification_status" in written_fields:
-            self.end_real_person_badge_if_deverified(was_verified)
+        writes_status = (
+            written_fields is None or "verification_status" in written_fields
+        )
+        de_verifies = (
+            writes_status and was_verified and self.verification_status != "verified"
+        )
+        # Commit de-verification and admission invalidation together, including
+        # the admin path that preserves approved_at. Ordinary saves keep their
+        # existing transaction behavior.
+        with transaction.atomic() if de_verifies else nullcontext():
+            if uploaded_slots or cleared_slots or discarded_keys:
+                from crush_lu.models.moderation import ProfilePhotoFraming
+                from crush_lu.services import photo_publication
+
+                with transaction.atomic():
+                    super().save(*args, **kwargs)
+                    for field_name in uploaded_slots:
+                        photo_publication.record_photo_upload(self, field_name)
+                    for field_name in cleared_slots:
+                        photo_publication.drop_publication(self, field_name)
+                    ProfilePhotoFraming.objects.filter(
+                        profile_id=self.pk, photo_key__in=discarded_keys
+                    ).delete()
+            else:
+                super().save(*args, **kwargs)
+            if writes_status:
+                self.end_real_person_badge_if_deverified(was_verified)
         # This instance is now in step with the row, so a later save on it
         # judges "touched since" against what was actually written.
         self._loaded_language = (
