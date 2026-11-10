@@ -2695,6 +2695,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
     actions = [
         "export_registrations_csv",
         "confirm_registrations",
+        "invite_as_replacement",
         "resend_curated_selection_notifications",
         "move_to_waitlist",
     ]
@@ -3285,6 +3286,60 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         result = confirm_registrations(queryset)
         for level, message in result.entries:
             getattr(django_messages, level)(request, message)
+
+    @admin.action(
+        description=_("🔁 Invite as replacement (curated, Not selected members)")
+    )
+    def invite_as_replacement(self, request, queryset):
+        """Seat each selected Not selected member as a coach-chosen replacement.
+
+        One member at a time, each in its own transaction, because every seat
+        rebuilds the groups around everyone who holds one: the second pick is
+        judged against the roster the first one left.
+        """
+        from crush_lu.services.curated_group_workflow import (
+            seat_not_selected_member,
+        )
+
+        for registration in queryset.select_related("user", "event").order_by("pk"):
+            label = registration.user.get_full_name() or registration.user.email
+            try:
+                seated = seat_not_selected_member(registration.pk, actor=request.user)
+            except ValidationError as exc:
+                django_messages.error(
+                    request,
+                    _("%(member)s was not invited: %(reason)s")
+                    % {"member": label, "reason": " ".join(exc.messages)},
+                )
+                continue
+            if seated.status == "pending":
+                outcome = _(
+                    "%(member)s now holds a place and was asked to pay. "
+                    "Each member of the rebuilt group keeps at least "
+                    "%(dates)s dates."
+                )
+            else:
+                outcome = _(
+                    "%(member)s now holds a place and was told. Each member "
+                    "of the rebuilt group keeps at least %(dates)s dates."
+                )
+            django_messages.success(
+                request, outcome % {"member": label, "dates": seated.minimum_dates}
+            )
+            if seated.released_uninvited_ids:
+                django_messages.warning(
+                    request,
+                    _(
+                        "%(count)s open application(s) had been placed in the "
+                        "group without an invitation and are no longer in it "
+                        "(registration ids: %(ids)s). They were not told "
+                        "anything; mark them Not selected or invite them."
+                    )
+                    % {
+                        "count": len(seated.released_uninvited_ids),
+                        "ids": ", ".join(map(str, seated.released_uninvited_ids)),
+                    },
+                )
 
     @admin.action(description=_("📨 Deliver pending curated emails"))
     def resend_curated_selection_notifications(self, request, queryset):

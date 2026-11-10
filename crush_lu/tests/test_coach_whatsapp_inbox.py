@@ -208,14 +208,24 @@ def test_burst_keeps_one_unread_bell_and_throttles_push(mock_push):
 
 @meta_settings
 @patch("crush_lu.coach_notifications.notify_coach_whatsapp_message")
-def test_main_and_unmapped_numbers_alert_no_coach(mock_push):
+def test_main_and_unmapped_numbers_alert_no_coach_inbox(mock_push):
     _make_coach()
     _post_webhook(_webhook_payload(wa_id="wamid.M", number_id=MAIN_NUMBER_ID))
     _post_webhook(_webhook_payload(wa_id="wamid.U", number_id="9999"))
 
     assert WhatsAppInboundMessage.objects.count() == 2
-    assert not Notification.objects.exists()
-    mock_push.assert_not_called()
+    # Not the coach's own inbox: these are support-inbox alerts
+    # (test_support_whatsapp_inbox.py), one conversation, one bell.
+    assert not Notification.objects.filter(
+        notification_type=coach_whatsapp.NOTIFICATION_TYPE
+    ).exists()
+    assert (
+        Notification.objects.filter(
+            notification_type=coach_whatsapp.SUPPORT_NOTIFICATION_TYPE
+        ).count()
+        == 1
+    )
+    assert mock_push.call_count == 1
 
 
 @meta_settings
@@ -228,6 +238,9 @@ def test_deactivated_coach_number_falls_back_to_shared_inbox(mock_push):
     _post_webhook(_webhook_payload())
 
     row = WhatsAppInboundMessage.objects.get()
+    # The deactivated coach gets nothing. With another active coach this would
+    # be a support-inbox alert (test_support_whatsapp_inbox.py); here there is
+    # no active coach left to alert.
     assert not Notification.objects.exists()
     mock_push.assert_not_called()
     # Nobody can open the deactivated coach's inbox, so the shared one shows it.

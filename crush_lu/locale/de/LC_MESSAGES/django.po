@@ -46938,6 +46938,40 @@ msgstr "Foto im Vollbild"
 msgid "Tap a photo to view it full screen."
 msgstr "Tippe auf ein Foto, um es im Vollbild zu sehen."
 
+#: crush_lu/templates/crush_lu/coach_whatsapp_thread.html
+msgid "Back to WhatsApp support"
+msgstr "Zurück zum WhatsApp-Support"
+
+#: crush_lu/views_coach_whatsapp.py
+msgid "You do not have coach access."
+msgstr "Du hast keinen Coach-Zugang."
+
+#: crush_lu/templates/crush_lu/coach_whatsapp_inbox.html
+msgid "Messages people sent to the Crush.lu WhatsApp number. Every coach can read and answer them; replies go out from the Crush.lu number. You can reply for 24 hours after someone's last message."
+msgstr "Nachrichten an die WhatsApp-Nummer von Crush.lu. Alle Coaches können sie lesen und beantworten; Antworten gehen von der Crush.lu-Nummer aus. Du kannst bis 24 Stunden nach der letzten Nachricht einer Person antworten."
+
+#: crush_lu/templates/crush_lu/coach_whatsapp_thread.html
+msgid "Sent from the Crush.lu WhatsApp number, with your first name shown to other coaches."
+msgstr "Wird von der WhatsApp-Nummer von Crush.lu gesendet; andere Coaches sehen deinen Vornamen."
+
+#: crush_lu/views_coach_whatsapp.py
+#, python-format
+msgid "Written to %(name)s's coach number"
+msgstr "An die Coach-Nummer von %(name)s geschrieben"
+
+#: crush_lu/views_coach_whatsapp.py
+msgid "Written to a Crush number not linked to a coach"
+msgstr "An eine Crush-Nummer ohne zugeordneten Coach geschrieben"
+
+#: crush_lu/services/coach_whatsapp.py
+msgid "New WhatsApp support message"
+msgstr "Neue Nachricht an den WhatsApp-Support"
+
+#: crush_lu/services/coach_whatsapp.py
+#, python-format
+msgid "%(name)s wrote to Crush.lu on WhatsApp."
+msgstr "%(name)s hat Crush.lu auf WhatsApp geschrieben."
+
 #: crush_lu/views_mollie.py
 msgid ""
 "Your earlier payment is still being processed. If you completed it, your "
@@ -46948,4 +46982,35 @@ msgstr ""
 "hast, startet deine Premium-Mitgliedschaft automatisch, du musst also nicht "
 "noch einmal bezahlen. Wenn du sie nicht abgeschlossen hast, verfällt sie von"
 " selbst, meist innerhalb einer Stunde."
+
+
+#: crush_lu/views_checkin.py crush_lu/templates/crush_lu/coach_event_checkin.html
+msgid "Admit and check in"
+msgstr "Einlassen und einchecken"
+
+
+#: crush_lu/views_checkin.py crush_lu/templates/crush_lu/coach_event_checkin.html
+msgid "%(name)s admitted and checked in."
+msgstr "%(name)s ist eingelassen und eingecheckt."
+
+
+#: crush_lu/views_checkin.py crush_lu/templates/crush_lu/coach_event_checkin.html
+msgid ""
+"If one of these members came anyway, admitting them gives them a place and "
+"rebuilds the groups around everyone who holds one. It is refused when that "
+"would leave someone without a date, or once the groups are locked."
+msgstr ""
+"Ist eines dieser Mitglieder trotzdem gekommen, erhält es mit dem Einlass "
+"einen Platz, und die Gruppen werden um alle herum neu gebildet, die einen "
+"Platz haben. Das wird abgelehnt, wenn dadurch jemand ohne Date bliebe oder "
+"sobald die Gruppen gesperrt sind."
+
+
+#: crush_lu/views_checkin.py
+msgid ""
+"%(name)s admitted and checked in. Each member of the rebuilt group now has "
+"at least %(dates)s dates."
+msgstr ""
+"%(name)s ist eingelassen und eingecheckt. Jedes Mitglied der neu gebildeten "
+"Gruppe hat jetzt mindestens %(dates)s Dates."
 
