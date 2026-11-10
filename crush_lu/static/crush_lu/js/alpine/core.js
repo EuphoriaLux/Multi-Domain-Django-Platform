@@ -19,21 +19,95 @@
 import { makeConfirm, makeTabs, mixin, notifyError } from "./shared.js";
 
 document.addEventListener("alpine:init", function () {
-    // Global drawer store for mobile side menu
+    // Global drawer store for the mobile side menu (partials/mobile_drawer.html).
+    // The drawer is a modal: while it is open the page behind it cannot be
+    // scrolled, Escape closes it, Tab stays inside it, and closing hands focus
+    // back to whatever opened it. Without that a keyboard or screen-reader
+    // user tabs straight out of the menu into a page they cannot see.
+    var DRAWER_FOCUSABLE =
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    function drawerPanel() {
+        return document.getElementById("mobile-drawer-panel");
+    }
+
+    function drawerFocusables() {
+        var panel = drawerPanel();
+        if (!panel) return [];
+        return Array.prototype.filter.call(
+            panel.querySelectorAll(DRAWER_FOCUSABLE),
+            function (el) {
+                // Skip anything x-show / hidden has taken out of the layout.
+                return el.getClientRects().length > 0;
+            },
+        );
+    }
+
+    // Kept outside the store: Alpine wraps store values in a reactive proxy,
+    // and a proxied element is not the element document.contains() knows.
+    var drawerOpener = null;
+
     Alpine.store("drawer", {
         open: false,
+        init() {
+            var self = this;
+            document.addEventListener("keydown", function (e) {
+                if (!self.open) return;
+                if (e.key === "Escape") {
+                    e.preventDefault();
+                    self.close();
+                    return;
+                }
+                if (e.key !== "Tab") return;
+                var items = drawerFocusables();
+                if (!items.length) return;
+                var first = items[0];
+                var last = items[items.length - 1];
+                var panel = drawerPanel();
+                var inside = panel && panel.contains(document.activeElement);
+                if (e.shiftKey && (!inside || document.activeElement === first)) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && (!inside || document.activeElement === last)) {
+                    e.preventDefault();
+                    first.focus();
+                }
+            });
+        },
+        show() {
+            if (this.open) return;
+            drawerOpener = document.activeElement;
+            this.open = true;
+            document.body.style.overflow = "hidden";
+            // The panel is display:none until Alpine has reacted; focus the
+            // close button once it can take focus.
+            var self = this;
+            setTimeout(function () {
+                // Closed again already (a quick Escape): the panel is still on
+                // screen while it slides out, and focusing into it now would
+                // strand focus in an element about to disappear.
+                if (!self.open) return;
+                var items = drawerFocusables();
+                if (items.length) items[0].focus();
+            }, 50);
+        },
         toggle() {
-            this.open = !this.open;
             if (this.open) {
-                document.body.style.overflow = "hidden";
+                this.close();
             } else {
-                document.body.style.overflow = "";
+                this.show();
             }
         },
         close() {
+            if (!this.open) return;
             this.open = false;
             document.body.style.overflow = "";
-        }
+            var opener = drawerOpener;
+            drawerOpener = null;
+            if (opener && document.contains(opener) && opener.focus) {
+                opener.focus();
+            }
+        },
     });
 
     // Prompt queue (crush_lu/STYLE.md §8): at most one of the cookie sheet,
