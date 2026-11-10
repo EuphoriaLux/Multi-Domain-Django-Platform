@@ -46937,3 +46937,15 @@ msgstr "Foto im Vollbild"
 #: templates/crush_lu/crush_connect/week_review.html
 msgid "Tap a photo to view it full screen."
 msgstr "Tippe auf ein Foto, um es im Vollbild zu sehen."
+
+#: crush_lu/views_mollie.py
+msgid ""
+"Your earlier payment is still being processed. If you completed it, your "
+"Premium membership starts automatically, so there is no need to pay again. "
+"If you did not finish it, it closes by itself, usually within an hour."
+msgstr ""
+"Deine vorherige Zahlung wird noch bearbeitet. Wenn du sie abgeschlossen "
+"hast, startet deine Premium-Mitgliedschaft automatisch, du musst also nicht "
+"noch einmal bezahlen. Wenn du sie nicht abgeschlossen hast, verfällt sie von"
+" selbst, meist innerhalb einer Stunde."
+

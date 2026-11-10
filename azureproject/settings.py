@@ -1086,6 +1086,16 @@ MOLLIE_API_KEY = os.environ.get("MOLLIE_API_KEY", "")
 MOLLIE_EVENT_PAYMENTS_ENABLED = _env_bool(
     "MOLLIE_EVENT_PAYMENTS_ENABLED", default=False
 )
+# Opt-in: take the first Premium payment through Mollie (needs MOLLIE_API_KEY).
+# Off by default. It replaces the SumUp Premium checkout only; who may buy is
+# still decided by PREMIUM_REDIRECTS_TO_BETA and the beta allowlist. The payment
+# is a Mollie "first" payment, so it leaves a mandate for later renewals;
+# nothing charges a renewal yet (crush_lu/services/premium_billing.py).
+MOLLIE_PREMIUM_ENABLED = _env_bool("MOLLIE_PREMIUM_ENABLED", default=False)
+# The one payment method offered for that first payment. Card always leaves a
+# mandate that can be charged again; an empty value lets the member choose
+# among every method enabled on the Mollie profile, some of which leave none.
+MOLLIE_PREMIUM_METHOD = os.environ.get("MOLLIE_PREMIUM_METHOD", "creditcard").strip()
 # Event sign-ups may bring a guest only when this is on AND the event allows it
 # (MeetupEvent.guests_open). Off since 2026-10-17: guests took seats the
 # capacity checks never counted, so the feature is dropped for now. Decision:

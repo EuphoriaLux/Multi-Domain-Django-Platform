@@ -28,6 +28,13 @@ API_BASE = "https://api.mollie.com/v2"
 TIMEOUT = (3, 10)
 
 PAYMENT_ID_RE = re.compile(r"^tr_[A-Za-z0-9]+$")
+CUSTOMER_ID_RE = re.compile(r"^cst_[A-Za-z0-9]+$")
+MANDATE_ID_RE = re.compile(r"^mdt_[A-Za-z0-9]+$")
+
+# Recurring payments (Premium): a "first" payment made by the member creates a
+# mandate, which later "recurring" payments charge with no checkout.
+# https://docs.mollie.com/docs/recurring-payments
+SEQUENCE_FIRST = "first"
 
 STATUS_PAID = "paid"
 # Final and unpaid: this payment will never be paid, so the row can close.
@@ -125,6 +132,17 @@ def money_returned(payment):
     return refunded, charged_back
 
 
+def mandate_id_of(payment):
+    """The mandate a first payment created, or ""."""
+    mandate_id = payment.get("mandateId") or ""
+    return mandate_id if MANDATE_ID_RE.match(str(mandate_id)) else ""
+
+
+def customer_id_of(payment):
+    customer_id = payment.get("customerId") or ""
+    return customer_id if CUSTOMER_ID_RE.match(str(customer_id)) else ""
+
+
 class MollieClient:
     def __init__(self, api_key=None):
         self.api_key = clean_credential(
@@ -173,12 +191,19 @@ class MollieClient:
         webhook_url=None,
         metadata=None,
         locale=None,
+        customer_id=None,
+        sequence_type=None,
+        method=None,
     ):
         """Open a payment and return Mollie's payment object.
 
         ``amount`` is a Decimal already quantized to the cent; Mollie wants it
-        as a string with exactly two decimals.
+        as a string with exactly two decimals. ``customer_id`` with
+        ``sequence_type="first"`` asks Mollie to create a mandate from this
+        payment; ``method`` limits the checkout to one payment method.
         """
+        if customer_id is not None and not CUSTOMER_ID_RE.match(customer_id):
+            raise MollieError("Not a Mollie customer id")
         payload = {
             "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
             "description": description[:255],
@@ -190,7 +215,40 @@ class MollieClient:
             payload["metadata"] = metadata
         if locale:
             payload["locale"] = locale
+        if customer_id:
+            payload["customerId"] = customer_id
+        if sequence_type:
+            payload["sequenceType"] = sequence_type
+        if method:
+            payload["method"] = method
         return self._request("POST", "/payments", payload)
+
+    def create_customer(self, *, name=None, email=None, metadata=None):
+        """Create the Mollie customer a mandate is attached to.
+
+        Name and email are optional at Mollie; callers leave them out unless
+        they have a reason to share them.
+        https://docs.mollie.com/reference/create-customer
+        """
+        payload = {}
+        if name:
+            payload["name"] = name[:255]
+        if email:
+            payload["email"] = email
+        if metadata:
+            payload["metadata"] = metadata
+        return self._request("POST", "/customers", payload)
+
+    def list_mandates(self, customer_id):
+        """The customer's mandates, newest first as Mollie returns them.
+
+        https://docs.mollie.com/reference/list-mandates
+        """
+        if not CUSTOMER_ID_RE.match(customer_id or ""):
+            raise MollieError("Not a Mollie customer id")
+        data = self._request("GET", f"/customers/{customer_id}/mandates")
+        mandates = (data.get("_embedded") or {}).get("mandates") or []
+        return [mandate for mandate in mandates if isinstance(mandate, dict)]
 
     def cancel_payment(self, payment_id):
         """Cancel a payment that is still open, so it can never be paid.

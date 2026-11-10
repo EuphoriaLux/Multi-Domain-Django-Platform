@@ -380,7 +380,13 @@ class PremiumRenewalLifecycleTests(TestCase):
         must be nullable."""
         from django.db import connection
 
-        new = {"current_period_end", "cancel_at_period_end", "ended_at"}
+        new = {
+            "current_period_end",
+            "cancel_at_period_end",
+            "ended_at",
+            "mollie_customer_id",
+            "mollie_mandate_id",
+        }
         old = {
             "user_id": self.member.pk,
             "coach_id": self.coach.pk,

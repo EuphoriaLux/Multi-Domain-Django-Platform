@@ -47064,3 +47064,15 @@ msgstr "Photo en plein écran"
 #: templates/crush_lu/crush_connect/week_review.html
 msgid "Tap a photo to view it full screen."
 msgstr "Appuyez sur une photo pour l’afficher en plein écran."
+
+#: crush_lu/views_mollie.py
+msgid ""
+"Your earlier payment is still being processed. If you completed it, your "
+"Premium membership starts automatically, so there is no need to pay again. "
+"If you did not finish it, it closes by itself, usually within an hour."
+msgstr ""
+"Votre paiement précédent est toujours en cours de traitement. Si vous l'avez"
+" finalisé, votre adhésion Premium démarrera automatiquement : inutile de "
+"payer à nouveau. Si vous ne l'avez pas terminé, il expirera de lui-même, "
+"généralement en moins d'une heure."
+

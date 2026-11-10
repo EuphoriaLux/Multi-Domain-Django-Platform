@@ -154,16 +154,28 @@ def _cancel_premium_request(membership, by_user):
     # before one-checkout-per-membership) are still closed below.
     captured = _premium_payment_captured(membership)
     state, retired_ids = "ok", set()
-    if PaymentTransaction.objects.filter(
+    pending = PaymentTransaction.objects.filter(
         premium_membership=membership, status=PaymentTransaction.Status.PENDING
-    ).exists():
+    )
+    mollie_pending = list(pending.filter(provider=PaymentTransaction.Provider.MOLLIE))
+    if mollie_pending:
+        # A Mollie payment is cancelled (or applied, when already paid) here;
+        # one left open keeps the request, as "open" below.
+        from .views_mollie import close_mollie_premium_payments
+
+        if not close_mollie_premium_payments(mollie_pending):
+            state = "open"
+        captured = captured or _premium_payment_captured(membership)
+    if pending.exclude(provider=PaymentTransaction.Provider.MOLLIE).exists():
         # captured=True closes every PENDING checkout, newest included. One
         # SumUp already captured is recorded now from the read that found it
         # (the sweep reads PAID rows only), before the locks below.
         paid_payloads = {}
-        state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
+        sumup_state, _reuse, retired_ids, _known = _settle_pending_premium_checkouts(
             SumUpClient(), membership, captured=True, paid_payloads=paid_payloads
         )
+        if state != "open":
+            state = sumup_state
         # Capped like the recovery close; once one is PAID the hourly tick
         # closes or records the rest (_close_checkouts_beside_a_capture).
         from .services.premium_recovery import SIBLING_SYNC_LIMIT

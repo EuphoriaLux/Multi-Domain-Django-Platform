@@ -33,6 +33,7 @@ from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
 from crush_lu.models.profiles import CrushProfile, PremiumMembership
 from crush_lu.services.event_payments import (
     mollie_event_payments_active,
+    mollie_premium_active,
     online_payments_paused,
     registration_is_payable,
     sumup_payments_paused,
@@ -1046,6 +1047,13 @@ def create_sumup_premium_checkout(request, membership_id):
         return JsonResponse(
             {"error": _("Unauthorized access to this membership.")}, status=403
         )
+
+    if mollie_premium_active():
+        # Mollie takes Premium (MOLLIE_PREMIUM_ENABLED): the same button and
+        # endpoint, another provider, as for event seats.
+        from crush_lu.views_mollie import open_mollie_premium_checkout
+
+        return open_mollie_premium_checkout(request, membership)
 
     if sumup_payments_paused():
         return _online_payments_paused_response()
@@ -2326,7 +2334,16 @@ def _apply_paid_checkout(tx_obj, data):
                         ),
                         robust=True,
                     )
-                except (ValueError, CrushProfile.DoesNotExist) as exc:
+                except Exception as exc:
+                    # Any failure, not only the two confirm() raises on purpose
+                    # (#1164): confirm() runs in its own atomic block, so its
+                    # writes are undone and this transaction is still usable.
+                    # Letting an unexpected error escape rolled PAID back, so a
+                    # captured charge had no record and no recovery case, and
+                    # the member's return page answered 500. If the case below
+                    # cannot be written either, that error does escape and the
+                    # next return or webhook retries the whole capture.
+                    #
                     # Same contract as the event-registration branch above:
                     # SumUp has already captured the money by the time this
                     # runs, so the transaction stays PAID — dropping it would
@@ -2351,6 +2368,10 @@ def _apply_paid_checkout(tx_obj, data):
                         pm.user_id,
                         pm.coach_id,
                         exc,
+                        # The traceback only for an error nobody planned for.
+                        exc_info=not isinstance(
+                            exc, (ValueError, CrushProfile.DoesNotExist)
+                        ),
                     )
                     # confirm() re-reads status under its own lock: ask the DB
                     # why it refused (still pending = coach full).
