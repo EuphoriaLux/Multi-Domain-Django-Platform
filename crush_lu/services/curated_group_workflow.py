@@ -857,6 +857,312 @@ def close_curated_selection(event_or_id, *, actor=None):
     )
 
 
+@dataclass(frozen=True, slots=True)
+class SeatedReplacement:
+    """What seating one Not selected member did."""
+
+    registration_id: int
+    status: str
+    generation: int
+    # Dates the rebuilt groups guarantee each member (5 unless a lower minimum
+    # had to be accepted to fit everyone who holds a seat).
+    minimum_dates: int
+    # Open applications an earlier rebuild had placed without an invitation.
+    # They held no seat and are no longer in a group; nobody told them either
+    # way, so the caller reports them to the coach.
+    released_uninvited_ids: tuple[int, ...] = ()
+
+
+def seat_not_selected_member(registration_or_id, *, actor=None, at_the_door=False):
+    """Seat one ``not_selected`` member as a coach-chosen replacement.
+
+    Spec: ai-memory-hub/specs/2026-10-29-crush-curated-auto-selection.md (D4).
+    After the selection is closed the app never picks a replacement itself; a
+    coach names one, and this is the single door through the curated seat
+    guard for that person. In one transaction it:
+
+    1. gives the member a seat (``confirmed`` on a free event, ``pending`` on a
+       paid one), written with ``update()`` like the bulk Invite, because
+       ``EventRegistration.save`` refuses a single seat grant on purpose;
+    2. rebuilds the groups around everyone who now holds a seat and certifies
+       the new generation, so the roster the member joins is checked as a
+       whole;
+    3. queues the ordinary selection notice (not at the door: the member is
+       standing there).
+
+    Nobody who holds a seat is moved out: a rebuild that cannot keep every
+    seat holder, or cannot place the newcomer, raises ``ValidationError`` and
+    the transaction rolls back, the seat included. An open application that an
+    earlier rebuild placed without an invitation leaves the group, as it holds
+    no seat (reported in ``released_uninvited_ids``).
+
+    This is not the audited repair, which retires the checkouts of members a
+    degraded group drops before it releases the roster. So when a member who
+    left a degraded group still has a pending payment or a live checkout
+    claim, this refuses and sends the coach to "Keep the held group" first.
+    The tickets are refreshed after commit, as the bulk Invite does, because
+    ``update()`` fires no signal.
+
+    The five-date guarantee is kept unless it already was lowered for this
+    event ("Keep the held group"), or ``at_the_door`` is set: a walk-in on the
+    night joins the people in the room on the best minimum that fits them all,
+    the same exception "Keep the held group" makes. The door also skips the
+    capacity and gender-pool checks, like the waitlist door check-in.
+
+    LOCK ORDER: event, then registrations, then group state
+    (``_lock_event_state``). No payment row is locked or written; payments are
+    only read, for the refusal above.
+    """
+    from crush_lu.models.payments import (
+        EventCheckoutCreationClaim,
+        PaymentTransaction,
+    )
+    from crush_lu.services.curated_group_notifications import (
+        deliver_curated_group_notifications,
+        enqueue_selection_notifications,
+    )
+    from crush_lu.views_events import _admitted_status
+
+    registration_id = getattr(registration_or_id, "pk", registration_or_id)
+    event_id = (
+        EventRegistration.objects.filter(pk=registration_id)
+        .values_list("event_id", flat=True)
+        .first()
+    )
+    if event_id is None:
+        raise ValidationError("Registration not found.")
+
+    with transaction.atomic():
+        event, groups = _lock_event_state(event_id)
+        if not requires_curated_group_certification(event):
+            raise ValidationError(
+                "Only a curated speed-dating event with groups has replacements."
+            )
+        _validate_pre_round_event(
+            event, action="change", allow_during_late_check_in=True
+        )
+        registration = EventRegistration.objects.select_related(
+            "user__crushprofile"
+        ).get(pk=registration_id)
+        if registration.status != "not_selected":
+            raise ValidationError(
+                "Only a member marked Not selected can be invited as a replacement."
+            )
+
+        live_groups = [
+            group
+            for group in groups
+            if group.status != CuratedEventGroup.STATUS_CANCELLED
+        ]
+        if any(
+            group.status == CuratedEventGroup.STATUS_LOCKED for group in live_groups
+        ):
+            raise ValidationError(
+                "The groups are locked for the evening, so nobody can be added."
+            )
+        if any(group.status == CuratedEventGroup.STATUS_DRAFT for group in live_groups):
+            raise ValidationError(
+                "The current groups are still a draft. Approve and invite them first."
+            )
+        live_group_ids = [group.pk for group in live_groups]
+        if not CuratedEventGroupMembership.objects.filter(
+            group_id__in=live_group_ids,
+            released_at__isnull=True,
+            registration__status__in=SEAT_HOLDING_STATUSES,
+        ).exists():
+            raise ValidationError(
+                "Nobody holds a seat in a group yet. Use Invite for the selection."
+            )
+
+        if not at_the_door:
+            if event.selection_spots_remaining < 1:
+                raise ValidationError(
+                    "The event is full. A replacement needs a free place."
+                )
+            gender = getattr(
+                getattr(registration.user, "crushprofile", None), "gender", None
+            )
+            limit = event.get_gender_pool_limit(gender)
+            if (
+                limit is not None
+                and event.get_confirmed_count_for_gender(gender) >= limit
+            ):
+                raise ValidationError(
+                    "The places for this member's gender are all taken."
+                )
+
+        roster = list(
+            CuratedEventGroupMembership.objects.filter(
+                group_id__in=live_group_ids, released_at__isnull=True
+            ).values_list("registration_id", "registration__status", "group__status")
+        )
+        # Members a degraded group will drop (they left their seat). Their
+        # checkouts are the audited repair's to retire, not this function's.
+        leaving_ids = [
+            member_id
+            for member_id, status, group_status in roster
+            if group_status == CuratedEventGroup.STATUS_DEGRADED
+            and status not in SEAT_HOLDING_STATUSES
+            and status != "applied"
+        ]
+        if leaving_ids and (
+            PaymentTransaction.objects.filter(
+                event_registration_id__in=leaving_ids,
+                purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+                status=PaymentTransaction.Status.PENDING,
+            ).exists()
+            or EventCheckoutCreationClaim.objects.filter(
+                Q(registration_id__in=leaving_ids)
+                | Q(registration_id_snapshot__in=leaving_ids)
+            )
+            .exclude(state=EventCheckoutCreationClaim.State.RETIRED)
+            .exists()
+        ):
+            raise ValidationError(
+                "A member who left this group still has an open checkout. Run "
+                '"Keep the held group" first, then add the replacement.'
+            )
+        released_uninvited_ids = tuple(
+            sorted(
+                member_id for member_id, status, _group in roster if status == "applied"
+            )
+        )
+
+        # Read before the update, like the bulk Invite: the ticket of a row
+        # coming back from a non-seat status may be voided and must be told it
+        # is live again once this commits.
+        profile = getattr(registration.user, "crushprofile", None)
+        apple_serials = [
+            serial
+            for serial in (
+                registration.apple_wallet_ticket_serial,
+                getattr(profile, "apple_pass_serial", ""),
+            )
+            if serial
+        ]
+        google_profiles = (
+            [profile] if getattr(profile, "google_wallet_object_id", "") else []
+        )
+
+        new_status = _admitted_status(event, registration)
+        EventRegistration.objects.filter(pk=registration_id).update(
+            status=new_status, cancelled_at=None, updated_at=timezone.now()
+        )
+
+        # How far the guarantee may go down: never for an ordinary invite,
+        # unless a coach already accepted fewer dates for this event.
+        accepted = [
+            group.coach_accepted_min_dates
+            for group in live_groups
+            if group.coach_accepted_min_dates
+        ]
+        floor = CuratedEventGroup.MIN_GUARANTEED_DATES
+        if at_the_door:
+            floor = KEEP_SEATS_MIN_DATES
+        elif accepted:
+            floor = max(KEEP_SEATS_MIN_DATES, min(accepted))
+
+        chosen, minimum_dates = None, None
+        for candidate in range(CuratedEventGroup.MIN_GUARANTEED_DATES, floor - 1, -1):
+            projection = project_event_groups(
+                event, seat_holders_only=True, minimum_dates=candidate
+            )
+            if (
+                projection.viable_groups
+                and projection.retains_all_pinned
+                and registration_id in set(projection.selected_registration_ids)
+            ):
+                chosen, minimum_dates = projection, candidate
+                break
+        if chosen is None:
+            raise ValidationError(
+                "This member cannot join: with them, at least one person who "
+                "holds a seat would not get enough compatible dates. Nothing "
+                "was changed."
+            )
+
+        stored = _generate_group_projection(
+            event,
+            actor=actor,
+            deterministic_seed=chosen.deterministic_seed,
+            allow_degraded_replacement=True,
+            seat_holders_only=True,
+            minimum_dates=minimum_dates,
+        )
+        if not CuratedEventGroupMembership.objects.filter(
+            group_id__in=stored.group_ids,
+            released_at__isnull=True,
+            registration_id=registration_id,
+        ).exists():
+            raise ValidationError(
+                "The rebuilt groups do not include this member. Nothing was changed."
+            )
+
+        if not at_the_door:
+            enqueue_selection_notifications({registration_id: stored.generation})
+            transaction.on_commit(
+                partial(
+                    deliver_curated_group_notifications,
+                    registration_ids=[registration_id],
+                    kinds=["selection"],
+                )
+            )
+        transaction.on_commit(
+            partial(
+                _refresh_after_seat_grant_safely,
+                event.pk,
+                apple_serials,
+                google_profiles,
+            ),
+            robust=True,
+        )
+        logger.info(
+            "Curated event %s: registration %s seated as a replacement (%s, "
+            "generation %s, minimum %s dates, door=%s).",
+            event.pk,
+            registration_id,
+            new_status,
+            stored.generation,
+            minimum_dates,
+            at_the_door,
+        )
+
+    return SeatedReplacement(
+        registration_id=registration_id,
+        status=new_status,
+        generation=stored.generation,
+        minimum_dates=minimum_dates,
+        released_uninvited_ids=released_uninvited_ids,
+    )
+
+
+def _refresh_after_seat_grant_safely(event_id, apple_serials, google_profiles):
+    """What the EventRegistration signal would do for a seat granted by
+    ``update()``: wallet tickets and the event's published capacity. The seat
+    is committed; none of this may fail the caller."""
+    context = "Curated replacement"
+    if apple_serials:
+        try:
+            from crush_lu.wallet.passkit_service import refresh_ticket_serials
+
+            refresh_ticket_serials(apple_serials, context=context)
+        except Exception:
+            logger.exception("Apple ticket refresh failed after a replacement seat")
+    if google_profiles:
+        try:
+            from crush_lu.wallet.google_api import refresh_google_wallet_objects
+
+            refresh_google_wallet_objects(google_profiles, context=context)
+        except Exception:
+            logger.exception("Google wallet refresh failed after a replacement seat")
+    try:
+        from crush_lu.services.registration_confirmation import notify_google_indexing
+
+        notify_google_indexing([event_id])
+    except Exception:
+        logger.exception("Indexing notice failed after a replacement seat")
+
+
 def registration_has_certified_payable_group(registration, *, event=None):
     """Return whether a configured curated seat still has a valid proof.
 

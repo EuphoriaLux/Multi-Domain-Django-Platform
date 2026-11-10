@@ -3357,7 +3357,16 @@ def coach_event_checkin(request, event_id):
     # Ensure all confirmed registrations have check-in tokens for manual fallback
     from crush_lu.views_ticket import _generate_checkin_token
 
-    door_rows = confirmed + waitlisted
+    # Curated evening, selection closed: members left out who may still walk
+    # in. A coach admits one with the same one-tap endpoint as a waitlisted
+    # walk-up (it seats them in the rebuilt group first).
+    not_selected = (
+        [r for r in registrations if r.status == "not_selected"]
+        if event.uses_curated_registration and event.group_size
+        else []
+    )
+
+    door_rows = confirmed + waitlisted + not_selected
 
     # Tokens for confirmed/attended rows ONLY. Promotion is addressed by
     # registration id, not a signed token, so a waitlisted row never needs
@@ -3450,6 +3459,7 @@ def coach_event_checkin(request, event_id):
         "registrations": confirmed,
         "waitlisted": waitlisted,
         "waitlist_count": len(waitlisted),
+        "not_selected_walk_ups": not_selected,
         "confirmed_count": len(confirmed),
         "attended_count": attended_count,
         # In the last fifteen minutes the question is who has NOT arrived, and

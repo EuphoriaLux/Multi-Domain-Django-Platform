@@ -12,6 +12,7 @@ from datetime import timedelta
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.core.signing import BadSignature, Signer
@@ -1450,6 +1451,55 @@ def coach_undo_checkin(request, event_id, registration_id):
     return JsonResponse(response_data)
 
 
+def _door_admit_message(display_name, door_seat):
+    """Toast for a curated walk-in. Says so when fitting them in lowered the
+    number of dates each member is guaranteed, because the coach decided that
+    with one tap."""
+    from .models.events import CURATED_MIN_GUARANTEED_DATES
+
+    if door_seat.minimum_dates < CURATED_MIN_GUARANTEED_DATES:
+        return str(
+            _(
+                "%(name)s admitted and checked in. Each member of the rebuilt "
+                "group now has at least %(dates)s dates."
+            )
+        ) % {"name": display_name, "dates": door_seat.minimum_dates}
+    return str(_("%(name)s admitted and checked in.")) % {"name": display_name}
+
+
+def _door_action_refusal(event, now):
+    """Why a walk-up cannot be checked in right now, as a response, or None.
+
+    Cancelling an event only flips MeetupEvent.is_cancelled; the waitlist rows
+    keep their status, so an already-open scanner tab would still promote them,
+    granting attendance, verification and a permanent coach for an event that
+    is not happening. The window is the one event_checkin_api enforces: none
+    of that should be reachable from a stale event page weeks later.
+    """
+    if event.is_cancelled:
+        return JsonResponse(
+            {"success": False, "error": str(_("This event has been cancelled."))},
+            status=409,
+        )
+    checkin_window_hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
+    if not (
+        event.date_time - timedelta(hours=checkin_window_hours)
+        <= now
+        <= event.date_time + timedelta(hours=checkin_window_hours)
+    ):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": str(
+                    _("Check-in is only available within %(hours)s hours of the event.")
+                )
+                % {"hours": checkin_window_hours},
+            },
+            status=400,
+        )
+    return None
+
+
 @coach_required
 @require_POST
 def coach_promote_from_waitlist(request, event_id, registration_id):
@@ -1473,6 +1523,33 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
     now = timezone.now()
     table_assignment = None
 
+    # A curated evening has no waitlist: the walk-up there is a member the
+    # selection left out ("Not selected"). They are first given a seat and a
+    # place in the rebuilt groups, in the service's own transaction, and then
+    # checked in below like anyone who holds a seat. If the check-in then
+    # fails, they keep the seat and appear in the main list for a normal scan.
+    seated_at_door = False
+    walk_up = (
+        EventRegistration.objects.select_related("event")
+        .filter(id=registration_id, event_id=event_id, status="not_selected")
+        .first()
+    )
+    if walk_up is not None:
+        refusal = _door_action_refusal(walk_up.event, now)
+        if refusal is not None:
+            return refusal
+        from .services.curated_group_workflow import seat_not_selected_member
+
+        try:
+            door_seat = seat_not_selected_member(
+                walk_up.pk, actor=request.user, at_the_door=True
+            )
+        except DjangoValidationError as exc:
+            return JsonResponse(
+                {"success": False, "error": " ".join(exc.messages)}, status=409
+            )
+        seated_at_door = True
+
     with transaction.atomic():
         registration = (
             EventRegistration.objects.select_for_update(of=("self",))
@@ -1493,7 +1570,9 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
                 },
                 status=409,
             )
-        if registration.status != "waitlist":
+        if registration.status != "waitlist" and not (
+            seated_at_door and registration.status in ("confirmed", "pending")
+        ):
             return JsonResponse(
                 {
                     "success": False,
@@ -1502,52 +1581,29 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
                 status=409,
             )
 
-        # Cancelling an event only flips MeetupEvent.is_cancelled; the
-        # waitlist rows keep their status, so an already-open scanner tab
-        # would still promote them — granting attendance, verification and a
-        # permanent coach for an event that is not happening.
-        if registration.event.is_cancelled:
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": str(_("This event has been cancelled.")),
-                },
-                status=409,
-            )
-
-        # Same window as event_checkin_api. A promotion grants a seat, a
-        # verification and a permanent coach; none of that should be reachable
-        # from a stale event page weeks later just because this route skipped
-        # the check the scanner enforces.
-        checkin_window_hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
-        event_start = registration.event.date_time
-        if not (
-            event_start - timedelta(hours=checkin_window_hours)
-            <= now
-            <= event_start + timedelta(hours=checkin_window_hours)
-        ):
-            return JsonResponse(
-                {
-                    "success": False,
-                    "error": str(
-                        _(
-                            "Check-in is only available within %(hours)s hours "
-                            "of the event."
-                        )
-                    )
-                    % {"hours": checkin_window_hours},
-                },
-                status=400,
-            )
+        refusal = _door_action_refusal(registration.event, now)
+        if refusal is not None:
+            return refusal
 
         registration._checkin_coach = _scanning_coach(request)
         # Records `waitlist` as the prior status, which is the whole reason an
         # undo of this action can put the walk-up back where they were instead
-        # of promoting them to a confirmed seat by accident.
+        # of promoting them to a confirmed seat by accident. A curated walk-up
+        # records the seat they were just given, so an undo leaves them seated
+        # in the rebuilt group rather than outside a roster that contains them.
         _record_checkin_provenance(registration)
         registration.status = "attended"
         registration.checked_in_at = now
-        registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
+        try:
+            registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
+        except DjangoValidationError as exc:
+            # The curated seat guard: a waitlisted row on an evening with
+            # groups cannot take a seat one at a time. It used to escape as a
+            # 500; the coach gets the reason instead and nothing is written
+            # (save() raised inside its own atomic block).
+            return JsonResponse(
+                {"success": False, "error": " ".join(exc.messages)}, status=409
+            )
 
         verified_profile = _auto_verify_on_attendance(request, registration, now)
         auto_verified = verified_profile is not None
@@ -1604,8 +1660,12 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         "registration_id": registration.id,
         "attendee_name": display_name,
         "checked_in_at": now.isoformat(),
-        "message": str(_("%(name)s promoted from the waitlist and checked in."))
-        % {"name": display_name},
+        "message": (
+            _door_admit_message(display_name, door_seat)
+            if seated_at_door
+            else str(_("%(name)s promoted from the waitlist and checked in."))
+            % {"name": display_name}
+        ),
         "profile": _get_profile_data(registration),
         "auto_verified": auto_verified,
         # The confirmed list never contained this row, so the applier builds

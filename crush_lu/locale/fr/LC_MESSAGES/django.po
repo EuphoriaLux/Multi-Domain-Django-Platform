@@ -47076,3 +47076,34 @@ msgstr ""
 "payer à nouveau. Si vous ne l'avez pas terminé, il expirera de lui-même, "
 "généralement en moins d'une heure."
 
+
+#: crush_lu/views_checkin.py crush_lu/templates/crush_lu/coach_event_checkin.html
+msgid "Admit and check in"
+msgstr "Admettre et enregistrer"
+
+
+#: crush_lu/views_checkin.py crush_lu/templates/crush_lu/coach_event_checkin.html
+msgid "%(name)s admitted and checked in."
+msgstr "%(name)s est admis(e) et enregistré(e)."
+
+
+#: crush_lu/views_checkin.py crush_lu/templates/crush_lu/coach_event_checkin.html
+msgid ""
+"If one of these members came anyway, admitting them gives them a place and "
+"rebuilds the groups around everyone who holds one. It is refused when that "
+"would leave someone without a date, or once the groups are locked."
+msgstr ""
+"Si l'un de ces membres est venu malgré tout, l'admettre lui donne une place "
+"et recompose les groupes autour de toutes les personnes qui en ont une. "
+"C'est refusé si quelqu'un se retrouvait sans rencontre, ou une fois les "
+"groupes verrouillés."
+
+
+#: crush_lu/views_checkin.py
+msgid ""
+"%(name)s admitted and checked in. Each member of the rebuilt group now has "
+"at least %(dates)s dates."
+msgstr ""
+"%(name)s est admis(e) et enregistré(e). Chaque membre du groupe recomposé a "
+"désormais au moins %(dates)s rencontres."
+
