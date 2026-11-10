@@ -512,6 +512,12 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       'SUMUP_MERCHANT_CODE'
       // A staging test_ key must never swap into production (live_ key).
       'MOLLIE_API_KEY'
+      // Premium through Mollie. Absent means off, so the risk is staging
+      // turning it on to test with a test_ key and swapping True into
+      // production, where the key is live.
+      // Pin with: az webapp config appsettings set ... --slot-settings MOLLIE_PREMIUM_ENABLED=False
+      'MOLLIE_PREMIUM_ENABLED'
+      'MOLLIE_PREMIUM_METHOD'
       // Payment pause (#1272). Absent means True (payments on), so an unpinned
       // False on one slot would swap away and silently reopen card payments.
       // Pin with: az webapp config appsettings set ... --slot-settings ONLINE_PAYMENTS_ENABLED=False

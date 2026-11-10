@@ -40,6 +40,26 @@ def mollie_event_payments_active():
     )
 
 
+def mollie_premium_active():
+    """True when Premium is bought through Mollie.
+
+    Needs the opt-in ``MOLLIE_PREMIUM_ENABLED`` and a usable ``MOLLIE_API_KEY``.
+    It does not open Premium to anyone new: ``PREMIUM_REDIRECTS_TO_BETA`` and
+    the beta allowlist still decide who may buy.
+    """
+    from crush_lu.services.mollie import mollie_configured
+
+    return bool(
+        getattr(settings, "MOLLIE_PREMIUM_ENABLED", False) and mollie_configured()
+    )
+
+
+def premium_payments_paused():
+    """True while nobody can pay for Premium online: SumUp is shut and Mollie
+    does not take Premium. One predicate for the checkout and the pay button."""
+    return sumup_payments_paused() and not mollie_premium_active()
+
+
 def online_payments_paused():
     """True while members cannot pay for an event seat by card.
 

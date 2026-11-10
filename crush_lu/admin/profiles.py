@@ -2877,7 +2877,15 @@ class PremiumMembershipAdmin(admin.ModelAdmin):
         "coach__user__last_name",
     )
     raw_id_fields = ("user", "coach")
-    readonly_fields = ("payment_date", "confirmed_by", "ended_at", "created_at")
+    readonly_fields = (
+        "payment_date",
+        "confirmed_by",
+        "ended_at",
+        "created_at",
+        # Written by the Mollie checkout and webhook only (views_mollie).
+        "mollie_customer_id",
+        "mollie_mandate_id",
+    )
     actions = ("confirm_payment", "end_membership")
 
     def get_readonly_fields(self, request, obj=None):

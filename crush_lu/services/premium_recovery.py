@@ -410,6 +410,22 @@ def close_open_checkouts_safely(memberships, label, only_ids=None):
         if not _fits(_close_seconds()):
             logger.warning("No time left to close checkouts for %s; will retry", label)
             return
+        # Mollie payments first (views_mollie): cancelled, or applied when
+        # Mollie reports them paid. One left open stays PENDING for the retry.
+        mollie_rows = list(
+            pending_of(membership).filter(provider=PaymentTransaction.Provider.MOLLIE)
+        )
+        if mollie_rows:
+            from crush_lu.views_mollie import close_mollie_premium_payments
+
+            if not close_mollie_premium_payments(mollie_rows):
+                logger.warning("Mollie payment still open for %s; will retry", label)
+        if (
+            not pending_of(membership)
+            .exclude(provider=PaymentTransaction.Provider.MOLLIE)
+            .exists()
+        ):
+            continue
         from crush_lu.views_payments import (
             SumUpClient,
             _apply_paid_checkout,
