@@ -107,7 +107,7 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
 
     // Firebase Cloud Messaging (FCM) + Crashlytics (crash reporting)
-    implementation(platform("com.google.firebase:firebase-bom:33.1.2"))
+    implementation(platform("com.google.firebase:firebase-bom:33.10.0"))
     implementation("com.google.firebase:firebase-messaging")
     implementation("com.google.firebase:firebase-crashlytics")
 }
