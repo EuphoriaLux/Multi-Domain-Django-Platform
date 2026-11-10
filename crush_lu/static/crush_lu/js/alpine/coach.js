@@ -2461,6 +2461,9 @@ document.addEventListener("alpine:init", function () {
                 var regId = btn.getAttribute("data-reg-id");
                 var i18n = window._checkinI18n || {};
                 if (self._missingActionUrl(url)) return;
+                // Restored on failure: this handler serves two lists whose
+                // buttons read differently (waitlist, curated walk-ups).
+                var originalLabel = btn.textContent;
                 btn.disabled = true;
                 btn.textContent = "...";
 
@@ -2496,7 +2499,7 @@ document.addEventListener("alpine:init", function () {
                             }
                         } else {
                             btn.disabled = false;
-                            btn.textContent = i18n.checkIn || "Check In";
+                            btn.textContent = originalLabel;
                             alert(
                                 data.error || i18n.checkinFailed || "Check-in failed",
                             );
@@ -2504,7 +2507,7 @@ document.addEventListener("alpine:init", function () {
                     })
                     .catch(function () {
                         btn.disabled = false;
-                        btn.textContent = i18n.checkIn || "Check In";
+                        btn.textContent = originalLabel;
                         alert(i18n.networkError || "Network error");
                     });
             },
