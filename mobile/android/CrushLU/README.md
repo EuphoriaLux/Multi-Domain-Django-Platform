@@ -6,14 +6,14 @@ Native Android WebView shell for the Crush.lu Play Store submission.
 
 - App name: Crush.lu
 - Package name: `lu.crush.app`
-- Version: `1.0.0`
-- Version code: `1`
+- Version: `1.0.4`
+- Version code: computed at CI runtime via `-PCRUSH_VERSION_CODE` (`4` local fallback)
 - Category: Dating or Social
 - Start URL: `https://crush.lu/en/dashboard/?source=android_app`
 
 ## Build
 
-1. Install Android Studio with Android SDK 35 or newer.
+1. Install Android Studio with Android SDK 36 or newer.
 2. Open `mobile/android/CrushLU`.
 3. Copy `gradle.properties.example` to `gradle.properties` and fill in the Play upload key values.
 4. Build the Play upload bundle from Android Studio: Build > Generate Signed App Bundle / APK > Android App Bundle.
@@ -23,7 +23,8 @@ You can also run `./gradlew bundleRelease` from this directory. On Windows Power
 ## Signing & Release CI
 
 Signed production builds are produced by the `android-release.yml` workflow
-(triggered by a `v*` tag or a manual `workflow_dispatch`). It is the only path
+(triggered via manual `workflow_dispatch` on `main` — never use a `v*` tag, as
+that also triggers the iOS release workflow). It is the only path
 that uploads to the Play Store. Do **not** commit signing secrets — they live in
 GitHub Actions secrets and are injected at run time.
 
