@@ -9800,3 +9800,50 @@ document.addEventListener("alpine:init", function () {
         });
     });
 });
+
+// =============================================================================
+// REDUCED MOTION: SVG (SMIL) ANIMATIONS
+// The stylesheet's prefers-reduced-motion rule stops CSS animations and
+// transitions, but it cannot reach <animate> / <animateTransform> inside an
+// SVG, and the ghost in the navbar and top bar animates that way on every
+// page. Freeze those here for members who asked for reduced motion: on load,
+// after an HTMX swap brings in new artwork, and when the setting changes.
+// =============================================================================
+(function () {
+    var query = window.matchMedia
+        ? window.matchMedia("(prefers-reduced-motion: reduce)")
+        : null;
+    if (!query) return;
+
+    function apply(root) {
+        // pauseAnimations() lives on the outermost <svg> of each drawing.
+        var scope = root || document;
+        if (!scope.querySelectorAll) return;
+        var svgs = scope.querySelectorAll("svg");
+        for (var i = 0; i < svgs.length; i++) {
+            var svg = svgs[i];
+            if (svg.ownerSVGElement || !svg.pauseAnimations) continue;
+            if (query.matches) {
+                svg.pauseAnimations();
+            } else if (svg.animationsPaused && svg.animationsPaused()) {
+                svg.unpauseAnimations();
+            }
+        }
+    }
+
+    function applyAll() {
+        apply(document);
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", applyAll);
+    } else {
+        applyAll();
+    }
+    document.addEventListener("htmx:afterSettle", function (evt) {
+        if (query.matches) apply(evt.target && evt.target.parentNode);
+    });
+    if (query.addEventListener) {
+        query.addEventListener("change", applyAll);
+    }
+})();

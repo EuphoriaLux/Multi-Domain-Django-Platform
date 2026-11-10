@@ -93,6 +93,34 @@ heading levels and trust the defaults. Override only when:
 Don't sprinkle `text-2xl`/`text-3xl`/`text-4xl` on every page heading. The
 defaults already give you a consistent scale.
 
+### Motion
+
+One easing and three durations. Both are tokens in `tailwind-input.css`
+(`@theme` and the `:root` beside `--color-surface-card`).
+
+| Step | Duration | Use for | In a template | In CSS |
+| --- | --- | --- | --- | --- |
+| fast | 120ms | Press feedback, small state changes | `duration-[120ms]` | `var(--duration-fast)` |
+| base | 200ms | Hover, colour, reveal (the default) | nothing, see below | `var(--duration-base)` |
+| slow | 320ms | Panels, sheets, drawers | `duration-[320ms]` | `var(--duration-slow)` |
+
+- **A bare `transition`, `transition-colors`, `transition-transform` or
+  `transition-opacity` already runs at 200ms on the house curve.** Add a
+  `duration-*` only for the fast or slow step, and don't add `ease-*` unless a
+  leave animation needs `ease-in`.
+- The curve is `ease-crush` (`cubic-bezier(0.2, 0, 0, 1)`), `var(--ease-crush)` in CSS.
+- **Don't use `transition-all`.** It animates layout and paint properties you
+  did not mean to. `transition` covers colour, opacity, shadow and transform.
+- Pressed state: buttons scale to `0.97`, tappable cards (`.card-tappable`) to `0.98`.
+- Nothing on a core surface (navigation, cards, lists) animates forever. An
+  attention pulse runs two or three times and rests.
+- Reduced motion is handled globally: the stylesheet stops CSS animation and
+  transitions, `core.js` freezes SVG (`<animate>`) artwork, and page
+  cross-fades are off. New motion needs no extra guard unless it is driven
+  from JavaScript.
+- Page changes cross-fade through `@view-transition` (PAGE TRANSITIONS in
+  `tailwind-input.css`). Don't add per-link transition attributes.
+
 ---
 
 ## 2. Buttons
