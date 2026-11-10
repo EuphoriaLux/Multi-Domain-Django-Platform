@@ -37,11 +37,12 @@ one for the context:
 | You're writing… | Use… | Where it lives |
 | --- | --- | --- |
 | Tailwind utility classes (`bg-crush-purple`, `text-crush-purple-dark`) | `--color-crush-*` from `@theme` | Generated into utilities at build time. |
-| Inline `style="…"` in a request-rendered HTML template (dark-mode-aware) | `var(--crush-purple)` | Declared inline in `crush_lu/base.html:130` (`:root` + `html.dark`). |
+| Inline `style="…"` in a request-rendered HTML template (dark-mode-aware) | `var(--crush-purple)` | Declared in the critical-CSS `<style>` block of `crush_lu/base.html` (`:root` + `html.dark`), and again in the legacy `:root` of `tailwind-input.css` (search `--crush-purple:`). |
 | Inline `style="…"` in an email template or the Django admin context | `{{ brand.purple }}` via `{% load crush_brand %}` | `crush_lu/templatetags/crush_brand.py`. |
 | Plain CSS inside `crush_lu/static/crush_lu/css/admin-custom.css` | `var(--crush-purple)` | Re-declared in the file's `:root`. Admin pages do NOT load `tailwind.css`. |
 
-When you change a brand color, update **all four** of those locations.
+When you change a brand color, update **all** of those locations: five
+places, because the second row lives in two files.
 
 **Seasonal token (not a brand color):** `--color-advent-red` (`#c41e3a`) is the
 Christmas red of the advent pages — day badge, progress bar, available doors,
@@ -49,20 +50,43 @@ QR button. Use `bg-advent-red` / `text-advent-red`, or `var(--color-advent-red)`
 in an advent `<style>` block; never the hex. It lives only in the `@theme`
 block and is scoped to `crush_lu/advent/`; don't use it elsewhere.
 
+### Surfaces
+
+The page canvas is lavender (`--bg-primary`, `#EDE8F4`; slate in dark mode).
+Cards, inputs and sheets are **true white** on top of it, so a card is simply
+`bg-white dark:bg-gray-800`. `bg-surface-card` is the same white under a name
+that says what it is for.
+
+`bg-white` used to be re-pointed to a lavender tint, which left cards lavender
+on lavender; that remap is gone. For a tinted tile *inside* a white card use
+`bg-crush-light` or a `bg-purple-50`-style tint, not white.
+
 ### Border radius
 
-Prefer Tailwind defaults. Only reach for the brand custom scale when the
-shape genuinely needs it.
+crush.lu is rounder than Tailwind's defaults. The scale is set in the `@theme`
+block of `tailwind-input.css`, so the utilities below render these values:
 
-| Element | Class | Value |
+| Utility | Value | Tailwind default |
 | --- | --- | --- |
-| Cards, modals, prominent panels | `rounded-2xl` | 16 px |
-| Inputs, buttons (non-pill), small panels | `rounded-xl` | 12 px |
-| Subtle/nested boxes | `rounded-lg` | 8 px |
-| Avatars | `rounded-full` | — |
-| Status badges | `rounded-full` | — |
-| Hero "soft card" brand-feel surfaces | `rounded-crush-lg` | 15 px |
-| Pill-shaped CTA on full-bleed gradient hero | `rounded-crush-pill` | 50 px |
+| `rounded-sm` | 8 px | 4 px |
+| `rounded-md` | 12 px | 6 px |
+| `rounded-lg` | 15 px | 8 px |
+| `rounded-xl` | 20 px | 12 px |
+| `rounded-2xl` | 25 px | 16 px |
+| `rounded-3xl` | 28 px | 24 px |
+
+Which step to use:
+
+| Element | Class |
+| --- | --- |
+| Cards, modals, prominent panels | `rounded-2xl` |
+| Inputs, buttons (non-pill), small panels | `rounded-xl` |
+| Subtle/nested boxes | `rounded-lg` |
+| Avatars, status badges, pill buttons | `rounded-full` |
+| Hero "soft card" brand-feel surfaces | `rounded-crush-lg` (15 px) |
+| Pill-shaped CTA on full-bleed gradient hero | `rounded-crush-pill` (50 px) |
+
+Don't write arbitrary radii (`rounded-[14px]`) for new work; pick a step.
 
 `rounded-crush-sm`, `rounded-crush-md`, `rounded-crush-xl`, `rounded-crush-2xl`
 were removed in 2026 as dead code — don't reintroduce them.
@@ -203,7 +227,7 @@ don't spread them to unrelated pages.
 
 | Class | Role | Notes |
 | --- | --- | --- |
-| `.connect-card` | The focused step card | True-white (`--color-surface-card`) on the lavender wizard canvas. Deliberately `rounded-3xl` (24 px) + `shadow-crush-md` — a documented exception to the resting-card defaults (`rounded-2xl` / `shadow-crush-sm`), because the wizard is a full-screen, single-focus onboarding surface, not an in-page card. |
+| `.connect-card` | The focused step card | True-white (`--color-surface-card`) on the lavender wizard canvas. Deliberately `rounded-3xl` (28 px) + `shadow-crush-md` — a documented exception to the resting-card defaults (`rounded-2xl` / `shadow-crush-sm`), because the wizard is a full-screen, single-focus onboarding surface, not an in-page card. |
 | `.connect-card-title` | Step heading | `font-display` (Fraunces) 22 px. The card-title of this surface; don't hand-roll `text-[22px]`. |
 | `.connect-selectable` | Shared option state | Drives default/hover/checked/disabled for peer-checked options via the general-sibling (`~`) combinator. Compose with a layout class below. |
 | `.connect-tile` | Emoji option tile | 3-per-row grids; `rounded-[14px]` (a design-specified radius unique to these tiles). |
@@ -212,8 +236,8 @@ don't spread them to unrelated pages.
 
 Tokens introduced for this surface (in `tailwind-input.css`):
 
-- `--color-surface-card: #fff` — true white for cards on the lavender canvas.
-  Use it (not `bg-white`, which is remapped to the tinted `#f0ecf5`).
+- `--color-surface-card: #fff` — true white for cards on the lavender canvas
+  (`bg-surface-card`). `bg-white` is the same white; see "Surfaces" in §1.
 - `--bottom-nav-height` — the mobile tab-bar height; consumed by the bar and
   by anything that must clear it (bottom-anchored toasts).
 - `--text-muted` — secondary copy on the lavender surfaces: gray-600 in
@@ -448,7 +472,7 @@ Two systems exist today; the long-term direction is one.
   `crush_lu/static/crush_lu/js/toast-component.js`. Container:
   `crush_lu/templates/crush_lu/shared/toast.html`.
 - **Inline Django messages banner** — a `{% if messages %}` block in
-  `base.html` (~line 1150) that renders prominent top-of-page banners
+  `base.html` (search `x-data="flashMessage"`) that renders prominent top-of-page banners
   for `messages.success(...)` etc. Kept as-is for now because removing
   it visually changes every page that uses `messages.success`. Phase 6
   did not consolidate the two channels — see "Pending consolidation"
@@ -516,7 +540,7 @@ An identical toast that is still on screen is not stacked again. So:
 When the team is ready to make the toast store the single notification
 channel, the migration is small:
 
-1. In `base.html` (~line 1150–1185), replace the `{% if messages %}`
+1. In `base.html` (the `{% if messages %}` block), replace the `{% if messages %}`
    banner block with a small script that pushes each `{{ message }}`
    into `Alpine.store('toasts')` on page load.
 2. Delete the dismissible-banner styling block.

@@ -31,9 +31,10 @@
     --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
 
     /* Font family */
+    /* Body text is the device's own UI font on purpose: nothing to download,
+       no text shifting while a web font loads, and it feels native on phones. */
     --font-sans:
-        "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-        sans-serif;
+        system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 
     /* Editorial display serif — used only for hero / large headlines.
        Loaded via Google Fonts in base.html; degrades to Georgia on failure. */
@@ -101,6 +102,22 @@
        the Tailwind defaults (rounded-lg / rounded-xl / rounded-2xl / rounded-full).
        Policy: cards = rounded-2xl, inputs/buttons = rounded-xl, badges = rounded-full,
        brand "soft card" hero panels = rounded-crush-lg, pill CTAs = rounded-crush-pill. */
+    /* The radius scale crush.lu renders, rounder than Tailwind's default
+       (4/6/8/12/16/24px). It used to come from an unlayered :root that
+       silently beat the theme and left rounded-2xl (25px) rounder than
+       rounded-3xl (24px). It now lives here, with 3xl above 2xl.
+       STYLE.md "Border radius" documents which step to use where. */
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 15px;
+    --radius-xl: 20px;
+    --radius-2xl: 25px;
+    --radius-3xl: 28px;
+
+    /* True white for cards, inputs and sheets on the lavender canvas. Same
+       value as white; the name says what it is for (bg-surface-card). */
+    --color-surface-card: #ffffff;
+
     --radius-crush-lg: 15px;
     --radius-crush-pill: 50px;
 
@@ -143,25 +160,18 @@
     --color-advent-coral: #ff6b6b;
 }
 
-/* =============================================================================
-   LIGHT MODE WARMTH
-   Soften pure whites to a subtle lavender tint matching the Crush.lu palette.
-   Tailwind v4 uses var(--color-white) for bg-white, text-white, border-white etc.
-   Placed outside @layer so it wins over Tailwind's @layer theme definition.
-   ============================================================================= */
-html:not(.dark) {
-    --color-white: #f0ecf5;
-}
-
 /* Shared UI dimensions/surfaces referenced across components.
-   --color-surface-card is TRUE white for cards that sit on the lavender
-   canvas — bg-white resolves to the tinted #f0ecf5 above, so card surfaces
-   must use this token (or a #fff literal) instead. --bottom-nav-height is the
-   mobile tab bar's height, consumed by the bar itself and by anything that
-   must clear it (toasts, .prompt-above-nav). 61.65px is the rendered bar: a
-   60.65px tab (6px + 34px icon + 2px + 12.65px label + 6px) plus its 1px border.
-   --text-muted is secondary copy on the tinted lavender surfaces: gray-500
-   only reaches ~4.0:1 on #ede8f4, gray-600 reaches 6.3:1 (gray-400 on dark).
+   Surfaces: the page canvas is lavender (--bg-primary in base.html's critical
+   CSS); cards, inputs and sheets are true white on top of it, so bg-white is
+   #fff. (It used to be re-pointed to a lavender tint, which left cards
+   lavender on lavender.) --color-surface-card is the same white under a name
+   that says what it is for; bg-surface-card is its utility.
+   --bottom-nav-height is the mobile tab bar's height, consumed by the bar
+   itself and by anything that must clear it (toasts, .prompt-above-nav).
+   61.65px is the rendered bar: a 60.65px tab (6px + 34px icon + 2px + 12.65px
+   label + 6px) plus its 1px border.
+   --text-muted is secondary copy on the lavender canvas: gray-500 only
+   reaches ~4.0:1 on #ede8f4, gray-600 reaches 6.3:1 (gray-400 on dark).
    Use it through the text-muted-fg utility (.text-muted maps to it too). */
 :root {
     /* The three motion steps, for hand-written CSS: fast for press feedback
@@ -170,7 +180,6 @@ html:not(.dark) {
     --duration-fast: 120ms;
     --duration-base: 200ms;
     --duration-slow: 320ms;
-    --color-surface-card: #ffffff;
     --bottom-nav-height: 61.65px;
     --text-muted: #4b5563;
 }
@@ -186,7 +195,7 @@ html.dark {
 /* =============================================================================
    CONTRAST FLOORS (UX Wave 5 · WP10 / R6)
    Secondary text carries hundreds of hard-coded text-gray-400/500 and
-   text-purple-* pairs. On the tinted lavender canvas (#f0ecf5) gray-500 only
+   text-purple-* pairs. On the lavender canvas (#ede8f4) gray-500 only
    reaches ~4.2:1 and gray-400 ~2.4:1; on dark cards gray-500 ~3.1:1, purple-400
    ~3.5:1 and the brand purple ~3.5:1. Fixing them one class at a time would
    touch 1,000+ lines, so the floor is set once here, unlayered:
@@ -369,7 +378,6 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     body {
         @apply text-crush-dark bg-crush-light antialiased dark:bg-gray-900 dark:text-gray-100;
         font-family:
-            "Inter",
             system-ui,
             -apple-system,
             BlinkMacSystemFont,
@@ -423,8 +431,12 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     /* =========================================================================
      CONTAINER
      ========================================================================= */
+    /* 1200px, the width base.html's critical CSS sets before this sheet
+       loads. The two used to disagree (max-w-7xl is 1280px) and the critical
+       rule, being unlayered, always won. */
     .container {
-        @apply mx-auto max-w-7xl px-4;
+        @apply mx-auto px-4;
+        max-width: 1200px;
     }
 
     /* =========================================================================
@@ -462,8 +474,8 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     /* Solid-purple sibling of btn-crush-primary. Same shape/size/motion, no
        gradient — use for every CTA that isn't THE primary CTA of the page.
-       Sits on crush-purple-dark: the lavender-tinted "white" text only reaches
-       4.0:1 on crush-purple, 5.0:1 here (AA for the text-xs buttons). */
+       Sits on crush-purple-dark: white text only reaches about 4.3:1 on
+       crush-purple, and clears AA here for the text-xs buttons. */
     .btn-crush-solid {
         @apply bg-crush-purple-dark hover:bg-purple-700 focus:ring-crush-purple px-8 py-3 text-white hover:-translate-y-0.5 active:scale-[0.97] dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
     }
@@ -604,7 +616,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     /* Status card - for dashboard status displays */
     .status-card {
-        @apply h-full rounded-xl bg-white shadow-sm dark:bg-gray-800 dark:shadow-2xl;
+        @apply shadow-crush-sm h-full rounded-2xl bg-white dark:bg-gray-800 dark:shadow-2xl;
     }
 
     .status-card-body {
@@ -1586,13 +1598,10 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     --shadow-gold: 0 4px 20px rgba(255, 215, 0, 0.3);
     --shadow-glow-gold: 0 0 20px rgba(255, 215, 0, 0.6);
 
-    /* Border Radius */
+    /* Border Radius. --radius-sm … --radius-3xl are theme tokens (@theme at
+       the top of this file); only the two shapes Tailwind has no step for
+       live here. */
     --radius-none: 0;
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 15px;
-    --radius-xl: 20px;
-    --radius-2xl: 25px;
     --radius-pill: 50px;
     --radius-circle: 50%;
 
@@ -5826,7 +5835,7 @@ html.dark .poll-results-bar {
         align-items: center;
         justify-content: space-between;
         padding: 1rem 1.25rem;
-        /* True white on the lavender canvas (8-07): --color-white is tinted. */
+        /* True white on the lavender canvas (8-07). */
         background: var(--color-surface-card);
         border-radius: 1rem;
         border: 1px solid #e5e7eb;
@@ -6160,8 +6169,7 @@ html.dark select.form-select {
 
 /* Focused wizard page: lavender canvas behind pure-white cards. Unlayered
    (same pattern as body.journey-bg) so it beats the critical-CSS body bg.
-   bg-white resolves to this same #f0ecf5 in light mode, which is exactly why
-   the cards below use literal #ffffff instead of the white token. */
+   The cards below are pure white on top of it. */
 body.connect-wizard {
     background: #f0ecf5;
 }
