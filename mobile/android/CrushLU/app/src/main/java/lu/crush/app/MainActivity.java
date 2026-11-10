@@ -26,6 +26,8 @@ import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.browser.customtabs.CustomTabsClient;
 import androidx.browser.customtabs.CustomTabsIntent;
@@ -41,8 +43,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.HashMap;
 import java.util.Locale;
@@ -51,10 +55,6 @@ import android.content.SharedPreferences;
 import android.os.Build;
 
 public class MainActivity extends AppCompatActivity {
-    private static final int FILE_CHOOSER_REQUEST = 1001;
-    private static final int NOTIFICATION_PERMISSION_REQUEST = 1002;
-    private static final int CAMERA_PERMISSION_REQUEST = 1003;
-    private static final int LOCATION_PERMISSION_REQUEST = 1004;
     private static final String BASE_URL = BuildConfig.BASE_URL;
     private static final String START_URL = BASE_URL + "/en/dashboard/?source=android_app";
     private static final String AUTH_SCHEME = BuildConfig.AUTH_SCHEME;
@@ -78,12 +78,61 @@ public class MainActivity extends AppCompatActivity {
     private SwipeRefreshLayout swipeRefresh;
     private View offlineView;
     private ValueCallback<Uri[]> filePathCallback;
-    // Held while the OS camera prompt is up: the WebView's request must stay
-    // un-answered until the user decides, then be granted or denied.
+    // Held while the OS camera/microphone prompt is up: the WebView's request
+    // must stay un-answered until the user decides, then be granted or denied.
     private PermissionRequest pendingCameraRequest;
     // Held while the OS location prompt is up for Crush Cache navigation.
     private GeolocationPermissions.Callback pendingGeolocationCallback;
     private String pendingGeolocationOrigin;
+
+    private final ActivityResultLauncher<Intent> fileChooserLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (filePathCallback == null) {
+                            return;
+                        }
+                        Uri[] uris = WebChromeClient.FileChooserParams.parseResult(
+                                result.getResultCode(), result.getData());
+                        filePathCallback.onReceiveValue(uris);
+                        filePathCallback = null;
+                    });
+
+    private final ActivityResultLauncher<String> notificationPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestPermission(),
+                    isGranted -> {
+                        // Optional runtime permission; channel is already registered.
+                    });
+
+    private final ActivityResultLauncher<String[]> mediaPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestMultiplePermissions(),
+                    results -> {
+                        if (pendingCameraRequest == null) {
+                            return;
+                        }
+                        PermissionRequest request = pendingCameraRequest;
+                        pendingCameraRequest = null;
+                        resolveMediaPermissionRequest(request);
+                    });
+
+    private final ActivityResultLauncher<String[]> locationPermissionLauncher =
+            registerForActivityResult(
+                    new ActivityResultContracts.RequestMultiplePermissions(),
+                    results -> {
+                        if (pendingGeolocationCallback == null) {
+                            return;
+                        }
+                        // Android 12+ lets users grant approximate location without precise GPS.
+                        boolean granted = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
+                                == PackageManager.PERMISSION_GRANTED
+                                || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                                == PackageManager.PERMISSION_GRANTED;
+                        pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
+                        pendingGeolocationCallback = null;
+                        pendingGeolocationOrigin = null;
+                    });
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -100,10 +149,9 @@ public class MainActivity extends AppCompatActivity {
         ViewCompat.setOnApplyWindowInsetsListener(mainContainer, (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
-            
+
             // Set top padding for status bar
-            int extraTopPadding = (int) (16 * getResources().getDisplayMetrics().density);
-            v.setPadding(0, systemBars.top + extraTopPadding, 0, 0);
+            v.setPadding(0, systemBars.top, 0, 0);
 
             // Set the filler height to match the navigation bar or keyboard
             if (filler != null) {
@@ -134,28 +182,68 @@ public class MainActivity extends AppCompatActivity {
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
 
-        Uri launchUri = getIntent().getData();
+        Intent launchIntent = getIntent();
+        Uri launchUri = launchIntent != null ? launchIntent.getData() : null;
+        String targetUrl = launchIntent != null ? pendingTargetUrl(launchIntent) : null;
+        consumeLaunchIntent(launchIntent);
+
         if (launchUri != null) {
             handleUri(launchUri);
+        } else if (targetUrl != null) {
+            loadInternal(targetUrl);
+        } else if (savedInstanceState != null) {
+            webView.restoreState(savedInstanceState);
+            if (webView.getUrl() == null) {
+                loadInternal(START_URL);
+            }
         } else {
-            String targetUrl = pendingTargetUrl(getIntent());
-            loadInternal(targetUrl != null ? targetUrl : START_URL);
+            loadInternal(START_URL);
         }
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        setIntent(intent);
         Uri uri = intent.getData();
+        String targetUrl = pendingTargetUrl(intent);
+        consumeLaunchIntent(intent);
+        setIntent(intent);
         if (uri != null) {
             handleUri(uri);
-        } else {
-            String targetUrl = pendingTargetUrl(intent);
-            if (targetUrl != null) {
-                loadInternal(targetUrl);
-            }
+        } else if (targetUrl != null) {
+            loadInternal(targetUrl);
         }
+    }
+
+    /**
+     * Clear one-time navigation payloads from the Activity's Intent once read
+     * so a later Activity recreation cannot re-trigger a spent auth callback
+     * ({@code crushlu://auth?complete_url=...}) or stale notification target.
+     */
+    private void consumeLaunchIntent(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        intent.setData(null);
+        intent.removeExtra("target_url");
+        intent.removeExtra("url");
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        if (webView != null) {
+            webView.saveState(outState);
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.stopLoading();
+            webView.destroy();
+        }
+        super.onDestroy();
     }
 
     private String pendingTargetUrl(Intent intent) {
@@ -175,21 +263,8 @@ public class MainActivity extends AppCompatActivity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS)
                         != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                    new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
-                    NOTIFICATION_PERMISSION_REQUEST);
+            notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS);
         }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != FILE_CHOOSER_REQUEST || filePathCallback == null) {
-            return;
-        }
-        Uri[] result = WebChromeClient.FileChooserParams.parseResult(resultCode, data);
-        filePathCallback.onReceiveValue(result);
-        filePathCallback = null;
     }
 
     private void configureWebView() {
@@ -236,7 +311,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 MainActivity.this.filePathCallback = filePathCallback;
                 try {
-                    startActivityForResult(fileChooserParams.createIntent(), FILE_CHOOSER_REQUEST);
+                    fileChooserLauncher.launch(fileChooserParams.createIntent());
                 } catch (ActivityNotFoundException exception) {
                     MainActivity.this.filePathCallback = null;
                     return false;
@@ -248,36 +323,48 @@ public class MainActivity extends AppCompatActivity {
             public void onPermissionRequest(PermissionRequest request) {
                 // WebChromeClient's default implementation denies outright, so
                 // without this override getUserMedia() in the check-in scanner
-                // fails with NotAllowedError and no prompt is ever shown.
+                // or in-app WebRTC verification calls fails with NotAllowedError.
                 boolean wantsCamera = false;
+                boolean wantsAudio = false;
                 for (String resource : request.getResources()) {
                     if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
                         wantsCamera = true;
+                    } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                        wantsAudio = true;
                     }
                 }
-                // Only our own pages may reach the camera; anything else (an
-                // embedded third-party frame) is refused.
-                if (!wantsCamera || !isInternal(request.getOrigin())) {
+                // Only our own pages may reach the camera or microphone; anything
+                // else (an embedded third-party frame) is refused.
+                if ((!wantsCamera && !wantsAudio) || !isInternal(request.getOrigin())) {
                     request.deny();
                     return;
                 }
 
-                if (checkSelfPermission(android.Manifest.permission.CAMERA)
-                        == PackageManager.PERMISSION_GRANTED) {
-                    request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                List<String> missingPermissions = new ArrayList<>();
+                if (wantsCamera
+                        && checkSelfPermission(android.Manifest.permission.CAMERA)
+                                != PackageManager.PERMISSION_GRANTED) {
+                    missingPermissions.add(android.Manifest.permission.CAMERA);
+                }
+                if (wantsAudio
+                        && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                                != PackageManager.PERMISSION_GRANTED) {
+                    missingPermissions.add(android.Manifest.permission.RECORD_AUDIO);
+                }
+
+                if (missingPermissions.isEmpty()) {
+                    resolveMediaPermissionRequest(request);
                     return;
                 }
 
                 if (pendingCameraRequest != null) {
                     // A prompt is already up (e.g. Start tapped twice); leaving
-                    // the newer request unanswered would wedge the scanner.
+                    // the newer request unanswered would wedge the scanner/call.
                     request.deny();
                     return;
                 }
                 pendingCameraRequest = request;
-                requestPermissions(
-                        new String[]{android.Manifest.permission.CAMERA},
-                        CAMERA_PERMISSION_REQUEST);
+                mediaPermissionLauncher.launch(missingPermissions.toArray(new String[0]));
             }
 
             @Override
@@ -314,12 +401,11 @@ public class MainActivity extends AppCompatActivity {
 
                 pendingGeolocationCallback = callback;
                 pendingGeolocationOrigin = origin;
-                requestPermissions(
+                locationPermissionLauncher.launch(
                         new String[]{
                                 android.Manifest.permission.ACCESS_FINE_LOCATION,
                                 android.Manifest.permission.ACCESS_COARSE_LOCATION
-                        },
-                        LOCATION_PERMISSION_REQUEST);
+                        });
             }
 
             @Override
@@ -330,31 +416,36 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CAMERA_PERMISSION_REQUEST && pendingCameraRequest != null) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                pendingCameraRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
-            } else {
-                // Denying (rather than dropping it) lets the page surface its
-                // "camera permission denied" message instead of hanging.
-                pendingCameraRequest.deny();
+    private void resolveMediaPermissionRequest(PermissionRequest request) {
+        boolean wantsCamera = false;
+        boolean wantsAudio = false;
+        for (String resource : request.getResources()) {
+            if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                wantsCamera = true;
+            } else if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(resource)) {
+                wantsAudio = true;
             }
-            pendingCameraRequest = null;
+        }
+        boolean cameraGranted = !wantsCamera
+                || checkSelfPermission(android.Manifest.permission.CAMERA)
+                        == PackageManager.PERMISSION_GRANTED;
+        boolean audioGranted = !wantsAudio
+                || checkSelfPermission(android.Manifest.permission.RECORD_AUDIO)
+                        == PackageManager.PERMISSION_GRANTED;
+        if (!cameraGranted || !audioGranted) {
+            // Denying (rather than dropping it) lets the page surface its
+            // permission denied message instead of hanging.
+            request.deny();
             return;
         }
-
-        if (requestCode == LOCATION_PERMISSION_REQUEST && pendingGeolocationCallback != null) {
-            // Android 12+ lets users grant approximate location without precise GPS.
-            boolean granted = checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED
-                    || checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
-                    == PackageManager.PERMISSION_GRANTED;
-            pendingGeolocationCallback.invoke(pendingGeolocationOrigin, granted, false);
-            pendingGeolocationCallback = null;
-            pendingGeolocationOrigin = null;
+        List<String> grantedResources = new ArrayList<>();
+        if (wantsCamera) {
+            grantedResources.add(PermissionRequest.RESOURCE_VIDEO_CAPTURE);
         }
+        if (wantsAudio) {
+            grantedResources.add(PermissionRequest.RESOURCE_AUDIO_CAPTURE);
+        }
+        request.grant(grantedResources.toArray(new String[0]));
     }
 
     private void configureSwipeRefresh() {
@@ -383,7 +474,7 @@ public class MainActivity extends AppCompatActivity {
                     webView.goBack();
                 } else {
                     setEnabled(false);
-                    onBackPressed();
+                    getOnBackPressedDispatcher().onBackPressed();
                 }
             }
         });
@@ -739,28 +830,10 @@ public class MainActivity extends AppCompatActivity {
                 || capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
     }
 
-    private void fixWebStyles() {
-        String js = "(function() { " +
-                    "  var css = 'nav, header, .navbar, .nav-bar { " +
-                    "    padding-bottom: 8px !important; " +
-                    "  } " +
-                    "  .bottom-nav { " +
-                    "    padding-bottom: 4px !important; " +
-                    "  }'; " +
-                    "  var style = document.getElementById('crush-fix-style') || document.createElement('style'); " +
-                    "  style.id = 'crush-fix-style'; " +
-                    "  style.innerHTML = css; " +
-                    "  if (!style.parentElement) document.head.appendChild(style); " +
-                    "})();";
-
-        webView.evaluateJavascript(js, null);
-    }
-
     private final class CrushWebViewClient extends WebViewClient {
         @Override
         public void onPageFinished(WebView view, String url) {
             swipeRefresh.setRefreshing(false);
-            fixWebStyles();
             CookieManager.getInstance().flush();
             registerFcmTokenIfAuthenticated();
         }
@@ -828,16 +901,19 @@ public class MainActivity extends AppCompatActivity {
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful() && task.getResult() != null) {
                         String fcmToken = task.getResult();
-                        prefs.edit().putString("fcm_token", fcmToken).apply();
-                        injectTokenRegistrationScript(fcmToken);
+                        prefs.edit()
+                                .putString("fcm_token", fcmToken)
+                                .putBoolean("fcm_token_synced", false)
+                                .apply();
+                        injectTokenRegistrationScript(fcmToken, prefs);
                     }
                 });
         } else {
-            injectTokenRegistrationScript(token);
+            injectTokenRegistrationScript(token, prefs);
         }
     }
 
-    private void injectTokenRegistrationScript(String token) {
+    private void injectTokenRegistrationScript(String token, SharedPreferences prefs) {
         String deviceId = android.provider.Settings.Secure.getString(
                 getContentResolver(), android.provider.Settings.Secure.ANDROID_ID);
 
@@ -857,9 +933,22 @@ public class MainActivity extends AppCompatActivity {
         // JSONObject.quote() escapes in full, so nothing interpolated below can
         // close the quote and become script. (Escaping only ' by hand, as this
         // did, leaves backslashes and newlines to break out.)
+        // sessionStorage persists across multi-page navigations within the
+        // WebView session so we do not re-POST on every page load after the
+        // token is registered once.
         String js = "(function() { " +
             "  var data = JSON.parse(" + JSONObject.quote(payload.toString()) + "); " +
-            "  if (window.FCM_TOKEN_REGISTERED === data.registrationToken) return; " +
+            "  var storageKey = 'crush_fcm_token_registered'; " +
+            "  var path = window.location.pathname || ''; " +
+            "  if (path.indexOf('/login/') !== -1 || path.indexOf('/logout/') !== -1) { " +
+            "    try { sessionStorage.removeItem(storageKey); } catch (e) {} " +
+            "    return; " +
+            "  } " +
+            "  try { " +
+            "    if (window.FCM_TOKEN_REGISTERED === data.registrationToken || sessionStorage.getItem(storageKey) === data.registrationToken) return; " +
+            "  } catch (e) { " +
+            "    if (window.FCM_TOKEN_REGISTERED === data.registrationToken) return; " +
+            "  } " +
             "  var csrfToken = ''; " +
             "  var parts = document.cookie.split('; '); " +
             "  for (var i = 0; i < parts.length; i++) { " +
@@ -868,6 +957,7 @@ public class MainActivity extends AppCompatActivity {
             "      break; " +
             "    } " +
             "  } " +
+            "  if (!csrfToken) return; " +
             "  fetch('/api/mobile/android/devices/register/', { " +
             "    method: 'POST', " +
             "    headers: { " +
@@ -876,16 +966,17 @@ public class MainActivity extends AppCompatActivity {
             "    }, " +
             "    body: JSON.stringify(data) " +
             "  }) " +
-            "  .then(function(res) { return res.json(); }) " +
+            "  .then(function(res) { return res.ok ? res.json() : null; }) " +
             "  .then(function(res) { " +
-            "    if (res.success) { " +
+            "    if (res && res.success) { " +
             "      window.FCM_TOKEN_REGISTERED = data.registrationToken; " +
+            "      try { sessionStorage.setItem(storageKey, data.registrationToken); } catch (e) {} " +
             "      console.log('FCM token registered'); " +
             "    } " +
             "  }) " +
             "  .catch(function(err) { console.error('FCM registration error', err); }); " +
             "})();";
 
-        webView.evaluateJavascript(js, null);
+        webView.evaluateJavascript(js, value -> prefs.edit().putBoolean("fcm_token_synced", true).apply());
     }
 }

@@ -96,6 +96,37 @@ class AuthHandoffLaunchTests(unittest.TestCase):
             "androidx.browser:browser", BUILD_GRADLE.read_text(encoding="utf-8")
         )
 
+    def test_manifest_declares_ui_mode_config_changes_and_optional_microphone(self):
+        """Prevent dark-mode switch from recreating MainActivity and re-firing
+        spent auth callbacks, and allow WebRTC microphone capture without hiding
+        the Play Store listing from devices without a mic."""
+        manifest = MANIFEST.read_text(encoding="utf-8")
+        self.assertIn("uiMode", manifest)
+        self.assertIn("smallestScreenSize", manifest)
+        self.assertIn("screenLayout", manifest)
+        self.assertIn("android.permission.RECORD_AUDIO", manifest)
+        self.assertIn(
+            '<uses-feature android:name="android.hardware.microphone" android:required="false" />',
+            manifest,
+        )
+
+    def test_activity_handles_webrtc_audio_and_cleans_up_lifecycle(self):
+        """Ensure WebRTC audio capture is supported, launch intents are consumed
+        once, WebView is stopped/destroyed on teardown, Activity Result API is
+        used instead of deprecated startActivityForResult/requestPermissions,
+        and FCM registration is deduplicated via sessionStorage."""
+        self.assertIn("PermissionRequest.RESOURCE_AUDIO_CAPTURE", self.activity)
+        self.assertIn("android.Manifest.permission.RECORD_AUDIO", self.activity)
+        self.assertIn("consumeLaunchIntent(", self.activity)
+        self.assertIn("webView.stopLoading()", self.activity)
+        self.assertIn("webView.destroy()", self.activity)
+        self.assertIn("registerForActivityResult(", self.activity)
+        self.assertNotIn("startActivityForResult(", self.activity)
+        self.assertNotIn("onRequestPermissionsResult(", self.activity)
+        self.assertNotIn("fixWebStyles(", self.activity)
+        self.assertIn("sessionStorage.getItem(storageKey)", self.activity)
+        self.assertIn("sessionStorage.setItem(storageKey, data.registrationToken)", self.activity)
+
 
 if __name__ == "__main__":
     unittest.main()
