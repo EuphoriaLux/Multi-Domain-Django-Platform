@@ -23,7 +23,12 @@ from django.db import models
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from crush_lu.real_person_check_rules import MEDIUMS, MEDIUM_VIDEO
+from crush_lu.real_person_check_rules import (
+    MEDIUMS,
+    MEDIUM_VIDEO,
+    PURPOSE_BADGE_ONLY,
+    PURPOSE_CONNECT_WEEK,
+)
 
 __all__ = ["ConnectRealPersonCheck", "ConnectRealPersonBadge"]
 
@@ -57,6 +62,30 @@ class ConnectRealPersonCheck(models.Model):
         ("voice", _("Voice call")),
     ]
     MEDIUM_CHOICES = [("", _("Not decided"))] + PASSED_MEDIUM_CHOICES
+
+    purpose = models.CharField(
+        max_length=16,
+        choices=[
+            (PURPOSE_BADGE_ONLY, _("Optional badge")),
+            (PURPOSE_CONNECT_WEEK, _("Connect Week verification")),
+        ],
+        default=PURPOSE_BADGE_ONLY,
+        db_default=PURPOSE_BADGE_ONLY,
+        editable=False,
+    )
+    # Nullable columns and the persistent purpose default let an older serving
+    # release keep writing badge-only checks after migration during warm-up.
+    # Spec: ai-memory-hub/specs/2026-11-10-crush-january-video-verification-funnel.md
+    admission_policy_version = models.PositiveSmallIntegerField(
+        null=True, blank=True, editable=False
+    )
+    admission_profile_approved_at = models.DateTimeField(
+        null=True, blank=True, editable=False
+    )
+    admission_granted_at = models.DateTimeField(null=True, blank=True, editable=False)
+    admission_invalidated_at = models.DateTimeField(
+        null=True, blank=True, editable=False
+    )
 
     profile = models.ForeignKey(
         "crush_lu.CrushProfile",
@@ -145,6 +174,19 @@ class ConnectRealPersonCheck(models.Model):
                     | ~models.Q(photo_key="")
                 ),
                 name="rpcheck_video_has_photo_key",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(admission_granted_at__isnull=True)
+                | models.Q(
+                    purpose=PURPOSE_CONNECT_WEEK,
+                    status__in=("passed", "revoked"),
+                    medium=MEDIUM_VIDEO,
+                    admission_policy_version__isnull=False,
+                    admission_policy_version__gte=1,
+                    admission_profile_approved_at__isnull=False,
+                    decided_at__isnull=False,
+                ),
+                name="rpcheck_admission_requires_video",
             ),
         ]
         indexes = [

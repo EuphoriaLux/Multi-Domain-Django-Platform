@@ -533,6 +533,10 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // Pin with: az webapp config appsettings set ... --slot-settings CONNECT_REAL_PERSON_CHECK_ENABLED=False CONNECT_REAL_PERSON_BADGE_VISIBLE=False
       'CONNECT_REAL_PERSON_CHECK_ENABLED'
       'CONNECT_REAL_PERSON_BADGE_VISIBLE'
+      // January Connect Week admission. Staging's pilot/policy must not swap
+      // into production. Defaults are off/False; no existing badge is a grant.
+      'CONNECT_VIDEO_VERIFICATION_MODE'
+      'CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED'
       // In-app video calls (crush_lu/services/turn_credentials.py): the
       // Cloudflare Realtime TURN key id and its API token. A separate key per
       // slot, so staging must never hold production's and a swap must never

@@ -519,14 +519,14 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                 safe_update_fields = [
                     name for name in form.changed_data if name in concrete_fields
                 ]
-                super(CrushProfile, obj).save(update_fields=safe_update_fields)
-                # This path skips CrushProfile.save(), so a de-verification
-                # made in the same submit has to end the Connect real-person
-                # badge here (see end_real_person_badge_if_deverified).
-                if "verification_status" in safe_update_fields:
-                    obj.end_real_person_badge_if_deverified(
-                        old_instance.verification_status == "verified"
-                    )
+                with transaction.atomic():
+                    super(CrushProfile, obj).save(update_fields=safe_update_fields)
+                    # This path skips CrushProfile.save(): end both the badge
+                    # and video admission in the de-verification transaction.
+                    if "verification_status" in safe_update_fields:
+                        obj.end_real_person_badge_if_deverified(
+                            old_instance.verification_status == "verified"
+                        )
                 return
 
         # Normal save for all other cases
