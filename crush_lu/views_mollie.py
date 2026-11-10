@@ -1,7 +1,8 @@
-"""Donations and event seats through Mollie's hosted checkout.
+"""Donations, event seats and Premium through Mollie's hosted checkout.
 
 SumUp refused the platform in 2026-10; donations moved to Mollie first, then
-event seats (``MOLLIE_EVENT_PAYMENTS_ENABLED``). Premium stays on views_payments.
+event seats (``MOLLIE_EVENT_PAYMENTS_ENABLED``), then the first Premium payment
+(``MOLLIE_PREMIUM_ENABLED``, ``open_mollie_premium_checkout``).
 A payment here ends in the same ``_apply_paid_checkout`` as a SumUp one, so the
 Community Supporter badge, the seat confirmation, the check-in token and the
 receipts behave identically.
@@ -39,17 +40,26 @@ from django.views.decorators.http import require_GET, require_POST
 
 from crush_lu.models.events import EventRegistration, MeetupEvent
 from crush_lu.models.payments import EventCheckoutCreationClaim, PaymentTransaction
-from crush_lu.models.profiles import CrushProfile
-from crush_lu.services import mollie
+from crush_lu.models.premium_recovery import PremiumPaymentRecoveryCase
+from crush_lu.models.profiles import CrushProfile, PremiumMembership
+from crush_lu.services import mollie, premium_recovery
 from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_payments import (
     DONATION_CREATE_COOLDOWN_SECONDS,
     _apply_paid_checkout,
+    _close_premium_checkout,
     _event_checkout_validation_error,
     _lock_event_checkout_state,
+    _lock_member_and_check_blocked,
+    _lock_premium_checkout_state,
     _native_commerce_suppressed,
     _parse_donation_amount,
     _payment_owner_ids,
+    _premium_checkout_retry_response,
+    _premium_payment_captured,
+    _premium_payment_received_response,
+    _premium_purchase_refused,
+    _sumup_return_response,
 )
 
 logger = logging.getLogger(__name__)
@@ -666,6 +676,565 @@ def open_mollie_event_checkout(request, registration_id):
     )
 
 
+PREMIUM_CREATE_COOLDOWN_SECONDS = 5
+
+
+def _premium_description(membership, onboarding_fee):
+    """What the member reads on Mollie's checkout.
+
+    It carries the classification, as the SumUp checkout's does: the reuse
+    check compares it, so a payment opened as onboarding is never handed out
+    again as a first month even when both cost the same.
+    """
+    description = f"Crush Connect Premium - Coach {membership.coach}"
+    if not onboarding_fee:
+        description += " - first month"
+    return description[:255]
+
+
+def _premium_return_response(request, tx, **extra):
+    """Send the member to the return page, which says what the payment did."""
+    return JsonResponse(
+        {
+            "success": True,
+            "widget_url": request.build_absolute_uri(
+                f"{RETURN_PATH}?ref={tx.transaction_reference}"
+            ),
+            **extra,
+        }
+    )
+
+
+def _premium_in_progress_response(request):
+    """The Premium twin of ``_payment_in_progress_response``."""
+    with override(get_onscreen_language(user=request.user, request=request)):
+        message = _(
+            "Your earlier payment is still being processed. If you completed "
+            "it, your Premium membership starts automatically, so there is no "
+            "need to pay again. If you did not finish it, it closes by itself, "
+            "usually within an hour."
+        )
+        page = reverse("crush_lu:premium_choose_coach")
+    messages.warning(request, message)
+    return JsonResponse(
+        {
+            "success": True,
+            "payment_in_progress": True,
+            "message": message,
+            "widget_url": page,
+        }
+    )
+
+
+def _cancel_unopened(tx):
+    """Close a row whose request died before Mollie opened a payment for it."""
+    with transaction.atomic():
+        locked = PaymentTransaction.objects.select_for_update().get(pk=tx.pk)
+        if (
+            locked.status != PaymentTransaction.Status.PENDING
+            or locked.mollie_payment_id
+        ):
+            return
+        locked.status = PaymentTransaction.Status.CANCELLED
+        locked.failure_reason = "Mollie did not open a checkout for this attempt."
+        locked.save(update_fields=["status", "failure_reason", "updated_at"])
+
+
+def _retire_premium_payment(client, tx, remote=None):
+    """Make sure ``tx``'s Mollie payment can take no money. No lock is held.
+
+    Returns ``"closed"`` (proven unpayable, row closed), ``"paid"`` (the caller
+    applies it), ``"in_progress"`` (the member started paying and Mollie will
+    not cancel it) or ``"unknown"`` (could not be proven either way).
+    """
+    if not tx.mollie_payment_id:
+        if timezone.now() - tx.created_at < _PREPARING_GRACE:
+            return "unknown"
+        _cancel_unopened(tx)
+        return "closed"
+    try:
+        if remote is None:
+            remote = client.get_payment(tx.mollie_payment_id)
+        status = remote.get("status")
+        if status in _OPEN_STATUSES:
+            try:
+                client.cancel_payment(tx.mollie_payment_id)
+            except mollie.MollieError:
+                # Mollie answers 422 for a payment that ended meanwhile, and
+                # for a started one it will not cancel: read it again.
+                remote = client.get_payment(tx.mollie_payment_id)
+                status = remote.get("status")
+                if status in _IN_PROGRESS_STATUSES:
+                    return "in_progress"
+                if status in _OPEN_STATUSES:
+                    return "unknown"
+            else:
+                _record_unpaid(tx, mollie.STATUS_CANCELED, remote)
+                return "closed"
+        if status == mollie.STATUS_PAID:
+            return "paid"
+        if status in _UNPAID_STATUS:
+            _record_unpaid(tx, status, remote)
+            return "closed"
+    except mollie.MollieError as exc:
+        logger.warning(
+            "Mollie Premium payment %s could not be closed: %s",
+            tx.mollie_payment_id,
+            exc,
+        )
+    return "unknown"
+
+
+def close_mollie_premium_payments(rows):
+    """Close the PENDING Mollie payments among ``rows`` (Premium rows).
+
+    For everything that must leave a membership with no payable checkout: the
+    member cancelling the request, a capture already recorded, a recovery case
+    (``premium_recovery.close_open_checkouts_safely``). A payment Mollie
+    reports paid is applied, exactly as the webhook would. Returns False when
+    one could not be proven closed; it stays PENDING and the next caller
+    retries. Never raises.
+    """
+    rows = [
+        row
+        for row in rows
+        if row.provider == PaymentTransaction.Provider.MOLLIE
+        and row.status == PaymentTransaction.Status.PENDING
+    ]
+    if not rows:
+        return True
+    try:
+        client = mollie.MollieClient()
+    except mollie.MollieError:
+        return False
+    proven = True
+    for tx in rows:
+        outcome = _retire_premium_payment(client, tx)
+        if outcome == "paid":
+            try:
+                sync_mollie_payment(tx)
+            except mollie.MollieError:
+                proven = False
+        elif outcome != "closed":
+            proven = False
+    return proven
+
+
+def _retire_sumup_premium_checkouts(membership, pending):
+    """Close a membership's earlier SumUp checkouts before Mollie opens one.
+
+    ``pending`` is ``[(payment pk, checkout id)]``. Returns ``"closed"``,
+    ``"paid"`` or ``"open"``. Unlike ``_close_sumup_checkouts`` (event seats),
+    a checkout SumUp reports captured is never treated as closed: it is
+    recorded from that read through ``_apply_paid_checkout`` (applied, or its
+    own recovery case), because nothing else would read it again, and no
+    Mollie payment is opened beside it. Only a checkout whose state SumUp will
+    not tell counts as closed while SumUp is shut, the accepted risk recorded
+    in ``services.sumup`` (Tom, 2026-10-16); otherwise closure must be proven.
+    """
+    from crush_lu.services.event_payments import sumup_payments_paused
+    from crush_lu.services.sumup import SumUpClient, SumUpError
+
+    paused = sumup_payments_paused()
+    try:
+        client = SumUpClient()
+    except SumUpError:
+        client = None
+    retired, paid, still_open = set(), {}, False
+    for payment_pk, checkout_id in pending:
+        payload = {}
+        outcome = (
+            _close_premium_checkout(client, checkout_id, payload) if client else "open"
+        )
+        if outcome == "paid":
+            paid[payment_pk] = payload
+        elif outcome == "closed":
+            retired.add(payment_pk)
+        elif paused:
+            logger.warning(
+                "[PAYMENTS-PAUSED] SumUp Premium checkout %s not proven closed; "
+                "treated as closed while SumUp is paused.",
+                checkout_id,
+            )
+            retired.add(payment_pk)
+        else:
+            still_open = True
+    if retired:
+        with transaction.atomic():
+            _lock_premium_checkout_state(
+                membership.pk,
+                retired,
+                reason=(
+                    "Superseded by a Mollie checkout - the SumUp checkout was "
+                    "deactivated before any card was charged."
+                ),
+            )
+    for row in PaymentTransaction.objects.filter(
+        pk__in=paid, status=PaymentTransaction.Status.PENDING
+    ).order_by("pk"):
+        _apply_paid_checkout(row, paid[row.pk])
+    if paid:
+        return "paid"
+    return "open" if still_open else "closed"
+
+
+def _premium_customer_id(client, membership, buyer):
+    """The Mollie customer the first payment is made under.
+
+    One customer per member: an earlier membership's is reused. A new one
+    carries no name or email, only our user id, because the customer exists
+    solely to hold the mandate. Raises MollieError.
+    """
+    known = (
+        PremiumMembership.objects.filter(user=buyer)
+        .exclude(mollie_customer_id="")
+        .order_by("-created_at")
+        .values_list("mollie_customer_id", flat=True)
+        .first()
+    )
+    customer_id = known or str(
+        client.create_customer(metadata={"user_id": buyer.pk}).get("id") or ""
+    )
+    if not mollie.CUSTOMER_ID_RE.match(customer_id):
+        raise mollie.MollieError("no customer id in the response")
+    PremiumMembership.objects.filter(pk=membership.pk).update(
+        mollie_customer_id=customer_id
+    )
+    return customer_id
+
+
+def open_mollie_premium_checkout(request, membership):
+    """Open (or reuse) the Mollie first payment for a pending Premium request.
+
+    Called by ``create_sumup_premium_checkout`` once it has checked who is
+    asking and found Mollie takes Premium (``mollie_premium_active``). The
+    refusals are the SumUp checkout's own, in the same order. As for event
+    seats, no provider call runs under a lock and at most one payment per
+    membership stays payable: an open one is reused or closed before the next.
+
+    The payment is a ``first`` payment under a Mollie customer, so paying it
+    leaves a mandate. Nothing charges that mandate yet.
+    """
+    if membership.status != "pending":
+        return _event_json_error(_("This membership is not pending payment."), 400)
+
+    def pending_rows():
+        return list(
+            PaymentTransaction.objects.filter(
+                premium_membership=membership,
+                status=PaymentTransaction.Status.PENDING,
+            ).order_by("pk")
+        )
+
+    if _premium_payment_captured(membership):
+        logger.error(
+            "Refused a second premium checkout for membership %s (user=%s): a "
+            "PAID transaction is already recorded against it and Premium was "
+            "never granted — needs reconciliation, not another charge.",
+            membership.id,
+            membership.user_id,
+        )
+        if not close_mollie_premium_payments(pending_rows()):
+            return _premium_checkout_retry_response(membership)
+        return _premium_payment_received_response()
+
+    if premium_recovery.blocks_new_charge(membership.user):
+        return _premium_payment_received_response()
+
+    if _premium_purchase_refused(membership):
+        logger.warning(
+            "Blocked premium checkout for membership %s: user %s is not a "
+            "selected beta tester",
+            membership.id,
+            membership.user_id,
+        )
+        return _event_json_error(_("Premium is invite-only during the beta."), 403)
+
+    # None (cache down) is not a live cooldown, as in the other checkouts.
+    claimed = cache.add(
+        f"mollie:premium:create:{membership.pk}",
+        1,
+        timeout=PREMIUM_CREATE_COOLDOWN_SECONDS,
+    )
+    if claimed is False:
+        return _event_json_error(_("Please wait a moment before trying again."), 429)
+
+    from django.conf import settings
+
+    from crush_lu.views_premium import premium_monthly_fee, premium_onboarding_fee
+
+    # Read at payment time and only once, like the SumUp checkout: the amount,
+    # the recorded fee and the description come from one classification.
+    onboarding_fee = premium_onboarding_fee(membership.user)
+    amount = onboarding_fee if onboarding_fee > 0 else premium_monthly_fee()
+    description = _premium_description(membership, onboarding_fee)
+    unavailable = _("Unable to initiate payment at the moment. Please try again later.")
+    client = mollie.MollieClient()
+
+    rows = pending_rows()
+    sumup_pending = [
+        (row.pk, row.sumup_checkout_id)
+        for row in rows
+        if row.provider == PaymentTransaction.Provider.SUMUP and row.sumup_checkout_id
+    ]
+    if sumup_pending:
+        outcome = _retire_sumup_premium_checkouts(membership, sumup_pending)
+        if outcome == "paid":
+            return _premium_payment_received_response()
+        if outcome != "closed":
+            return _premium_checkout_retry_response(membership)
+
+    for tx in rows:
+        if tx.provider != PaymentTransaction.Provider.MOLLIE:
+            continue
+        remote = None
+        if tx.mollie_payment_id:
+            try:
+                remote = client.get_payment(tx.mollie_payment_id)
+            except mollie.MollieError as exc:
+                logger.warning(
+                    "Mollie Premium checkout could not re-read %s: %s",
+                    tx.mollie_payment_id,
+                    exc,
+                )
+                return _event_json_error(unavailable, 502)
+            status = remote.get("status")
+            same_terms = (
+                mollie.amount_matches(remote, amount, "EUR")
+                and remote.get("description") == description
+            )
+            if status in _OPEN_STATUSES and same_terms:
+                url = mollie.checkout_url(remote)
+                if url:
+                    return JsonResponse(
+                        {
+                            "success": True,
+                            "checkout_url": url,
+                            "widget_url": url,
+                            "checkout_reference": tx.transaction_reference,
+                            "amount": float(amount),
+                            "currency": "EUR",
+                        }
+                    )
+                if status in _IN_PROGRESS_STATUSES:
+                    return _premium_in_progress_response(request)
+        outcome = _retire_premium_payment(client, tx, remote)
+        if outcome == "paid":
+            try:
+                sync_mollie_payment(tx)
+            except mollie.MollieError:
+                pass  # the webhook settles it; the return page shows the truth
+            return _premium_return_response(request, tx, already_paid=True)
+        if outcome == "in_progress":
+            return _premium_in_progress_response(request)
+        if outcome != "closed":
+            if not tx.mollie_payment_id:
+                return _being_prepared_response()
+            return _premium_checkout_retry_response(membership)
+
+    # The PENDING row, written under the payments -> membership lock before
+    # Mollie is asked, so a payment Mollie opened always has a row to land on.
+    reference = f"CRUSH-PREM-{membership.id}-{uuid.uuid4().hex[:10]}"
+    error, tx, buyer, customer_id = None, None, None, ""
+    with transaction.atomic():
+        locked, still_pending = _lock_premium_checkout_state(membership.pk, set())
+        if (
+            locked is None
+            or locked.status != "pending"
+            # A merge that won the membership lock deactivated this account.
+            or not locked.user.is_active
+            or _premium_payment_captured(membership)
+            # Under the member's row lock, after payment -> membership, the
+            # order a capture opening a recovery case takes.
+            or _lock_member_and_check_blocked(locked.user_id)
+        ):
+            error = _event_json_error(_("This membership is not pending payment."), 409)
+        elif still_pending:
+            # Another click published its own payment in between.
+            error = _being_prepared_response()
+        else:
+            locked.onboarding_fee = onboarding_fee
+            locked.save(update_fields=["onboarding_fee"])
+            tx = PaymentTransaction.objects.create(
+                transaction_reference=reference,
+                provider=PaymentTransaction.Provider.MOLLIE,
+                amount=amount,
+                currency="EUR",
+                status=PaymentTransaction.Status.PENDING,
+                purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+                user=request.user,
+                premium_membership=membership,
+            )
+            buyer, customer_id = locked.user, locked.mollie_customer_id
+    if error is not None:
+        return error
+
+    payment, failure = None, ""
+    try:
+        if not customer_id:
+            customer_id = _premium_customer_id(client, membership, buyer)
+        payment = client.create_payment(
+            amount=amount,
+            description=description,
+            redirect_url=request.build_absolute_uri(f"{RETURN_PATH}?ref={reference}"),
+            webhook_url=_webhook_url(request),
+            metadata={"transaction_reference": reference},
+            locale=mollie.mollie_locale(
+                get_onscreen_language(user=request.user, request=request)
+            ),
+            customer_id=customer_id,
+            sequence_type=mollie.SEQUENCE_FIRST,
+            method=getattr(settings, "MOLLIE_PREMIUM_METHOD", "") or None,
+        )
+    except mollie.MollieError as exc:
+        failure = str(exc)
+
+    payment_id = (payment or {}).get("id") or ""
+    url = mollie.checkout_url(payment) if payment else None
+    if not mollie.PAYMENT_ID_RE.match(payment_id) or not url:
+        failure = failure or "no payment id or checkout link in the response"
+        logger.error("Mollie Premium checkout %s not opened: %s", reference, failure)
+        # Nothing was charged: the member never reached a checkout.
+        tx.status = PaymentTransaction.Status.FAILED
+        tx.failure_reason = f"Mollie did not open a checkout: {failure}"
+        tx.raw_response = payment or {}
+        tx.save(
+            update_fields=["status", "failure_reason", "raw_response", "updated_at"]
+        )
+        return _event_json_error(unavailable, 502)
+
+    tx.mollie_payment_id = payment_id
+    tx.raw_response = payment
+    tx.save(update_fields=["mollie_payment_id", "raw_response", "updated_at"])
+    return JsonResponse(
+        {
+            "success": True,
+            "checkout_url": url,
+            "widget_url": url,
+            "checkout_reference": reference,
+            "amount": float(amount),
+            "currency": "EUR",
+        }
+    )
+
+
+def _remember_premium_mandate(tx, payment):
+    """Keep the mandate the first payment left, for later renewals.
+
+    Runs after ``_settle_paid`` committed, with no lock held, because it may
+    ask Mollie. Only for the payment that actually started the membership: a
+    capture that opened a recovery case (duplicate, cancelled request, coach
+    full) is money to hand back, and its mandate must never be charged. Once a
+    mandate is stored this does nothing, so webhook repeats cost no request.
+
+    The paid payment normally names its mandate; when it does not, the
+    customer's mandates are read. A ``pending`` one is kept too (a direct debit
+    mandate starts that way): whatever charges renewals must check the mandate
+    is ``valid`` first. A failed lookup leaves the field empty, which only
+    means "cannot be renewed automatically".
+    """
+    membership = (
+        PremiumMembership.objects.filter(
+            pk=tx.premium_membership_id, status="active", mollie_mandate_id=""
+        ).first()
+        if tx.premium_membership_id
+        else None
+    )
+    if (
+        membership is None
+        or not PaymentTransaction.objects.filter(
+            pk=tx.pk, status=PaymentTransaction.Status.PAID
+        ).exists()
+        or PremiumPaymentRecoveryCase.objects.filter(payment=tx).exists()
+    ):
+        return
+    customer_id = mollie.customer_id_of(payment) or membership.mollie_customer_id
+    mandate_id = mollie.mandate_id_of(payment)
+    if not mandate_id and customer_id:
+        try:
+            mandates = mollie.MollieClient().list_mandates(customer_id)
+        except mollie.MollieError as exc:
+            logger.warning(
+                "Mollie mandates of membership %s could not be read: %s",
+                membership.pk,
+                exc,
+            )
+            return
+        for mandate in mandates:
+            candidate = str(mandate.get("id") or "")
+            if mandate.get("status") in ("valid", "pending") and (
+                mollie.MANDATE_ID_RE.match(candidate)
+            ):
+                mandate_id = candidate
+                break
+    if not mandate_id:
+        logger.warning(
+            "Premium membership %s was paid through Mollie payment %s but no "
+            "mandate was found; it cannot be renewed automatically.",
+            membership.pk,
+            tx.mollie_payment_id,
+        )
+        return
+    updates = {"mollie_mandate_id": mandate_id}
+    if customer_id:
+        updates["mollie_customer_id"] = customer_id
+    PremiumMembership.objects.filter(
+        pk=membership.pk, status="active", mollie_mandate_id=""
+    ).update(**updates)
+
+
+def _end_refunded_premium(tx):
+    """All of a Premium payment went back: end what it bought.
+
+    The rules of ``reconcile_sumup_payments`` for an external refund. A refund
+    of a capture that was never applied only settles its recovery case. A
+    refund of the payment that started the membership ends it through
+    ``cancel_active``, which gives the coach back. Lock order: the caller holds
+    the payment, then the membership, then (inside ``cancel_active``) the
+    profile.
+    """
+    membership = (
+        PremiumMembership.objects.select_for_update()
+        .filter(pk=tx.premium_membership_id)
+        .first()
+        if tx.premium_membership_id
+        else None
+    )
+    if membership is None or premium_recovery.refund_is_of_unapplied_capture(
+        tx, lock=True
+    ):
+        premium_recovery.record_refund_on_case(tx)
+        return
+    other_paid = (
+        PaymentTransaction.objects.filter(
+            premium_membership=membership, status=PaymentTransaction.Status.PAID
+        )
+        .exclude(pk=tx.pk)
+        .exists()
+    )
+    if other_paid:
+        # Another payment still backs the membership: which one staff meant to
+        # return is theirs to say.
+        logger.critical(
+            "Mollie Premium payment %s was returned but membership %s has "
+            "another PAID payment — membership left as it is, staff review "
+            "required.",
+            tx.transaction_reference,
+            membership.pk,
+        )
+    elif not membership.cancel_active(
+        reason=f"Mollie refund or chargeback of {tx.transaction_reference}"
+    ):
+        if membership.status == "pending":
+            membership.status = "cancelled"
+            membership.payment_confirmed = False
+            membership.payment_date = None
+            membership.save(
+                update_fields=["status", "payment_confirmed", "payment_date"]
+            )
+    premium_recovery.record_refund_on_case(tx)
+
+
 def _record_unpaid(tx, mollie_status, payment):
     """Close a still-pending row whose Mollie payment can no longer be paid."""
     with transaction.atomic():
@@ -756,15 +1325,18 @@ def _settle_paid(tx, payment):
 
         known = sum(mollie.money_returned(locked.raw_response))
         is_event = locked.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
+        is_premium = locked.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP
         if (
-            is_event
+            (is_event or is_premium)
             and locked.status == PaymentTransaction.Status.PENDING
             and returned >= locked.amount
         ):
             # All of it went back before we ever settled the payment. Applying
             # the capture first would confirm the seat, or for a cancelled
             # event/registration issue Crush Credit, on money that has already
-            # been returned. Record the charge as REFUNDED and grant nothing.
+            # been returned; for Premium it would start a membership, send its
+            # receipt and end it again. Record the charge as REFUNDED and grant
+            # nothing.
             locked.status = PaymentTransaction.Status.REFUNDED
             locked.raw_response = payment
             locked.failure_reason = _describe_money_returned(
@@ -774,8 +1346,9 @@ def _settle_paid(tx, payment):
                 update_fields=["status", "raw_response", "failure_reason", "updated_at"]
             )
             logger.warning(
-                "Mollie event payment %s was fully returned before it was "
-                "settled; recorded REFUNDED, no seat or credit granted.",
+                "Mollie %s payment %s was fully returned before it was "
+                "settled; recorded REFUNDED, nothing granted.",
+                locked.purpose,
                 locked.transaction_reference,
             )
             return
@@ -824,6 +1397,11 @@ def _settle_paid(tx, payment):
         ):
             _withdraw_event_credits(locked)
             _unconfirm_refunded_seat(locked)
+        if (
+            locked.status == PaymentTransaction.Status.REFUNDED
+            and locked.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP
+        ):
+            _end_refunded_premium(locked)
         transaction.on_commit(
             lambda reference=locked.transaction_reference, state=locked.status, kind=(
                 locked.purpose
@@ -866,6 +1444,8 @@ def sync_mollie_payment(tx):
             )
             return status
         _settle_paid(tx, payment)
+        if tx.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP:
+            _remember_premium_mandate(tx, payment)
     elif status in _UNPAID_STATUS:
         _record_unpaid(tx, status, payment)
     return status
@@ -932,6 +1512,13 @@ def mollie_payment_return(request):
     # Outside i18n_patterns, so pick the member's language the way the SumUp
     # return does; the redirect inside the override keeps the same prefix.
     with override(get_onscreen_language(user=request.user, request=request)):
+        if tx.purpose == PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP:
+            if tx.status == PaymentTransaction.Status.PAID:
+                # The SumUp return's Premium wording: active, recovery case,
+                # or paid but not granted.
+                return _sumup_return_response(request, tx)
+            messages.warning(request, _("Payment is pending or was not completed."))
+            return redirect("crush_lu:premium_choose_coach")
         if (
             tx.purpose == PaymentTransaction.Purpose.EVENT_REGISTRATION
             and tx.event_registration_id

@@ -3469,6 +3469,28 @@ class PremiumMembership(models.Model):
             "When the active membership was ended (lapse, refund, cancellation)"
         ),
     )
+    # Mollie recurring payments (views_mollie.open_mollie_premium_checkout).
+    # The customer is created when the first payment opens; the mandate is the
+    # one that payment left, read from Mollie once it is paid. An empty mandate
+    # means nothing can charge this membership's renewals automatically.
+    # db_default for the same reason as cancel_at_period_end above.
+    mollie_customer_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_default="",
+        help_text=_("Mollie customer (cst_...) the first payment was made under"),
+    )
+    mollie_mandate_id = models.CharField(
+        max_length=64,
+        blank=True,
+        default="",
+        db_default="",
+        help_text=_(
+            "Mollie mandate (mdt_...) left by the first payment; empty means "
+            "renewals cannot be charged automatically"
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
