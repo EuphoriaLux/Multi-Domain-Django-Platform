@@ -124,6 +124,7 @@ class AuthHandoffLaunchTests(unittest.TestCase):
         self.assertNotIn("startActivityForResult(", self.activity)
         self.assertNotIn("onRequestPermissionsResult(", self.activity)
         self.assertNotIn("fixWebStyles(", self.activity)
+        self.assertNotIn("if (!csrfToken) return;", self.activity)
         self.assertIn("sessionStorage.getItem(storageKey)", self.activity)
         self.assertIn("sessionStorage.setItem(storageKey, data.registrationToken)", self.activity)
 

@@ -241,6 +241,9 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         if (webView != null) {
             webView.stopLoading();
+            if (swipeRefresh != null) {
+                swipeRefresh.removeView(webView);
+            }
             webView.destroy();
         }
         super.onDestroy();
@@ -935,7 +938,9 @@ public class MainActivity extends AppCompatActivity {
         // did, leaves backslashes and newlines to break out.)
         // sessionStorage persists across multi-page navigations within the
         // WebView session so we do not re-POST on every page load after the
-        // token is registered once.
+        // token is registered once. Note: CSRF_COOKIE_HTTPONLY = True hides
+        // csrftoken from document.cookie, and register_android_device is
+        // @csrf_exempt, so never short-circuit when csrfToken is empty.
         String js = "(function() { " +
             "  var data = JSON.parse(" + JSONObject.quote(payload.toString()) + "); " +
             "  var storageKey = 'crush_fcm_token_registered'; " +
@@ -950,14 +955,21 @@ public class MainActivity extends AppCompatActivity {
             "    if (window.FCM_TOKEN_REGISTERED === data.registrationToken) return; " +
             "  } " +
             "  var csrfToken = ''; " +
-            "  var parts = document.cookie.split('; '); " +
-            "  for (var i = 0; i < parts.length; i++) { " +
-            "    if (parts[i].indexOf('csrftoken=') === 0) { " +
-            "      csrfToken = parts[i].substring(10); " +
-            "      break; " +
+            "  var meta = document.querySelector('meta[name=\"csrf-token\"]'); " +
+            "  var input = document.querySelector('input[name=\"csrfmiddlewaretoken\"]'); " +
+            "  if (meta && meta.content) { " +
+            "    csrfToken = meta.content; " +
+            "  } else if (input && input.value) { " +
+            "    csrfToken = input.value; " +
+            "  } else { " +
+            "    var parts = document.cookie.split('; '); " +
+            "    for (var i = 0; i < parts.length; i++) { " +
+            "      if (parts[i].indexOf('csrftoken=') === 0) { " +
+            "        csrfToken = parts[i].substring(10); " +
+            "        break; " +
+            "      } " +
             "    } " +
             "  } " +
-            "  if (!csrfToken) return; " +
             "  fetch('/api/mobile/android/devices/register/', { " +
             "    method: 'POST', " +
             "    headers: { " +
@@ -966,7 +978,7 @@ public class MainActivity extends AppCompatActivity {
             "    }, " +
             "    body: JSON.stringify(data) " +
             "  }) " +
-            "  .then(function(res) { return res.ok ? res.json() : null; }) " +
+            "  .then(function(res) { return (res.ok && !res.redirected) ? res.json() : null; }) " +
             "  .then(function(res) { " +
             "    if (res && res.success) { " +
             "      window.FCM_TOKEN_REGISTERED = data.registrationToken; " +
@@ -977,6 +989,6 @@ public class MainActivity extends AppCompatActivity {
             "  .catch(function(err) { console.error('FCM registration error', err); }); " +
             "})();";
 
-        webView.evaluateJavascript(js, value -> prefs.edit().putBoolean("fcm_token_synced", true).apply());
+        webView.evaluateJavascript(js, null);
     }
 }
