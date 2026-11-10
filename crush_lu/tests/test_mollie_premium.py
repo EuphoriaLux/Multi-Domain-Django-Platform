@@ -338,6 +338,71 @@ class MolliePremiumTests(CreditFixture):
         self.assertEqual(row.status, PaymentTransaction.Status.FAILED)
         self.assertIn("not enabled", row.failure_reason)
 
+    # -- an earlier SumUp checkout ------------------------------------------
+
+    def _sumup_row(self):
+        return PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-PREM-SUMUP",
+            provider=PaymentTransaction.Provider.SUMUP,
+            sumup_checkout_id="CHK-OLD",
+            amount=ONBOARDING,
+            currency="EUR",
+            status=PaymentTransaction.Status.PENDING,
+            purpose=PaymentTransaction.Purpose.PREMIUM_MEMBERSHIP,
+            user=self.buyer,
+            premium_membership=self.membership,
+        )
+
+    def _sumup(self, *, deactivated=False, status=None):
+        from crush_lu.services.sumup import SumUpError
+
+        client = mock.Mock()
+        client.deactivate_checkout.return_value = deactivated
+        if status is None:
+            client.get_checkout.side_effect = SumUpError("403")
+        else:
+            client.get_checkout.return_value = {"status": status, "id": "CHK-OLD"}
+        return mock.patch("crush_lu.services.sumup.SumUpClient", return_value=client)
+
+    def test_captured_sumup_checkout_is_recorded_not_charged_again(self):
+        row = self._sumup_row()
+
+        with self._sumup(status="PAID"), self.captureOnCommitCallbacks(execute=True):
+            response = self._post()
+
+        # Paused or not, a checkout SumUp reports PAID is never "closed".
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self.mollie.sent("POST", "/payments"), [])
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.PAID)
+        self.membership.refresh_from_db()
+        self.assertEqual(self.membership.status, "active")
+
+    def test_closed_sumup_checkout_gives_way_to_mollie(self):
+        row = self._sumup_row()
+
+        with self._sumup(deactivated=True):
+            response = self._post()
+
+        self.assertEqual(response.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+        self.assertEqual(len(self.mollie.sent("POST", "/payments")), 1)
+
+    def test_unreadable_sumup_checkout_counts_as_closed_only_while_paused(self):
+        row = self._sumup_row()
+
+        with self._sumup(), self.settings(ONLINE_PAYMENTS_ENABLED=True):
+            strict = self._post()
+        cache.clear()
+        with self._sumup():
+            paused = self._post()
+
+        self.assertEqual(strict.status_code, 409)
+        self.assertEqual(paused.status_code, 200)
+        row.refresh_from_db()
+        self.assertEqual(row.status, PaymentTransaction.Status.CANCELLED)
+
     # -- refusals, the SumUp checkout's own ---------------------------------
 
     def test_another_members_membership_is_refused(self):

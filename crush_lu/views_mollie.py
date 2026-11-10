@@ -47,6 +47,7 @@ from crush_lu.utils.i18n import get_onscreen_language
 from crush_lu.views_payments import (
     DONATION_CREATE_COOLDOWN_SECONDS,
     _apply_paid_checkout,
+    _close_premium_checkout,
     _event_checkout_validation_error,
     _lock_event_checkout_state,
     _lock_member_and_check_blocked,
@@ -819,6 +820,64 @@ def close_mollie_premium_payments(rows):
     return proven
 
 
+def _retire_sumup_premium_checkouts(membership, pending):
+    """Close a membership's earlier SumUp checkouts before Mollie opens one.
+
+    ``pending`` is ``[(payment pk, checkout id)]``. Returns ``"closed"``,
+    ``"paid"`` or ``"open"``. Unlike ``_close_sumup_checkouts`` (event seats),
+    a checkout SumUp reports captured is never treated as closed: it is
+    recorded from that read through ``_apply_paid_checkout`` (applied, or its
+    own recovery case), because nothing else would read it again, and no
+    Mollie payment is opened beside it. Only a checkout whose state SumUp will
+    not tell counts as closed while SumUp is shut, the accepted risk recorded
+    in ``services.sumup`` (Tom, 2026-10-16); otherwise closure must be proven.
+    """
+    from crush_lu.services.event_payments import sumup_payments_paused
+    from crush_lu.services.sumup import SumUpClient, SumUpError
+
+    paused = sumup_payments_paused()
+    try:
+        client = SumUpClient()
+    except SumUpError:
+        client = None
+    retired, paid, still_open = set(), {}, False
+    for payment_pk, checkout_id in pending:
+        payload = {}
+        outcome = (
+            _close_premium_checkout(client, checkout_id, payload) if client else "open"
+        )
+        if outcome == "paid":
+            paid[payment_pk] = payload
+        elif outcome == "closed":
+            retired.add(payment_pk)
+        elif paused:
+            logger.warning(
+                "[PAYMENTS-PAUSED] SumUp Premium checkout %s not proven closed; "
+                "treated as closed while SumUp is paused.",
+                checkout_id,
+            )
+            retired.add(payment_pk)
+        else:
+            still_open = True
+    if retired:
+        with transaction.atomic():
+            _lock_premium_checkout_state(
+                membership.pk,
+                retired,
+                reason=(
+                    "Superseded by a Mollie checkout - the SumUp checkout was "
+                    "deactivated before any card was charged."
+                ),
+            )
+    for row in PaymentTransaction.objects.filter(
+        pk__in=paid, status=PaymentTransaction.Status.PENDING
+    ).order_by("pk"):
+        _apply_paid_checkout(row, paid[row.pk])
+    if paid:
+        return "paid"
+    return "open" if still_open else "closed"
+
+
 def _premium_customer_id(client, membership, buyer):
     """The Mollie customer the first payment is made under.
 
@@ -918,8 +977,12 @@ def open_mollie_premium_checkout(request, membership):
         for row in rows
         if row.provider == PaymentTransaction.Provider.SUMUP and row.sumup_checkout_id
     ]
-    if sumup_pending and not _close_sumup_checkouts(sumup_pending):
-        return _premium_checkout_retry_response(membership)
+    if sumup_pending:
+        outcome = _retire_sumup_premium_checkouts(membership, sumup_pending)
+        if outcome == "paid":
+            return _premium_payment_received_response()
+        if outcome != "closed":
+            return _premium_checkout_retry_response(membership)
 
     for tx in rows:
         if tx.provider != PaymentTransaction.Provider.MOLLIE:
