@@ -171,10 +171,7 @@
         html.dark .crush-navbar{background:linear-gradient(135deg,#6D28D9,#BE185D);box-shadow:0 2px 10px rgba(0,0,0,.5)}
         .navbar-brand{color:#fff;font-weight:700;font-size:1.5rem;text-decoration:none}
         .nav-link{display:inline-flex;align-items:center;gap:.375rem;color:rgba(255,255,255,.9);padding:.5rem .75rem;text-decoration:none;font-weight:500}
-        #page-loading-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#9B59B6 0%,#FF6B9D 100%);display:none;align-items:center;justify-content:center;z-index:9999}
-        #page-loading-overlay.show{display:flex}
-        .loading-content{text-align:center;color:#fff}
-        .loading-ghost{margin:0 auto 1rem;display:flex;justify-content:center}
+        #page-loading-overlay{position:fixed;top:0;left:0;right:0;height:3px;display:none;pointer-events:none;z-index:9999}
         .hidden{display:none}
         /* Unlayered shim beats Tailwind's @layer rules, so only mirror lg:hidden's
            desktop half — forcing display:block on mobile would stomp flex/grid layouts */
@@ -213,11 +210,11 @@
     {% endif %}
     
     <!-- HTMX Configuration -->
-    <meta name="htmx-config" content='{"defaultSwapStyle":"innerHTML","globalViewTransitions":true}'>
+    <meta name="htmx-config" content='{"defaultSwapStyle":"innerHTML","globalViewTransitions":false}'>
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" x-data="pageTransition">
+<body class="{% block body_class %}{% endblock %}" x-data="pageShell">
     {# HTMX CSRF Token - Read from hidden input for reliable cross-language support #}
     {# This works correctly when CSRF_COOKIE_HTTPONLY=True #}
     <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}" id="csrf-token-input">
@@ -233,15 +230,10 @@
     <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white dark:focus:bg-gray-800 focus:text-crush-purple dark:focus:text-purple-400 focus:px-4 focus:py-2 focus:rounded-lg focus:shadow-lg focus:font-semibold">
         {% trans "Skip to main content" %}
     </a>
-    <!-- Loading Overlay -->
-    <div id="page-loading-overlay" role="status" aria-live="polite" aria-label="{% trans "Loading" %}">
-        <div class="loading-content">
-            <div class="loading-ghost" aria-hidden="true">
-                {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-20 h-20" %}
-            </div>
-            <div class="loading-text">{% trans "Loading..." %}</div>
-            <div class="loading-subtext">{% trans "Just a moment" %}</div>
-        </div>
+    {# Navigation progress bar: page-loading.js adds .show when a page change takes longer than 300ms. #}
+    {# It never covers the page; the id is kept because scripts and tests look it up. #}
+    <div id="page-loading-overlay" role="status" aria-live="polite">
+        <span class="sr-only">{% trans "Loading..." %}</span>
     </div>
 
     {# Mobile page title - override in child templates for drill-down pages #}
