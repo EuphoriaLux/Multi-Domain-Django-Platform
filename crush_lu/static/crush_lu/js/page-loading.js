@@ -1,6 +1,10 @@
 /**
  * Crush.lu Page Loading Indicator
- * Shows a beautiful loading overlay during slow navigation
+ * Shows a slim progress bar at the top of the page during slow navigation.
+ *
+ * The bar never covers the page, so it cannot block anything. What stops a
+ * second click on a form that is already on its way is the submit guard at
+ * the bottom of this file, not the indicator.
  */
 
 (function () {
@@ -8,7 +12,7 @@
 
     const loadingOverlay = document.getElementById("page-loading-overlay");
     let loadingTimeout = null;
-    const LOADING_DELAY = 500; // Show loader after 500ms if page hasn't loaded
+    const LOADING_DELAY = 300; // Show the bar after 300ms if the page hasn't loaded
 
     // State tracking to prevent double-shows and debounce rapid show/hide calls
     let isShowing = false;
@@ -90,10 +94,12 @@
             watchdogTimeout = null;
         }
 
-        // Hide overlay
+        // Hide the bar
         if (loadingOverlay) {
             loadingOverlay.classList.remove("show");
         }
+
+        releaseSubmittingForms();
     }
 
     /**
@@ -115,14 +121,37 @@
     // Event Listeners
     // ============================================================================
 
+    /**
+     * Run `callback` once the event has finished dispatching, unless a handler
+     * cancelled it. These listeners run in the capture phase, before any
+     * handler has had the chance to call preventDefault, so the check has to
+     * wait: a cancelled click or submit never navigates and nothing would take
+     * the indicator down again.
+     */
+    function afterDispatchUnlessCancelled(e, callback) {
+        setTimeout(function () {
+            if (!e.defaultPrevented) {
+                callback();
+            }
+        }, 0);
+    }
+
     // Intercept all link clicks for same-origin navigation
     document.addEventListener(
         "click",
         function (e) {
+            // Ctrl/Cmd/Shift/Alt-click and middle-click open the link somewhere
+            // else (new tab, new window, download): this page stays put.
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+                return;
+            }
+
             const link = e.target.closest("a");
 
+            // Read the opt-outs now: other scripts toggle `.no-loading` from
+            // their own handlers during this same dispatch.
             if (isNavigationLink(link)) {
-                showLoadingOverlay();
+                afterDispatchUnlessCancelled(e, showLoadingOverlay);
             }
         },
         true,
@@ -187,13 +216,79 @@
                 }
             }
 
-            // Show overlay for all navigating forms (GET and POST)
-            if (form) {
-                showLoadingOverlay();
+            // Opens somewhere else (new tab, a dialog): this page stays put.
+            if (!form || isElsewhere(form, submitter)) {
+                return;
             }
+
+            // A second submit while the first is still on its way: drop it.
+            // The full-screen overlay used to make this impossible by covering
+            // the page; the progress bar does not, so the guard is explicit.
+            if (form.__crushSubmitting) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                return;
+            }
+
+            // Show the bar and arm the guard for all navigating forms (GET and
+            // POST), once we know no handler cancelled this submit.
+            afterDispatchUnlessCancelled(e, function () {
+                markSubmitting(form, submitter);
+                showLoadingOverlay();
+            });
         },
         true,
     );
+
+    /**
+     * A submit that does not navigate this page: target="_blank" and
+     * method="dialog", on the form or overridden by the clicked button.
+     */
+    function isElsewhere(form, submitter) {
+        const target =
+            (submitter && submitter.getAttribute("formtarget")) ||
+            form.getAttribute("target");
+        const method =
+            (submitter && submitter.getAttribute("formmethod")) ||
+            form.getAttribute("method");
+        return (
+            (target && target !== "_self") ||
+            (method && method.toLowerCase() === "dialog")
+        );
+    }
+
+    // Forms whose submit is on its way. The submit button is not disabled: a
+    // disabled button drops its name/value from the POST, and several forms
+    // branch on which button was pressed. aria-busy says the same thing to
+    // assistive tech and gives CSS a hook.
+    const submittingForms = new Set();
+
+    function markSubmitting(form, submitter) {
+        form.__crushSubmitting = true;
+        form.setAttribute("aria-busy", "true");
+        if (submitter && submitter.setAttribute) {
+            submitter.setAttribute("aria-busy", "true");
+            form.__crushBusySubmitter = submitter;
+        }
+        submittingForms.add(form);
+    }
+
+    /**
+     * Let every guarded form submit again. Called whenever the indicator goes
+     * down: the page was restored from the back/forward cache, the response
+     * was a file download, or the watchdog gave up waiting.
+     */
+    function releaseSubmittingForms() {
+        submittingForms.forEach(function (form) {
+            form.__crushSubmitting = false;
+            form.removeAttribute("aria-busy");
+            if (form.__crushBusySubmitter) {
+                form.__crushBusySubmitter.removeAttribute("aria-busy");
+                form.__crushBusySubmitter = null;
+            }
+        });
+        submittingForms.clear();
+    }
 
     // Hide loading overlay when page loads
     window.addEventListener("load", hideLoadingOverlay);
@@ -222,9 +317,11 @@
         setTimeout(hideLoadingOverlay, 10000);
     });
 
-    // Hide loading overlay after HTMX completes swapping content
-    document.body.addEventListener("htmx:afterSwap", hideLoadingOverlay);
-    document.body.addEventListener("htmx:afterSettle", hideLoadingOverlay);
+    // No HTMX hook here. A click or submit that HTMX handles is cancelled by
+    // HTMX, so the bar is never raised for it (afterDispatchUnlessCancelled).
+    // Hiding on every swap would instead take the bar down, and release the
+    // submit guard, whenever an unrelated background swap landed while a real
+    // page change was still on its way.
 
     // Initial check: hide overlay on script load (in case of page refresh)
     hideLoadingOverlay();

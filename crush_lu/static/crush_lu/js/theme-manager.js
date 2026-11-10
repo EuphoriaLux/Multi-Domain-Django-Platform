@@ -166,3 +166,34 @@
         toggleTheme: toggleTheme,
     };
 })();
+
+/**
+ * Page cross-fade housekeeping (see PAGE TRANSITIONS in tailwind-input.css).
+ *
+ * The browser skips a page transition whenever it cannot run one: the tab is
+ * in the background, the member navigated again mid-fade, the page took too
+ * long. Each skip rejects the transition's promises, and with nobody listening
+ * that lands in the console as "Uncaught (in promise) AbortError: Transition
+ * was skipped". A skipped fade is not an error, so take the rejections here.
+ *
+ * It lives in this file because `pagereveal` fires before the first paint, and
+ * this is the only script that runs that early; a deferred one would miss it.
+ */
+(function () {
+    "use strict";
+
+    function ignoreSkip(event) {
+        var transition = event.viewTransition;
+        if (!transition) {
+            return;
+        }
+        ["ready", "finished", "updateCallbackDone"].forEach(function (name) {
+            if (transition[name] && transition[name].catch) {
+                transition[name].catch(function () {});
+            }
+        });
+    }
+
+    window.addEventListener("pagereveal", ignoreSkip);
+    window.addEventListener("pageswap", ignoreSkip);
+})();

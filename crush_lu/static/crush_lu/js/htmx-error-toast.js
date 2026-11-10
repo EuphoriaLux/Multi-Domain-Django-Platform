@@ -414,7 +414,7 @@
         if (!scope) return;
         SUBMIT_FLAGS.forEach(function (flag) {
             // `in` first: assigning a flag no scope owns would add it to the
-            // outermost one (the <body> pageTransition component).
+            // outermost one (the <body> pageShell component).
             if (flag in scope && scope[flag] === true) {
                 try {
                     scope[flag] = false;
