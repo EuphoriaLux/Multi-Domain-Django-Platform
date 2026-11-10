@@ -21,6 +21,15 @@
 
 /* Tailwind v4 theme configuration */
 @theme {
+    /* Motion (STYLE.md "Motion"). One easing and one default duration for the
+       whole site: a bare `transition`, `transition-colors`, `transition-transform`
+       and friends pick these up, so templates only name a duration when they
+       mean the fast or the slow step. `ease-crush` is the utility for the
+       curve: quick to start, soft to land. */
+    --ease-crush: cubic-bezier(0.2, 0, 0, 1);
+    --default-transition-duration: 200ms;
+    --default-transition-timing-function: cubic-bezier(0.2, 0, 0, 1);
+
     /* Font family */
     --font-sans:
         "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -155,6 +164,12 @@ html:not(.dark) {
    only reaches ~4.0:1 on #ede8f4, gray-600 reaches 6.3:1 (gray-400 on dark).
    Use it through the text-muted-fg utility (.text-muted maps to it too). */
 :root {
+    /* The three motion steps, for hand-written CSS: fast for press feedback
+       and small state changes, base for hover and reveal, slow for panels and
+       sheets. Tailwind's duration-<ms> utilities take the same numbers. */
+    --duration-fast: 120ms;
+    --duration-base: 200ms;
+    --duration-slow: 320ms;
     --color-surface-card: #ffffff;
     --bottom-nav-height: 61.65px;
     --text-muted: #4b5563;
@@ -338,9 +353,11 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
    Resets and base element styles
    ============================================================================= */
 @layer base {
-    /* Smooth scrolling */
+    /* Smooth scrolling. No grey flash on tap: every tappable thing here has
+       its own pressed state. */
     html {
         scroll-behavior: smooth;
+        -webkit-tap-highlight-color: transparent;
     }
 
     /* Dark mode: tell browser to render native form controls (select, date) dark */
@@ -432,7 +449,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     .btn-danger,
     .btn-warning,
     .btn-info {
-        @apply inline-flex cursor-pointer items-center justify-center rounded-full font-medium transition-all duration-300 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+        @apply inline-flex cursor-pointer items-center justify-center rounded-full font-medium transition focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
     }
 
     /* Primary gradient button (Crush.lu brand) with dark mode brightness adjustment.
@@ -440,7 +457,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
        For in-page / secondary CTAs, prefer .btn-crush-solid so the gradient
        retains its hierarchical meaning. */
     .btn-crush-primary {
-        @apply from-crush-purple to-crush-pink hover:shadow-crush-purple focus:ring-crush-purple bg-gradient-to-r px-8 py-3 text-white hover:-translate-y-0.5 active:scale-95 dark:brightness-90;
+        @apply from-crush-purple to-crush-pink hover:shadow-crush-purple focus:ring-crush-purple bg-gradient-to-r px-8 py-3 text-white hover:-translate-y-0.5 active:scale-[0.97] dark:brightness-90;
     }
 
     /* Solid-purple sibling of btn-crush-primary. Same shape/size/motion, no
@@ -448,7 +465,7 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
        Sits on crush-purple-dark: the lavender-tinted "white" text only reaches
        4.0:1 on crush-purple, 5.0:1 here (AA for the text-xs buttons). */
     .btn-crush-solid {
-        @apply bg-crush-purple-dark hover:bg-purple-700 focus:ring-crush-purple px-8 py-3 text-white hover:-translate-y-0.5 active:scale-95 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
+        @apply bg-crush-purple-dark hover:bg-purple-700 focus:ring-crush-purple px-8 py-3 text-white hover:-translate-y-0.5 active:scale-[0.97] dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
     }
 
     /* Soft tinted pill badge — replaces gradient badges so the gradient stays
@@ -459,17 +476,17 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
 
     /* Standard primary button */
     .btn-primary {
-        @apply bg-crush-purple hover:bg-crush-purple-dark focus:ring-crush-purple px-6 py-3 text-white active:scale-95 dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
+        @apply bg-crush-purple hover:bg-crush-purple-dark focus:ring-crush-purple px-6 py-3 text-white active:scale-[0.97] dark:bg-purple-600 dark:hover:bg-purple-500 dark:focus:ring-purple-400;
     }
 
     /* Secondary button */
     .btn-secondary {
-        @apply bg-gray-600 px-6 py-3 text-white hover:bg-gray-700 focus:ring-gray-500 active:scale-95 dark:bg-gray-700 dark:hover:bg-gray-600;
+        @apply bg-gray-600 px-6 py-3 text-white hover:bg-gray-700 focus:ring-gray-500 active:scale-[0.97] dark:bg-gray-700 dark:hover:bg-gray-600;
     }
 
     /* Outline variants with dark mode support */
     .btn-outline-primary {
-        @apply border-crush-purple text-crush-purple hover:bg-crush-purple focus:ring-crush-purple border-2 bg-transparent px-6 py-3 hover:text-white active:scale-95 dark:border-purple-400 dark:text-purple-400 dark:hover:bg-purple-600 dark:focus:ring-purple-400;
+        @apply border-crush-purple text-crush-purple hover:bg-crush-purple focus:ring-crush-purple border-2 bg-transparent px-6 py-3 hover:text-white active:scale-[0.97] dark:border-purple-400 dark:text-purple-400 dark:hover:bg-purple-600 dark:focus:ring-purple-400;
     }
 
     .btn-outline-secondary {
@@ -1580,9 +1597,12 @@ html:not(.dark) .text-crush-purple:not(.quiz-stage-shell *, :hover[class*="hover
     --radius-circle: 50%;
 
     /* Transitions */
-    --transition-fast: 0.15s ease;
-    --transition-base: 0.3s ease;
-    --transition-slow: 0.5s ease;
+    /* Legacy names, kept for the hand-written CSS below. They resolve to the
+       motion tokens (see @theme and :root at the top), so that CSS moves at
+       the same pace as the utilities. */
+    --transition-fast: var(--duration-fast) var(--ease-crush);
+    --transition-base: var(--duration-base) var(--ease-crush);
+    --transition-slow: var(--duration-slow) var(--ease-crush);
 
     /* Z-Index Scale */
     --z-dropdown: 10;
@@ -1800,7 +1820,9 @@ footer hr {
 .nav-link.special-journey {
     background: rgba(255, 215, 0, 0.2);
     border-radius: var(--radius-sm);
-    animation: pulse-glow 2s infinite;
+    /* Three pulses to catch the eye on arrival, then it rests: a nav item
+       that throbs for as long as the page is open pulls attention forever. */
+    animation: pulse-glow 2s 3;
     padding-left: var(--space-4);
     padding-right: var(--space-4);
 }
@@ -1827,7 +1849,8 @@ footer hr {
     padding: var(--space-3) var(--space-8);
     border-radius: var(--radius-pill);
     border: 2px solid white;
-    transition: all var(--transition-base);
+    transition: var(--transition-base);
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
     text-decoration: none;
     display: inline-block;
 }
@@ -1840,7 +1863,7 @@ footer hr {
 }
 
 .btn-crush-secondary:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
 }
 
 .btn-crush-outline {
@@ -1851,7 +1874,8 @@ footer hr {
     font-weight: var(--font-semibold);
     padding: var(--space-3) var(--space-8);
     border-radius: var(--radius-pill);
-    transition: all var(--transition-base);
+    transition: var(--transition-base);
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
     text-decoration: none;
     display: inline-block;
 }
@@ -1894,7 +1918,7 @@ footer hr {
 }
 
 .btn-crush-outline:active {
-    transform: scale(0.95);
+    transform: scale(0.97);
 }
 
 html.dark .btn-crush-outline {
@@ -1920,7 +1944,8 @@ html.dark .btn-crush-outline:hover {
     border-radius: var(--radius-pill);
     border: none;
     font-size: var(--text-lg);
-    transition: all var(--transition-base);
+    transition: var(--transition-base);
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
 }
 
@@ -5413,7 +5438,6 @@ html.dark .poll-results-bar {
         font-weight: 500;
         letter-spacing: 0;
         transition: color 0.15s ease;
-        -webkit-tap-highlight-color: transparent;
         position: relative;
     }
 
@@ -5525,7 +5549,6 @@ html.dark .poll-results-bar {
         text-decoration: none;
         min-height: 44px;
         min-width: 44px;
-        -webkit-tap-highlight-color: transparent;
         /* A <button> (keyboard-operable): drop native button chrome. */
         background: none;
         border: 0;
@@ -5561,7 +5584,6 @@ html.dark .poll-results-bar {
         width: 36px;
         height: 36px;
         color: rgba(255, 255, 255, 0.85);
-        -webkit-tap-highlight-color: transparent;
     }
 
     .top-bar-mobile-bell-badge {
@@ -5583,8 +5605,7 @@ html.dark .poll-results-bar {
     /* --- Card Tappable (press feedback) --- */
     .card-tappable {
         cursor: pointer;
-        transition: transform 0.1s ease;
-        -webkit-tap-highlight-color: transparent;
+        transition: transform var(--duration-fast) var(--ease-crush);
     }
 
     .card-tappable:active {
@@ -5687,7 +5708,6 @@ html.dark .poll-results-bar {
         width: 44px;
         height: 24px;
         cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
     }
 
     
