@@ -641,71 +641,11 @@ document.addEventListener("alpine:init", function () {
         };
     });
 
-    // Page transition controller - manages slide direction for View Transitions API
-    // Works with HTMX globalViewTransitions: true (set in base.html meta config)
-    // Sets data-transition attribute on <html> to control CSS animations
-    Alpine.data("pageTransition", function () {
-        return {
-            historyStack: [],
-
-            init: function () {
-                var self = this;
-                // Record initial page in history stack
-                this.historyStack.push(window.location.pathname);
-
-                // Listen for HTMX before-swap to set transition direction
-                document.addEventListener("htmx:beforeSwap", function (evt) {
-                    var trigger = evt.detail.requestConfig
-                        ? evt.detail.requestConfig.triggeringElement
-                        : null;
-                    if (!trigger) return;
-
-                    // Check data-transition on the triggering element
-                    var transitionType = trigger.dataset.transition;
-
-                    if (transitionType === "none") {
-                        // Tab switch: no animation
-                        document.documentElement.setAttribute(
-                            "data-transition",
-                            "none",
-                        );
-                    } else if (transitionType === "slide-back") {
-                        // Explicit back navigation
-                        document.documentElement.setAttribute(
-                            "data-transition",
-                            "slide-back",
-                        );
-                        self.historyStack.pop();
-                    } else {
-                        // Default: forward slide for drill-down links
-                        document.documentElement.setAttribute(
-                            "data-transition",
-                            "slide-forward",
-                        );
-                        var href = trigger.getAttribute("href");
-                        if (href) {
-                            self.historyStack.push(href);
-                        }
-                    }
-                });
-
-                // Listen for browser back/forward button (popstate)
-                window.addEventListener("popstate", function () {
-                    document.documentElement.setAttribute(
-                        "data-transition",
-                        "slide-back",
-                    );
-                });
-
-                // Clean up transition attribute after transition completes
-                document.addEventListener("htmx:afterSettle", function () {
-                    // Small delay to let the view transition finish
-                    setTimeout(function () {
-                        document.documentElement.removeAttribute("data-transition");
-                    }, 300);
-                });
-            },
-        };
+    // Outermost Alpine scope, on <body>. It holds no state: page changes are
+    // full loads that the browser cross-fades (@view-transition in
+    // tailwind-input.css), so nothing here drives a transition.
+    Alpine.data("pageShell", function () {
+        return {};
     });
 
     // =========================================================================

@@ -1681,48 +1681,55 @@ footer hr {
     border-radius: var(--radius-pill);
 }
 
-/* Page Loading Overlay */
+/* Navigation progress bar (page-loading.js adds .show after 300ms).
+   A slim bar pinned to the top edge: it tells the member a page change is on
+   its way and never covers the page. The id is historical. */
 #page-loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
-    background: var(--gradient-hero);
+    right: 0;
+    height: 3px;
     display: none;
-    align-items: center;
-    justify-content: center;
+    overflow: hidden;
+    pointer-events: none;
     z-index: 9999;
-    opacity: 0;
-    transition: opacity var(--transition-base);
+    background: rgb(44 20 60 / 0.28);
+    view-transition-name: page-progress;
 }
 
 #page-loading-overlay.show {
-    display: flex;
-    opacity: 1;
+    display: block;
 }
 
-.loading-content {
-    text-align: center;
-    color: white;
+#page-loading-overlay::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 40%;
+    border-radius: 0 3px 3px 0;
+    /* White on a faint dark track: the bar sits over the brand-gradient
+       navbar at the top of a page and over the lavender canvas once scrolled.
+       White stands out on the gradient; the track carries it on the canvas. */
+    background: #fff;
+    animation: page-progress-slide 1.1s ease-in-out infinite;
 }
 
-.loading-ghost {
-    margin: 0 auto var(--space-4);
-    display: flex;
-    justify-content: center;
+@keyframes page-progress-slide {
+    from {
+        transform: translateX(-100%);
+    }
+    to {
+        transform: translateX(250%);
+    }
 }
 
-.loading-text {
-    font-size: var(--text-lg);
-    font-weight: var(--font-semibold);
-    margin-top: var(--space-3);
-}
-
-.loading-subtext {
-    font-size: var(--text-sm);
-    opacity: 0.9;
-    margin-top: var(--space-1);
+@media (prefers-reduced-motion: reduce) {
+    /* The global rule below would freeze the bar off-screen: show it whole. */
+    #page-loading-overlay::before {
+        width: 100%;
+        animation: none;
+    }
 }
 
 /* Selection */
@@ -5583,89 +5590,39 @@ html.dark .poll-results-bar {
     .card-tappable:active {
         transform: scale(0.98);
     }
-
-    /* --- View Transitions (Page Navigation) --- */
-    /* Slide animations for drill-down navigation on mobile */
-    /* HTMX globalViewTransitions wraps swaps automatically; we control the animation via CSS */
-
-    @media (max-width: 1023px) {
-        /* Forward navigation: slide in from right */
-        @keyframes slide-in-from-right {
-            from {
-                transform: translateX(30%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slide-out-to-left {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(-30%);
-                opacity: 0;
-            }
-        }
-
-        /* Back navigation: slide in from left */
-        @keyframes slide-in-from-left {
-            from {
-                transform: translateX(-30%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slide-out-to-right {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(30%);
-                opacity: 0;
-            }
-        }
-
-        /* Forward slide transition (default for drill-down) */
-        html[data-transition="slide-forward"]::view-transition-old(root) {
-            animation: slide-out-to-left 250ms ease-out;
-        }
-        html[data-transition="slide-forward"]::view-transition-new(root) {
-            animation: slide-in-from-right 250ms ease-out;
-        }
-
-        /* Back slide transition */
-        html[data-transition="slide-back"]::view-transition-old(root) {
-            animation: slide-out-to-right 250ms ease-out;
-        }
-        html[data-transition="slide-back"]::view-transition-new(root) {
-            animation: slide-in-from-left 250ms ease-out;
-        }
-
-        /* No transition (tab switches) - instant swap */
-        html[data-transition="none"]::view-transition-old(root),
-        html[data-transition="none"]::view-transition-new(root) {
-            animation: none;
-        }
-    }
-
-    /* Desktop: never animate view transitions */
-    @media (min-width: 1024px) {
-        ::view-transition-old(root),
-        ::view-transition-new(root) {
-            animation: none;
-        }
-    }
 } /* end @layer components — MOBILE NATIVE APP COMPONENTS */
+
+/* =============================================================================
+   PAGE TRANSITIONS
+   Every page change on crush.lu is a full page load. Browsers that support
+   cross-document view transitions cross-fade the old page into the new one;
+   the others load as before. The bars keep their own names so they hold still
+   while the content under them fades. Members who ask for reduced motion get
+   no transition at all.
+   ============================================================================= */
+@media (prefers-reduced-motion: no-preference) {
+    @view-transition {
+        navigation: auto;
+    }
+
+    ::view-transition-group(root) {
+        animation-duration: 180ms;
+        animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+    }
+
+    .top-bar-mobile {
+        view-transition-name: top-bar;
+    }
+
+    .bottom-nav {
+        view-transition-name: bottom-nav;
+    }
+
+    .crush-navbar {
+        view-transition-name: navbar;
+    }
+}
+
 
 /* =============================================================================
    DASHBOARD COMPONENTS (Phase 3)
