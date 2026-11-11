@@ -29,6 +29,7 @@ from . import views_coach_photos
 from . import views_coach_real_person
 from . import views_coach_whatsapp
 from . import views_real_person_call
+from . import views_verification_funnel
 from . import views_video_call
 from . import views_connect_showcase
 from . import views_quiz_config
@@ -238,6 +239,31 @@ def _legacy_account_delete(request, *args, **kwargs):
 
 
 urlpatterns = [
+    path(
+        "crush-connect/verification/",
+        views_verification_funnel.connect_verification,
+        name="connect_verification",
+    ),
+    path(
+        "crush-connect/verification/request/",
+        views_verification_funnel.connect_verification_request,
+        name="connect_verification_request",
+    ),
+    path(
+        "crush-connect/verification/cancel/",
+        views_verification_funnel.connect_verification_cancel,
+        name="connect_verification_cancel",
+    ),
+    path(
+        "coach/channel/video/<int:check_id>/claim/",
+        views_verification_funnel.coach_video_claim,
+        name="coach_video_claim",
+    ),
+    path(
+        "coach/channel/video/<int:check_id>/appointment/",
+        views_verification_funnel.coach_video_appointment,
+        name="coach_video_appointment",
+    ),
     # Secure media serving
     path(
         "media/profile/<int:user_id>/<str:photo_field>/",

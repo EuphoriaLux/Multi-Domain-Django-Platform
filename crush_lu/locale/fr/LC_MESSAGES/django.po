@@ -47141,3 +47141,330 @@ msgstr ""
 "%(name)s est admis(e) et enregistré(e). Chaque membre du groupe recomposé a "
 "désormais au moins %(dates)s rencontres."
 
+msgid "Your Connect verification"
+msgstr "Votre vérification Connect"
+
+msgid "Your path to Connect Week"
+msgstr "Votre parcours vers Connect Week"
+
+msgid "Your account needs review"
+msgstr "Votre compte doit être examiné"
+
+msgid "Contact the team for help with your verification."
+msgstr ""
+"Contactez notre équipe pour obtenir de l’aide avec votre vérification."
+
+msgid "Contact the team"
+msgstr "Contacter l’équipe"
+
+msgid "Complete and submit your profile before arranging verification."
+msgstr ""
+"Complétez et envoyez votre profil avant d’organiser votre vérification."
+
+msgid "Complete my profile"
+msgstr "Compléter mon profil"
+
+msgid "Confirm your identity"
+msgstr "Confirmez votre identité"
+
+msgid ""
+"Link LuxID before a coach video verification, or meet a coach at an event."
+msgstr ""
+"Associez LuxID avant la vérification vidéo, ou rencontrez un coach lors d’un"
+" événement."
+
+msgid "Link LuxID"
+msgstr "Associer LuxID"
+
+msgid "Prepare your Connect photo"
+msgstr "Préparez votre photo Connect"
+
+msgid "Add a clear main photo so a coach can compare it with you on video."
+msgstr ""
+"Ajoutez une photo principale nette pour qu’un coach puisse la comparer à "
+"votre visage en vidéo."
+
+msgid "Your photo is awaiting coach review"
+msgstr "Votre photo attend l’examen d’un coach"
+
+msgid "You can prepare your Connect card while a coach reviews your photo."
+msgstr ""
+"Vous pouvez préparer votre fiche Connect pendant qu’un coach examine votre "
+"photo."
+
+msgid "Prepare my Connect card"
+msgstr "Préparer ma fiche Connect"
+
+msgid ""
+"Your verification history is retained. Resume Connect when you are ready."
+msgstr ""
+"Votre historique de vérification est conservé. Reprenez Connect lorsque vous"
+" le souhaitez."
+
+msgid "Manage Connect"
+msgstr "Gérer Connect"
+
+msgid "Coach verification complete; finish your setup"
+msgstr "Vérification par un coach terminée ; finalisez votre préparation"
+
+msgid "Connect Week is available"
+msgstr "Connect Week est disponible"
+
+msgid "Your verification and Connect card are ready."
+msgstr "Votre vérification et votre fiche Connect sont prêtes."
+
+msgid "Open Connect Week"
+msgstr "Ouvrir Connect Week"
+
+msgid "Coach verification complete"
+msgstr "Vérification par un coach terminée"
+
+msgid ""
+"Your verification is saved. Connect Week will be available when this phase "
+"opens."
+msgstr ""
+"Votre vérification est enregistrée. Connect Week sera disponible à "
+"l’ouverture de cette phase."
+
+msgid "Video verification needs another attempt"
+msgstr "Une nouvelle tentative de vérification vidéo est nécessaire"
+
+msgid "Arrange another video call with your coach, or choose an event."
+msgstr ""
+"Convenez d’un nouvel appel vidéo avec votre coach, ou choisissez un "
+"événement."
+
+msgid "Your video verification is arranged"
+msgstr "Votre vérification vidéo est organisée"
+
+msgid ""
+"Join your coach at the agreed time. Keep your camera and microphone ready."
+msgstr ""
+"Rejoignez votre coach à l’heure convenue. Préparez votre caméra et votre "
+"microphone."
+
+msgid "Your video verification request is received"
+msgstr "Votre demande de vérification vidéo a été reçue"
+
+msgid ""
+"A coach will contact you to agree a time. You can finish your Connect "
+"preparation meanwhile."
+msgstr ""
+"Un coach vous contactera pour convenir d’un horaire. Vous pouvez terminer "
+"votre préparation Connect en attendant."
+
+msgid "Join video verification"
+msgstr "Rejoindre la vérification vidéo"
+
+msgid "Meet a coach to open Connect Week"
+msgstr "Rencontrez un coach pour accéder à Connect Week"
+
+msgid ""
+"Choose a coach video verification with LuxID, or have your participation "
+"confirmed at a Crush event. Both routes give the same Connect Week access "
+"once your card is ready."
+msgstr ""
+"Choisissez une vérification vidéo avec LuxID, ou faites confirmer votre "
+"participation à un événement Crush. Les deux parcours donnent le même accès "
+"à Connect Week une fois votre fiche prête."
+
+msgid "Your video verification has an update"
+msgstr "Votre vérification vidéo a été mise à jour"
+
+msgid "Open your verification page to see your next step."
+msgstr ""
+"Ouvrez votre page de vérification pour consulter votre prochaine étape."
+
+msgid "Agreed appointment time"
+msgstr "Horaire convenu"
+
+msgid "Enter the time agreed with the member, in Luxembourg time."
+msgstr "Indiquez l’horaire convenu avec le membre, à l’heure du Luxembourg."
+
+msgid "Duration in minutes"
+msgstr "Durée en minutes"
+
+msgid "Your request could not be saved. Check your current next step below."
+msgstr ""
+"Votre demande n’a pas pu être enregistrée. Consultez votre prochaine étape "
+"ci-dessous."
+
+msgid "Two routes, the same Connect Week"
+msgstr "Deux parcours, le même accès à Connect Week"
+
+msgid ""
+"Digital: submit your profile, link LuxID, then complete a live video "
+"verification with a coach."
+msgstr ""
+"En ligne : envoyez votre profil, associez LuxID, puis effectuez une "
+"vérification vidéo en direct avec un coach."
+
+msgid ""
+"At an event: have your participation confirmed in person by a Crush coach."
+msgstr ""
+"Lors d’un événement : faites confirmer votre participation en personne par "
+"un coach Crush."
+
+msgid ""
+"Your first photo needs coach approval before discovery. You can complete "
+"your Connect preferences, questions and consent alongside verification. "
+"Premium is a separate service."
+msgstr ""
+"Votre première photo doit être approuvée par un coach avant la découverte. "
+"Vous pouvez compléter vos préférences, questions et consentements Connect en"
+" parallèle. Premium est un service distinct."
+
+msgid "Your verification coach: %(name)s"
+msgstr "Votre coach de vérification : %(name)s"
+
+msgid "Request a video verification"
+msgstr "Demander une vérification vidéo"
+
+msgid "Cancel my video request"
+msgstr "Annuler ma demande vidéo"
+
+msgid "View my next step"
+msgstr "Voir ma prochaine étape"
+
+msgid "Your video verifications"
+msgstr "Vos vérifications vidéo"
+
+msgid "Continue verification"
+msgstr "Continuer la vérification"
+
+msgid "Connect Week video verification"
+msgstr "Vérification vidéo pour Connect Week"
+
+msgid "Claim video request"
+msgstr "Prendre la demande vidéo"
+
+msgid "Photo approved"
+msgstr "Photo approuvée"
+
+msgid ""
+"A successful live video approval satisfies human verification for Connect "
+"Week. Photo publication, Connect setup and consent remain separate "
+"requirements."
+msgstr ""
+"Une approbation vidéo en direct valide la vérification humaine pour Connect "
+"Week. La publication des photos, la préparation Connect et les consentements"
+" restent des conditions distinctes."
+
+msgid "Cancel appointment"
+msgstr "Annuler le rendez-vous"
+
+msgid "Save agreed appointment"
+msgstr "Enregistrer le rendez-vous convenu"
+
+msgid ""
+"Join at the agreed time. Nothing is recorded. If video fails, arrange "
+"another attempt; a voice conversation does not approve Connect Week access."
+msgstr ""
+"Rejoignez l’appel à l’heure convenue. Rien n’est enregistré. En cas de "
+"problème vidéo, prévoyez une nouvelle tentative ; une conversation vocale ne"
+" valide pas l’accès à Connect Week."
+
+msgid ""
+"Select Video call, then complete the checklist after speaking with the "
+"member."
+msgstr ""
+"Sélectionnez Appel vidéo, puis remplissez la liste après votre échange avec "
+"le membre."
+
+msgid "Approve Connect Week video verification"
+msgstr "Approuver la vérification vidéo Connect Week"
+
+msgid ""
+"Confirm your live video decision. This grants human verification for Connect"
+" Week; the member must still complete their other requirements."
+msgstr ""
+"Confirmez votre décision après la vidéo en direct. Elle valide la "
+"vérification humaine pour Connect Week ; le membre doit encore remplir les "
+"autres conditions."
+
+msgid "I explained Connect Week access and the remaining preparation"
+msgstr "J’ai expliqué l’accès à Connect Week et la préparation restante"
+
+msgid ""
+"A coach video approval completes human verification for Connect Week. You "
+"can also choose verification at an event."
+msgstr ""
+"L’approbation vidéo d’un coach valide la vérification humaine pour Connect "
+"Week. Vous pouvez aussi choisir une vérification lors d’un événement."
+
+msgid ""
+"A successful call needs an explicit coach decision. If the camera or "
+"connection fails, arrange another attempt."
+msgstr ""
+"Un appel réussi nécessite une décision explicite du coach. Si la caméra ou "
+"la connexion ne fonctionne pas, prévoyez une nouvelle tentative."
+
+msgid "LuxID and coach video verification complete"
+msgstr "Vérifications LuxID et vidéo par un coach terminées"
+
+msgid ""
+"Your human verification for Connect Week is complete. Your photo, Connect "
+"setup and participation requirements still apply."
+msgstr ""
+"Votre vérification humaine pour Connect Week est terminée. Les conditions "
+"relatives à votre photo, à votre préparation Connect et à votre "
+"participation restent applicables."
+
+msgid "Coach verification"
+msgstr "Vérification par un coach"
+
+msgid ""
+"Meet a coach at an event, or link LuxID and complete a coach video "
+"verification to open Connect Week."
+msgstr ""
+"Rencontrez un coach lors d’un événement, ou associez LuxID et effectuez une "
+"vérification vidéo pour accéder à Connect Week."
+
+msgid "Choose my verification route"
+msgstr "Choisir mon parcours de vérification"
+
+msgid "Video verification is not available for this member right now."
+msgstr ""
+"La vérification vidéo n’est pas disponible pour ce membre actuellement."
+
+msgid ""
+"Connect Week verification requires a successful live video call. Arrange "
+"another attempt if video failed."
+msgstr ""
+"La vérification Connect Week nécessite un appel vidéo en direct réussi. "
+"Prévoyez une nouvelle tentative en cas de problème vidéo."
+
+msgid "Choose an agreed future appointment within the next 30 days."
+msgstr "Choisissez un rendez-vous futur convenu dans les 30 prochains jours."
+
+msgid "Cancel the existing appointment before arranging another."
+msgstr "Annulez le rendez-vous existant avant d’en organiser un autre."
+
+msgid "This appointment overlaps another slot in your calendar."
+msgstr "Ce rendez-vous chevauche un autre créneau de votre calendrier."
+
+msgid ""
+"Hello %(first_name)s, this is %(coach_name)s from Crush.lu. You requested a "
+"video verification for Connect Week. Let us agree a time to meet on video. "
+"You can check your request here: %(call_url)s"
+msgstr ""
+"Bonjour %(first_name)s, c’est %(coach_name)s de Crush.lu. Vous avez demandé "
+"une vérification vidéo pour Connect Week. Convenons d’un horaire pour nous "
+"rencontrer en vidéo. Vous pouvez consulter votre demande ici : %(call_url)s"
+
+msgid "Video verification is currently unavailable"
+msgstr "La vérification vidéo est actuellement indisponible"
+
+msgid ""
+"Your request is saved. You can still have your participation confirmed by a "
+"coach at a Crush event."
+msgstr ""
+"Votre demande est enregistrée. Vous pouvez toujours faire confirmer votre "
+"participation par un coach lors d’un événement Crush."
+
+msgid ""
+"Video verification is currently unavailable. You can have your participation"
+" confirmed by a coach at a Crush event."
+msgstr ""
+"La vérification vidéo est actuellement indisponible. Vous pouvez faire "
+"confirmer votre participation par un coach lors d’un événement Crush."

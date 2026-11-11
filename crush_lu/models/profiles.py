@@ -2450,6 +2450,13 @@ class ScreeningSlot(models.Model):
         blank=True,
         related_name="booked_slots",
     )
+    real_person_check = models.ForeignKey(
+        "ConnectRealPersonCheck",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="appointments",
+    )
     start_at = models.DateTimeField(db_index=True)
     end_at = models.DateTimeField()
     status = models.CharField(
@@ -2471,6 +2478,16 @@ class ScreeningSlot(models.Model):
             models.CheckConstraint(
                 condition=models.Q(end_at__gt=models.F("start_at")),
                 name="screening_slot_end_after_start",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(submission__isnull=True)
+                | models.Q(real_person_check__isnull=True),
+                name="screening_slot_one_owner_kind",
+            ),
+            models.UniqueConstraint(
+                fields=["real_person_check"],
+                condition=models.Q(status="booked", real_person_check__isnull=False),
+                name="screening_slot_one_video_booking",
             ),
             # Partial unique index: at most one booked slot per
             # (coach, start_at, end_at). Prevents the virtual-slot race
@@ -2533,6 +2550,9 @@ class ScreeningSlot(models.Model):
         from django.db import IntegrityError, transaction
 
         with transaction.atomic():
+            from crush_lu.services.verification_appointments import lock_calendar
+
+            lock_calendar(coach_id)
             submission = ProfileSubmission.objects.select_for_update().get(
                 booking_token=submission_token
             )

@@ -86,6 +86,7 @@ class ConnectRealPersonCheck(models.Model):
     admission_invalidated_at = models.DateTimeField(
         null=True, blank=True, editable=False
     )
+    requested_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     profile = models.ForeignKey(
         "crush_lu.CrushProfile",

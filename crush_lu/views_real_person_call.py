@@ -76,6 +76,7 @@ def crush_connect_real_person_call(request, check_id):
         return _not_open(request, check_id)
     context = video_call_context(CALL_KIND, str(check.pk))
     context["coach_name"] = check.coach.user.first_name
+    context["is_admission"] = check.purpose == "connect_week"
     response = render(request, "crush_lu/crush_connect/real_person_call.html", context)
     if context["video_call"]["available"]:
         allow_microphone(response)

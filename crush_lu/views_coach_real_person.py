@@ -98,6 +98,21 @@ QUEUE_PAGE_SIZE = 20
 # Registers (spec): flash and guard messages are formal (DE Sie / FR vous).
 # Several reuse msgids ``coach_verify_member`` already ships translated.
 _ERROR_MESSAGES = {
+    "video_admission_closed": _l(
+        "Video verification is not available for this member right now."
+    ),
+    "video_required": _l(
+        "Connect Week verification requires a successful live video call. Arrange another attempt if video failed."
+    ),
+    "invalid_appointment": _l(
+        "Choose an agreed future appointment within the next 30 days."
+    ),
+    "appointment_exists": _l(
+        "Cancel the existing appointment before arranging another."
+    ),
+    "appointment_overlap": _l(
+        "This appointment overlaps another slot in your calendar."
+    ),
     GUARD_SELF: _l("You cannot check your own profile."),
     GUARD_COACH_INACTIVE: _l("Your coach account is not active."),
     GUARD_INACTIVE: _l("This member's account is not active."),
@@ -259,7 +274,9 @@ def _member_call_url(request, check):
         )
 
 
-def real_person_outreach_body(coach, profile, *, video_available=True, call_url=""):
+def real_person_outreach_body(
+    coach, profile, *, video_available=True, call_url="", admission=False
+):
     """The SMS / WhatsApp text, in the member's language.
 
     A gettext msgid (not a ``CrushSiteConfig`` template) rendered under the
@@ -282,6 +299,13 @@ def real_person_outreach_body(coach, profile, *, video_available=True, call_url=
             "coach_name": coach_name,
             "call_url": call_url,
         }
+        if admission:
+            return (
+                _(
+                    "Hello %(first_name)s, this is %(coach_name)s from Crush.lu. You requested a video verification for Connect Week. Let us agree a time to meet on video. You can check your request here: %(call_url)s"
+                )
+                % params
+            )
         if not video_available:
             if call_url:
                 return (
@@ -341,7 +365,9 @@ def whatsapp_link_allowed(profile):
     )
 
 
-def _outreach_context(coach, profile, *, blocked, video_available=True, call_url=""):
+def _outreach_context(
+    coach, profile, *, blocked, video_available=True, call_url="", admission=False
+):
     """``tel:`` / ``sms:`` / ``wa.me`` links, or none while a guard fails.
 
     Links exist only for a verified phone number, and never while any guard
@@ -354,7 +380,11 @@ def _outreach_context(coach, profile, *, blocked, video_available=True, call_url
     if blocked or not phone or not profile.phone_verified:
         return empty
     body = real_person_outreach_body(
-        coach, profile, video_available=video_available, call_url=call_url
+        coach,
+        profile,
+        video_available=video_available,
+        call_url=call_url,
+        admission=admission,
     )
     links = _outreach_links(phone, body)
     dial = _dial_number(phone)
@@ -379,7 +409,11 @@ def _check_context(request, check, *, now=None, **extra):
     # One guard run answers three questions: which links to blank, why, and
     # whether a video pass is possible (it needs the live photo to be the one
     # other members see; a voice pass does not).
-    guards = check_guards(coach, profile, medium=MEDIUM_VIDEO) if live else []
+    guards = (
+        check_guards(coach, profile, medium=MEDIUM_VIDEO, purpose=check.purpose)
+        if live
+        else []
+    )
     blocking = [code for code in guards if code != GUARD_PHOTO_NOT_PUBLIC]
     # The in-app call is possible under the same condition as the contact
     # links (a live claim, no blocking guard; a main photo other members
@@ -388,7 +422,19 @@ def _check_context(request, check, *, now=None, **extra):
     # ``authorize_video_call`` decides, so the page never offers a call the
     # socket would refuse.
     call_possible = bool(live and not blocking and video_calls_available())
+    admission = check.purpose == "connect_week"
+    if admission:
+        from crush_lu.services.real_person_check import _call_role
+
+        call_possible = (
+            call_possible and _call_role(request.user, check, now) == "coach"
+        )
     call_url = _member_call_url(request, check) if call_possible else ""
+    if admission:
+        with translation.override(_member_language(profile)):
+            call_url = request.build_absolute_uri(
+                reverse("crush_lu:connect_verification")
+            )
     current_key = getattr(profile.photo_1, "name", "") or ""
     public_key = get_public_photo_key(profile, "photo_1") if current_key else ""
     attempts = list(
@@ -402,6 +448,12 @@ def _check_context(request, check, *, now=None, **extra):
     ]
     context = {
         "coach": coach,
+        "is_admission": admission,
+        "appointment": (
+            check.appointments.filter(status="booked", end_at__gt=now).first()
+            if admission
+            else None
+        ),
         "check": check,
         "profile": profile,
         "member": profile.user,
@@ -426,7 +478,11 @@ def _check_context(request, check, *, now=None, **extra):
             "log": reverse("crush_lu:coach_real_person_log", args=[check.pk]),
             "decide": reverse("crush_lu:coach_real_person_decide", args=[check.pk]),
             "release": reverse("crush_lu:coach_real_person_release", args=[check.pk]),
-            "queue": reverse("crush_lu:coach_real_person_queue"),
+            "queue": reverse(
+                "crush_lu:coach_verification_channel"
+                if admission
+                else "crush_lu:coach_real_person_queue"
+            ),
         },
     }
     context.update(
@@ -436,6 +492,7 @@ def _check_context(request, check, *, now=None, **extra):
             blocked=bool(blocking) or not live,
             video_available=context["video_available"],
             call_url=call_url,
+            admission=admission,
         )
     )
     if call_possible:
@@ -444,6 +501,21 @@ def _check_context(request, check, *, now=None, **extra):
         # and still record only a voice pass.
         context.update(video_call_context(CALL_KIND, str(check.pk)))
     context.update(extra)
+    if admission:
+        from crush_lu.views_verification_funnel import AppointmentForm
+
+        context.setdefault("appointment_form", AppointmentForm())
+        context["checklist_common"] = [
+            (
+                (
+                    key,
+                    _l("I explained Connect Week access and the remaining preparation"),
+                )
+                if key == "badge_explained"
+                else (key, label)
+            )
+            for key, label in context["checklist_common"]
+        ]
     return context
 
 
@@ -463,10 +535,14 @@ def _render_check_page(request, check, *, status=200, **extra):
     return response
 
 
-def _redirect_stale(request, exc):
+def _redirect_stale(request, exc, *, admission=False):
     """Flash the reason and send the coach back to the list (HTMX-aware)."""
     messages.error(request, _error_message(exc))
-    queue_url = reverse("crush_lu:coach_real_person_queue")
+    queue_url = reverse(
+        "crush_lu:coach_verification_channel"
+        if admission
+        else "crush_lu:coach_real_person_queue"
+    )
     if request.headers.get("HX-Request"):
         response = HttpResponse(status=204)
         response["HX-Redirect"] = queue_url
@@ -569,7 +645,9 @@ def coach_real_person_log(request, check_id):
             if exc.code == "not_found":
                 raise Http404 from None
             if exc.code in _STALE_CODES:
-                return _redirect_stale(request, exc)
+                return _redirect_stale(
+                    request, exc, admission=check.purpose == "connect_week"
+                )
             errors = _error_messages(exc)
         else:
             notice = _(
@@ -672,7 +750,9 @@ def coach_real_person_decide(request, check_id):
         if exc.code == "not_found":
             raise Http404 from None
         if exc.code in _STALE_CODES:
-            return _redirect_stale(request, exc)
+            return _redirect_stale(
+                request, exc, admission=check.purpose == "connect_week"
+            )
         # Fresh rows: a stale photo key means the photo moved on.
         check = _owned_check(request, check_id)
         return _render_check_page(
@@ -683,7 +763,11 @@ def coach_real_person_decide(request, check_id):
             notes_value=notes,
         )
     messages.success(request, _decided_message(outcome, name))
-    return redirect("crush_lu:coach_real_person_queue")
+    return redirect(
+        "crush_lu:coach_verification_channel"
+        if check.purpose == "connect_week"
+        else "crush_lu:coach_real_person_queue"
+    )
 
 
 @coach_required
@@ -703,4 +787,8 @@ def coach_real_person_release(request, check_id):
     messages.success(
         request, _("You released %(name)s. They are back on the list.") % {"name": name}
     )
-    return redirect("crush_lu:coach_real_person_queue")
+    return redirect(
+        "crush_lu:coach_verification_channel"
+        if check.purpose == "connect_week"
+        else "crush_lu:coach_real_person_queue"
+    )

@@ -1,6 +1,7 @@
 {% extends 'crush_lu/base.html' %}
 {% load analytics %}
 {% load i18n %}
+{% load verification_tags %}
 {% load static %}
 
 {% block title %}{% trans "Dashboard - Crush.lu" %}{% endblock %}
@@ -71,7 +72,12 @@
 {% endif %}
 
 {% if profile %}
+{% verification_funnel as funnel %}
+{% if funnel %}
+{% include "crush_lu/crush_connect/_verification_funnel.html" %}
+{% else %}
 {% include "crush_lu/partials/_verification_journey.html" %}
+{% endif %}
 {% endif %}
 
 {% include "crush_lu/partials/_verifier_card.html" %}

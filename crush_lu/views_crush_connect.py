@@ -170,6 +170,16 @@ def _connect_trust_status(profile):
         return None
 
     has_luxid = profile.has_luxid_connected
+    from crush_lu.services.connect_verification import has_valid_video_admission
+
+    if has_valid_video_admission(profile.user):
+        return {
+            "kind": "video_admission",
+            "label": _("LuxID and coach video verification complete"),
+            "explanation": _(
+                "Your human verification for Connect Week is complete. Your photo, Connect setup and participation requirements still apply."
+            ),
+        }
     has_event_verification = profile.has_attended_event
     if has_luxid and has_event_verification:
         return {
@@ -301,6 +311,15 @@ def _connect_readiness(user):
     profile_approved = bool(profile and profile.is_approved)
     identity_verified = bool(profile and profile.is_connect_identity_verified)
     event_verified = bool(profile and profile.has_attended_event)
+    from crush_lu.services.connect_verification import (
+        human_verification_method,
+        human_verification_policy_applies,
+    )
+
+    new_policy = human_verification_policy_applies(user)
+    human_verified = (
+        bool(human_verification_method(user)) if new_policy else event_verified
+    )
     photo_needs_revision = bool(
         profile and profile.photo_review_status == "needs_revision"
     )
@@ -345,13 +364,27 @@ def _connect_readiness(user):
         },
         {
             "key": "active_verification",
-            "complete": event_verified,
-            "title": _("Crush event verification"),
-            "description": _(
-                "A confirmed participation at a Crush event unlocks the active journey with up to two new profiles per day."
+            "complete": human_verified,
+            "title": (
+                _("Coach verification") if new_policy else _("Crush event verification")
             ),
-            "cta_label": _("Browse upcoming events"),
-            "cta_url": reverse("crush_lu:event_list"),
+            "description": (
+                _(
+                    "Meet a coach at an event, or link LuxID and complete a coach video verification to open Connect Week."
+                )
+                if new_policy
+                else _(
+                    "A confirmed participation at a Crush event unlocks the active journey with up to two new profiles per day."
+                )
+            ),
+            "cta_label": (
+                _("Choose my verification route")
+                if new_policy
+                else _("Browse upcoming events")
+            ),
+            "cta_url": reverse(
+                "crush_lu:connect_verification" if new_policy else "crush_lu:event_list"
+            ),
         },
         {
             "key": "photo",

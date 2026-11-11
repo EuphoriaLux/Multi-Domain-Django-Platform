@@ -31,10 +31,14 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
     <section class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 mb-4" aria-labelledby="rpc-call-facts-heading">
         <h2 id="rpc-call-facts-heading" class="card-title">{% trans "Before you join" %}</h2>
         <ul class="list-disc ml-5 mb-0 space-y-1 text-sm text-gray-700 dark:text-gray-200">
-            <li>{% trans "It is optional. You can say no, and nothing else changes." %}</li>
+            {% if is_admission %}
+            <li>{% trans "A coach video approval completes human verification for Connect Week. You can also choose verification at an event." %}</li>
+            {% else %}<li>{% trans "It is optional. You can say no, and nothing else changes." %}</li>{% endif %}
             <li>{% trans "Nothing is recorded or saved." %}</li>
             {# The badge flag comes after the tooling flag: until then nobody else sees a badge, and this must not promise it. #}
-            {% if connect_real_person_badge_visible %}
+            {% if is_admission %}
+            <li>{% trans "A successful call needs an explicit coach decision. If the camera or connection fails, arrange another attempt." %}</li>
+            {% elif connect_real_person_badge_visible %}
             <li>{% trans "If it goes well, your Connect card gets a badge that tells other members a coach confirmed you are a real person." %}</li>
             {% else %}
             <li>{% trans "If it goes well, your Connect card gets a badge as soon as badges are shown to other members: it tells them a coach confirmed you are a real person." %}</li>

@@ -4308,6 +4308,17 @@ def assign_coach_on_first_attendance(sender, instance, created, **kwargs):
 # =============================================================================
 
 
+@receiver(post_save, sender=EventRegistration)
+def release_video_request_after_event(sender, instance, raw=False, **kwargs):
+    if raw or instance.status != "attended":
+        return
+    from django.db import transaction
+    from crush_lu.services.verification_funnel import complete_from_event
+
+    user_id = instance.user_id
+    transaction.on_commit(lambda: complete_from_event(user_id), robust=True)
+
+
 @receiver(post_save, sender=CrushCoach)
 def manage_coach_staff_status(sender, instance, created, raw=False, **kwargs):
     """
