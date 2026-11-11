@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 from io import StringIO
 from unittest import mock, skipUnless
+from zoneinfo import ZoneInfo
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -537,7 +538,17 @@ class ToolTests(AnalyticsFixture):
         retention = self.data("retention")
         self.assertEqual(retention["attendees"], 1)
         self.assertEqual(retention["events_attended_in_window"], {"2": 1})
-        self.assertEqual(retention["median_days_between_events"], 30)
+        # The gap is counted in Europe/Luxembourg calendar days. The fixture
+        # events sit 30 x 24h apart, which is 29 local days when the suite
+        # runs in the hour before local midnight and the autumn clock change
+        # falls between them (CI at 22:00-23:00 UTC, late Oct to early Dec).
+        luxembourg = ZoneInfo("Europe/Luxembourg")
+        expected_gap = (
+            self.night.date_time.astimezone(luxembourg).date()
+            - self.earlier.date_time.astimezone(luxembourg).date()
+        ).days
+        self.assertIn(expected_gap, (29, 30, 31))
+        self.assertEqual(retention["median_days_between_events"], expected_gap)
 
     def test_return_within_90_days_compares_the_full_interval(self):
         frank = _make_member("frank@crush.lu", "M", date(1991, 2, 2))
