@@ -747,11 +747,7 @@ def event_list(request):
                 "validFrom": event.created_at.isoformat(),
             },
             "url": f"https://crush.lu{event_url}",
-            "audience": {
-                "@type": "PeopleAudience",
-                "suggestedMinAge": event.min_age,
-                "suggestedMaxAge": event.max_age,
-            },
+            "audience": _event_audience_jsonld(event),
         }
         if event_languages:
             event_item["inLanguage"] = (
@@ -1126,6 +1122,18 @@ def _curated_member_outlook(event, *, user=None, profile=None, registration=None
     return outlook
 
 
+def _event_audience_jsonld(event):
+    """schema.org audience for an event.
+
+    ``max_age`` 99 is the unfilled model default, i.e. no upper limit, so it
+    is left out rather than published to search engines as "up to 99".
+    """
+    audience = {"@type": "PeopleAudience", "suggestedMinAge": event.min_age}
+    if event.max_age < 99:
+        audience["suggestedMaxAge"] = event.max_age
+    return audience
+
+
 def _curated_age_range(event, *, user=None, profile=None, registration=None):
     """What a curated event's age range means, for the event page.
 
@@ -1414,17 +1422,18 @@ def event_detail(request, event_id):
             "validFrom": event.created_at.isoformat(),
         },
         "maximumAttendeeCapacity": event.max_participants,
-        "typicalAgeRange": f"{event.min_age}-{event.max_age}",
+        # "18-" is schema.org's open-ended form: adults, no upper bound.
+        "typicalAgeRange": (
+            f"{event.min_age}-{event.max_age}"
+            if event.max_age < 99
+            else f"{event.min_age}-"
+        ),
         "image": (
             event.image.url
             if event.image
             else "https://crush.lu/static/crush_lu/crush_social_preview.jpg"
         ),
-        "audience": {
-            "@type": "PeopleAudience",
-            "suggestedMinAge": event.min_age,
-            "suggestedMaxAge": event.max_age,
-        },
+        "audience": _event_audience_jsonld(event),
     }
     # Curated sign-ups are applications, not claims on the venue ceiling. A
     # remaining-seat figure would therefore be both stale and misleading while

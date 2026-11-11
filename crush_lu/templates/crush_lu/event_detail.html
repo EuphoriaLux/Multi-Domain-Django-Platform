@@ -155,9 +155,12 @@
                         {% if event.registration_fee > 0 %}€{{ event.registration_fee }}{% else %}<span class="text-green-600 dark:text-green-300">{% trans "Free" %}</span>{% endif %}
                     </span>
                     {% endif %}
-                    <span class="inline-flex items-center gap-1.5">
+                    {# 18-99 is the unfilled model default: no age limit, so nothing to state (same rule as the event card). #}
+                    {% if event.min_age > 18 or event.max_age < 99 %}
+                    <span class="inline-flex items-center gap-1.5" data-event-age-range>
                         {% if curated_age_range %}{% blocktrans with min=event.min_age max=event.max_age %}Open to ages {{ min }}-{{ max }}{% endblocktrans %}{% else %}{% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}
                     </span>
+                    {% endif %}
                     {% if not is_past and event.is_registration_accepting and not curated_group_outlook and not gender_pool_availability %}
                     <span class="inline-flex items-center gap-1.5 {% if viewer_spots_remaining <= 5 %}text-rose-600 dark:text-rose-400 font-semibold{% endif %}">
                         {% blocktrans count spots=viewer_spots_remaining %}{{ spots }} spot left{% plural %}{{ spots }} spots left{% endblocktrans %}
@@ -331,7 +334,7 @@
                         <span class="font-semibold text-sm sm:text-base text-gray-700 dark:text-gray-200">{% trans "Requirements" %}</span>
                     </div>
                     <p class="text-gray-600 dark:text-gray-300 text-sm sm:text-base ml-7">
-                        {% if curated_age_range %}{% blocktrans with min=event.min_age max=event.max_age %}Open to ages {{ min }}-{{ max }}{% endblocktrans %}{% else %}{% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}<br>
+                        {% if event.min_age > 18 or event.max_age < 99 %}{% if curated_age_range %}{% blocktrans with min=event.min_age max=event.max_age %}Open to ages {{ min }}-{{ max }}{% endblocktrans %}{% else %}{% blocktrans with min=event.min_age max=event.max_age %}Ages {{ min }}-{{ max }}{% endblocktrans %}{% endif %}<br>{% endif %}
                         <span class="text-gray-500 dark:text-gray-400">{% blocktrans with deadline=event.registration_deadline|date:"DATETIME_FORMAT" %}Registration deadline: {{ deadline }}{% endblocktrans %}</span>
                     </p>
                     {% if event_languages_display %}
