@@ -2,12 +2,14 @@
 
 A Connect candidate who was never seen by a coach at an event has only LuxID
 behind their card. A coach can call them (video or voice) and grant a badge
-that other members see. The check is badge-only: it never changes the
-catalogue, identity or Connect Week gates.
+that other members see. Optional badge checks do not change access. The
+separate member-requested ``connect_week`` purpose grants explicit video
+admission through services.connect_verification; historical badges never do.
 
 This module holds the cohort, the coach queue, the guards every coach-facing
 view runs, and the state changes (claim, log, decide, release, revoke). It
-sends nothing: no email, no push, no SMS. A coach opens the ``sms:`` /
+automatically sends no email, push or SMS. Admission outcomes queue an
+after-commit bell notification. A coach opens the ``sms:`` /
 ``tel:`` / ``wa.me`` links on their own phone, and ``log_outreach`` only
 records that they did.
 
@@ -378,7 +380,9 @@ def open_checks_for_coach(coach, now=None):
 # ---------------------------------------------------------------------------
 
 
-def check_guards(coach, profile, *, photo_key=None, medium=None, confirmed=None):
+def check_guards(
+    coach, profile, *, photo_key=None, medium=None, confirmed=None, purpose="badge_only"
+):
     """Every reason ``coach`` may not work on ``profile`` right now.
 
     Returns a list of guard codes, empty when all clear. The coach panel's
@@ -440,6 +444,21 @@ def check_guards(coach, profile, *, photo_key=None, medium=None, confirmed=None)
         failures.append(GUARD_OTHER_COACH_PREMIUM)
     if confirmed is not None and not confirmed:
         failures.append(GUARD_NOT_CONFIRMED)
+    if purpose == "connect_week":
+        from crush_lu.services.connect_verification import (
+            human_verification_method,
+            video_verification_requests_open,
+        )
+        from crush_lu.services.verification_funnel import member_prerequisite
+
+        reason = member_prerequisite(profile)
+        if reason:
+            failures.append(reason)
+        if not video_verification_requests_open(user):
+            failures.append("video_admission_closed")
+        if human_verification_method(user):
+            failures.append(GUARD_ALREADY_VERIFIED)
+        return list(dict.fromkeys(failures))
     if (
         get_user_model()
         .objects.filter(pk=profile.user_id)
@@ -503,8 +522,16 @@ def _call_role(user, check, now=None):
         role = CALL_ROLE_MEMBER
     else:
         return None
-    if check_guards(check.coach, check.profile):
+    if check_guards(check.coach, check.profile, purpose=check.purpose):
         return None
+    if check.purpose == "connect_week":
+        from datetime import timedelta
+
+        now = now or timezone.now()
+        if not check.appointments.filter(
+            status="booked", start_at__lte=now + timedelta(minutes=15), end_at__gt=now
+        ).exists():
+            return None
     return role
 
 
@@ -690,7 +717,9 @@ def _close_expired(profile_id, now):
 
     return (
         ConnectRealPersonCheck.objects.filter(
-            profile_id=profile_id, status=ConnectRealPersonCheck.STATUS_OPEN
+            profile_id=profile_id,
+            status=ConnectRealPersonCheck.STATUS_OPEN,
+            purpose="badge_only",
         )
         .filter(Q(lease_expires_at__lte=now) | Q(lease_expires_at__isnull=True))
         .update(status=ConnectRealPersonCheck.STATUS_RELEASED)
@@ -749,6 +778,8 @@ def claim_check(coach, profile_id, *, now=None):
         _close_expired(profile.pk, now)
         existing = _open_check_for(profile)
         if existing is not None:
+            if existing.purpose != "badge_only":
+                raise RealPersonCheckError("taken", 409)
             if existing.coach_id == coach.pk:
                 return existing
             raise RealPersonCheckError("taken", 409)
@@ -811,7 +842,7 @@ def log_outreach(
             _close_expired(profile.pk, now)
             expired = True
         else:
-            failures = check_guards(coach, profile)
+            failures = check_guards(coach, profile, purpose=check.purpose)
             if failures:
                 raise RealPersonCheckError(failures[0], 403, failures=failures)
             attempt = CallAttempt.objects.create(
@@ -824,6 +855,20 @@ def log_outreach(
                 notes=notes,
             )
             check.lease_expires_at = now + CLAIM_TTL
+            if check.purpose == "connect_week":
+                # Outreach must not shorten a lease extended to an agreed
+                # appointment beyond the normal three-day contact window.
+                end_at = (
+                    check.appointments.filter(status="booked")
+                    .values_list("end_at", flat=True)
+                    .first()
+                )
+                if end_at is not None:
+                    from datetime import timedelta
+
+                    check.lease_expires_at = max(
+                        check.lease_expires_at, end_at + timedelta(hours=24)
+                    )
             check.save(update_fields=["lease_expires_at"])
     if expired:
         raise RealPersonCheckError("lease_expired", 409)
@@ -841,6 +886,17 @@ def release_check(coach, check_id, *, now=None):
         check.status = ConnectRealPersonCheck.STATUS_RELEASED
         check.decided_at = now
         check.save(update_fields=["status", "decided_at"])
+        if check.purpose == "connect_week":
+            from crush_lu.services.verification_funnel import finish_appointments
+
+            finish_appointments(check)
+            check.status = ConnectRealPersonCheck.STATUS_OPEN
+            check.coach = None
+            check.lease_expires_at = None
+            check.decided_at = None
+            check.save(
+                update_fields=["status", "coach", "lease_expires_at", "decided_at"]
+            )
     logger.info("Real-person check %s released by coach %s", check.pk, coach.pk)
     return check
 
@@ -968,6 +1024,8 @@ def decide_check(
             _close_expired(profile.pk, now)
             expired = True
         else:
+            if check.purpose == "connect_week" and outcome == OUTCOME_PASS_VOICE:
+                raise RealPersonCheckError("video_required", 400)
             if medium:
                 failures = check_guards(
                     coach,
@@ -975,6 +1033,7 @@ def decide_check(
                     photo_key=photo_key,
                     medium=medium,
                     confirmed=confirmed,
+                    purpose=check.purpose,
                 )
                 if failures:
                     raise RealPersonCheckError(failures[0], 403, failures=failures)
@@ -990,6 +1049,17 @@ def decide_check(
                 failure_reason=failure_reason,
                 now=now,
             )
+            if check.purpose == "connect_week":
+                from crush_lu.services.connect_verification import grant_video_admission
+                from crush_lu.services.verification_funnel import (
+                    finish_appointments,
+                    notify_outcome,
+                )
+
+                if outcome == OUTCOME_PASS_VIDEO:
+                    grant_video_admission(coach, check.pk, confirmed=confirmed, now=now)
+                finish_appointments(check, "completed" if medium else "cancelled")
+                transaction.on_commit(lambda: notify_outcome(check.pk), robust=True)
     if expired:
         raise RealPersonCheckError("lease_expired", 409)
     logger.info("Real-person check %s decided: %s", check.pk, outcome)

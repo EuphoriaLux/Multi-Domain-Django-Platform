@@ -4047,7 +4047,9 @@ def _real_person_overview_card(coach, member, profile):
     )
     check = None
     if latest is not None:
-        live = latest.is_live(now)
+        live = latest.is_live(now) or (
+            latest.purpose == "connect_week" and latest.coach_id is None
+        )
         # A lapsed claim is a released one; the row is only closed lazily.
         status = (
             latest.status
@@ -4067,6 +4069,7 @@ def _real_person_overview_card(coach, member, profile):
                 # Not even the context carries the verdict.
                 status, label = "closed", _("Closed")
             check = {
+                "purpose": latest.purpose,
                 "status": status,
                 "status_label": label,
                 "medium_label": latest.get_medium_display() if latest.medium else "",
@@ -6570,6 +6573,19 @@ def coach_verification_channel(request):
         ]
 
     coach_langs = set(coach.spoken_languages or [])
+    from crush_lu.services.verification_channel import channel_video_context
+
+    for submission in channel:
+        submission.kind = "submission"
+        submission.at_capacity = not coach.can_accept_reviews()
+    video_items, video_owned = channel_video_context(
+        coach,
+        lang=filter_lang,
+        region=filter_region,
+        age_min=filter_age_min,
+        age_max=filter_age_max,
+    )
+    channel.extend(video_items)
     for s in channel:
         hours = (now - s.submitted_at).total_seconds() / 3600
         s.is_urgent = hours > 48
@@ -6596,8 +6612,10 @@ def coach_verification_channel(request):
         "coach": coach,
         "channel": channel,
         "channel_count": len(channel),
-        "my_pending": my_pending,
-        "at_capacity": not coach.can_accept_reviews(),
+        "my_pending": my_pending + len(video_owned),
+        "video_owned": video_owned,
+        "video_owned_count": len(video_owned),
+        "at_capacity": bool(channel) and all(item.at_capacity for item in channel),
         "sort_mode": sort_mode,
         "sort_choices": SORT_CHOICES,
         "filter_lang": filter_lang,

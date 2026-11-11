@@ -2182,6 +2182,10 @@ def profile_submitted(request):
     from django.db.models import Avg, ExpressionWrapper, F, DurationField
     from django.db.models.functions import Extract
     from .utils.formatting import format_review_estimate
+    from .services.verification_funnel import funnel_visible
+
+    if funnel_visible(request.user):
+        return redirect("crush_lu:connect_verification")
 
     try:
         profile = CrushProfile.objects.get(user=request.user)

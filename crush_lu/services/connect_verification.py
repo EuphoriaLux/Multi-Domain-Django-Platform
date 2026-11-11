@@ -135,7 +135,13 @@ def invalidate_video_admissions(profile_id, *, now=None):
     invalidation also covers the admin path which preserves approved_at.
     Badge-only checks and their history are untouched.
     """
-    from crush_lu.models import ConnectRealPersonCheck
+    from crush_lu.models import ConnectRealPersonCheck, ScreeningSlot
+
+    ScreeningSlot.objects.filter(
+        real_person_check__profile_id=profile_id,
+        real_person_check__purpose=PURPOSE_CONNECT_WEEK,
+        status="booked",
+    ).update(status="cancelled", updated_at=now or timezone.now())
 
     return ConnectRealPersonCheck.objects.filter(
         profile_id=profile_id,
