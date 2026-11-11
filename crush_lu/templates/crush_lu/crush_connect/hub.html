@@ -1,11 +1,14 @@
 {% extends 'crush_lu/crush_connect/_base_connect.html' %}
 {% load i18n %}
+{% load verification_tags %}
 
 {% block title %}{% trans "Crush Connect" %}{% endblock %}
 {% block mobile_page_title %}{% trans "Crush Connect" %}{% endblock %}
 
 {% block connect_content %}
+{% verification_funnel as funnel %}
 <div class="max-w-2xl mx-auto px-4 py-6 pb-24 lg:pb-10">
+{% if funnel %}{% include "crush_lu/crush_connect/_verification_funnel.html" %}{% endif %}
 
     {% if membership.is_paused %}
     <section class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-6">
@@ -20,7 +23,7 @@
 
         <form method="post" action="{% url 'crush_lu:crush_connect_reactivate' %}">
             {% csrf_token %}
-            <button type="submit" class="btn-crush-primary btn-block">
+            <button type="submit" class="btn-crush-solid btn-block">
                 {% trans "Reactivate Crush Connect" %}
             </button>
         </form>
@@ -53,7 +56,7 @@
         {% endif %}
     </header>
     {% if real_person_call %}
-    {% include "crush_lu/crush_connect/_real_person_call_card.html" with call=real_person_call %}
+    {% if not funnel %}{% include "crush_lu/crush_connect/_real_person_call_card.html" with call=real_person_call %}{% endif %}
     {% endif %}
     {% if connect_summary.pending_requests %}
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-crush-purple">
@@ -100,7 +103,7 @@
     {% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}
     {% endif %}
     {# Outside the readiness block: it applies whether or not the checklist is complete. #}
-    {% if real_person_check_note %}
+    {% if real_person_check_note and not funnel %}
     {% include "crush_lu/crush_connect/_real_person_check_note.html" with note=real_person_check_note %}
     {% endif %}
     {% comment %}

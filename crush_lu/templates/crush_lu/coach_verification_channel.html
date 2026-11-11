@@ -43,6 +43,16 @@
         {% endif %}
     </div>
 
+    {% if video_owned %}
+    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5">
+        <h3 class="card-title">{% trans "Your video verifications" %} ({{ video_owned_count }})</h3>
+        <ul class="mt-3 space-y-3">
+        {% for check in video_owned %}
+            <li><a href="{% url 'crush_lu:coach_real_person_check' check.pk %}" class="btn-crush-outline btn-sm">{{ check.profile.display_name }} — {% trans "Continue verification" %}</a></li>
+        {% endfor %}
+        </ul>
+    </section>
+    {% endif %}
     {# Filter + sort bar #}
     <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 px-6 py-4 flex flex-wrap items-end gap-4">
         <div class="flex flex-col">
@@ -103,6 +113,7 @@
                         {# Name row #}
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                             <p class="font-semibold text-gray-900 dark:text-white">{{ p.display_name }}</p>
+                            {% if sub.kind == 'video' %}<span class="text-sm font-semibold text-crush-purple">{% trans "Connect Week video verification" %} · LuxID ✓ · {% trans "Photo approved" %}</span>{% endif %}
                             {% if p.age_display %}
                             <span class="text-sm text-gray-500 dark:text-gray-400">{{ p.age_display }}</span>
                             {% endif %}
@@ -176,7 +187,11 @@
                 </div>
                 {# Claim CTA #}
                 <div class="flex-shrink-0 sm:ml-4">
-                    {% if not at_capacity %}
+                    {% if sub.kind == 'video' and not sub.at_capacity %}
+                    <form method="post" action="{{ sub.claim_url }}">{% csrf_token %}
+                        <button type="submit" class="btn-crush-solid btn-sm">{% trans "Claim video request" %}</button>
+                    </form>
+                    {% elif not sub.at_capacity %}
                     <button
                         @click="claimFromButton"
                         data-submission-id="{{ sub.id }}"

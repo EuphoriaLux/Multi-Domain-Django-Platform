@@ -22,7 +22,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 <div class="max-w-3xl mx-auto">
     <a href="{{ urls.queue }}" class="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-crush-purple mb-4">
         {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-        {% trans "All real-person checks" %}
+        {% if is_admission %}{% trans "Verification Channel" %}{% else %}{% trans "All real-person checks" %}{% endif %}
     </a>
 
     <div class="mb-4">
@@ -47,6 +47,24 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
     {% endif %}
 
     {# ===== Photos: what the coach sees vs what other members see ===== #}
+    {% if is_admission %}
+    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5">
+        <h3 class="card-title">{% trans "Connect Week video verification" %}</h3>
+        <p class="text-muted-fg mt-2">{% trans "A successful live video approval satisfies human verification for Connect Week. Photo publication, Connect setup and consent remain separate requirements." %}</p>
+        {% if appointment %}
+        <p class="font-semibold mt-3">{{ appointment.start_at|date:"l j F, H:i T" }}</p>
+        <form method="post" action="{% url 'crush_lu:coach_video_appointment' check.pk %}" class="mt-3">{% csrf_token %}
+            <button type="submit" name="action" value="cancel" class="btn-crush-outline btn-sm">{% trans "Cancel appointment" %}</button>
+        </form>
+        {% elif is_live %}
+        <form method="post" action="{% url 'crush_lu:coach_video_appointment' check.pk %}" class="space-y-3 mt-4">{% csrf_token %}
+            {% include "crush_lu/components/form_field.html" with field=appointment_form.start_at %}
+            {% include "crush_lu/components/form_field.html" with field=appointment_form.minutes %}
+            <button type="submit" class="btn-crush-solid">{% trans "Save agreed appointment" %}</button>
+        </form>
+        {% endif %}
+    </section>
+    {% endif %}
     <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6" aria-labelledby="rpc-photos-heading">
         <h3 id="rpc-photos-heading" class="text-lg font-semibold dark:text-white mb-3">{% trans "Photo 1" %}</h3>
         <div class="grid grid-cols-2 gap-3">
@@ -76,7 +94,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
         {# Inside the apps the partial has no Start button (it points to the browser), so the instruction would contradict it. #}
         {% if not is_native_app %}
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
-            {% blocktrans with name=member_label %}{{ name }} joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below.{% endblocktrans %}
+            {% if is_admission %}{% trans "Join at the agreed time. Nothing is recorded. If video fails, arrange another attempt; a voice conversation does not approve Connect Week access." %}{% else %}{% blocktrans with name=member_label %}{{ name }} joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below.{% endblocktrans %}{% endif %}
         </p>
         {% endif %}
         {% include "crush_lu/partials/video_call.html" %}
@@ -117,15 +135,15 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
                         {% if not video_available %}disabled{% endif %}>
                     {% trans "Video call" %}
                 </button>
-                <button type="button" @click="selectVoice" x-bind:aria-pressed="isVoice"
+                {% if not is_admission %}<button type="button" @click="selectVoice" x-bind:aria-pressed="isVoice"
                         class="px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 text-sm font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 aria-pressed:bg-crush-purple-dark aria-pressed:border-crush-purple-dark aria-pressed:text-white">
                     {% trans "Voice call" %}
-                </button>
+                </button>{% endif %}
             </div>
             {% if not video_available %}
             <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">{% trans "Video is unavailable until a coach approves the member's current main photo." %}</p>
             {% endif %}
-            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3" x-show="noMedium">{% trans "Choose video or voice to open the checklist. The badge says which one you used." %}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mb-3" x-show="noMedium">{% if is_admission %}{% trans "Select Video call, then complete the checklist after speaking with the member." %}{% else %}{% trans "Choose video or voice to open the checklist. The badge says which one you used." %}{% endif %}</p>
 
             <div x-show="hasMedium" x-cloak>
                 <div class="mb-3">
@@ -163,7 +181,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
             <div class="space-y-2 mb-4">
                 <button type="button" @click="choosePass" x-bind:disabled="passDisabled" x-show="isVideo" x-cloak
                         class="btn-crush-solid btn-block disabled:opacity-50 disabled:cursor-not-allowed">
-                    {% trans "Grant the video badge" %}
+                    {% if is_admission %}{% trans "Approve Connect Week video verification" %}{% else %}{% trans "Grant the video badge" %}{% endif %}
                 </button>
                 <button type="button" @click="choosePass" x-bind:disabled="passDisabled" x-show="isVoice" x-cloak
                         class="btn-crush-solid btn-block disabled:opacity-50 disabled:cursor-not-allowed">
@@ -189,7 +207,9 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 
             <div x-ref="confirmPanel" x-show="isConfirming" x-cloak x-bind:aria-labelledby="confirmLabelId" class="mt-4 rounded-xl border-2 border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/20 p-4" role="alertdialog" aria-live="polite">
                 <p id="rpc-confirm-pass" class="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3" x-show="isPassOutcome">
-                    {% if connect_real_person_badge_visible %}
+                    {% if is_admission %}
+                    {% trans "Confirm your live video decision. This grants human verification for Connect Week; the member must still complete their other requirements." %}
+                    {% elif connect_real_person_badge_visible %}
                     {% blocktrans with name=member_label %}Confirm that you spoke with {{ name }} live and ticked every item truthfully. Other members will see the badge.{% endblocktrans %}
                     {% else %}
                     {% blocktrans with name=member_label %}Confirm that you spoke with {{ name }} live and ticked every item truthfully. The badge is saved now, and other members will see it once badges are switched on.{% endblocktrans %}

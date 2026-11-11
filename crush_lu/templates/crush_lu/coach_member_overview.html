@@ -401,6 +401,7 @@
         {% trans "Real-person check" %}
     </h3>
     {% if real_person_card.check %}
+        {% if real_person_card.check.purpose == 'connect_week' %}<p class="font-semibold text-crush-purple">{% trans "Connect Week video verification" %}</p>{% endif %}
         <p class="text-sm text-gray-700 dark:text-gray-200 mb-1">
             <span class="font-medium">{{ real_person_card.check.status_label }}</span>
             {% if real_person_card.check.medium_label %}· {{ real_person_card.check.medium_label }}{% endif %}

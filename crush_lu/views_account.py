@@ -698,6 +698,7 @@ ACCOUNT_EXPORT_REAL_PERSON_CHECK_EXCLUDED = {
         "admission_profile_approved_at": "internal validity snapshot",
         "admission_granted_at": "internal entitlement decision; passed call date is exported",
         "admission_invalidated_at": "internal validity/moderation decision",
+        "requested_at": "request queue bookkeeping",
     },
     "badge_fields": {
         "profile": "the account block already exports the account",
