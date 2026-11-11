@@ -8,6 +8,59 @@ import polib
 
 STRINGS = [
     (
+        "Manage profile reviews, Connect Week video requests and optional badges in one place.",
+        "Profilprüfungen, Videoanfragen für die Connect-Woche und optionale Abzeichen an einem Ort verwalten.",
+        "Gère les examens de profils, les demandes vidéo Connect Week et les badges facultatifs au même endroit.",
+    ),
+    ("All profile reviews", "Alle Profilprüfungen", "Tous les examens de profils"),
+    ("Requests waiting", "Offene Anfragen", "Demandes en attente"),
+    ("Appointment", "Termin", "Rendez-vous"),
+    ("Profile review", "Profilprüfung", "Examen du profil"),
+    (
+        "Optional real-person badge",
+        "Optionales Echtheitsabzeichen",
+        "Badge d’authenticité facultatif",
+    ),
+    (
+        "You have no assigned verification work. Claim a request below to start.",
+        "Dir sind keine Verifizierungen zugewiesen. Übernimm unten eine Anfrage, um zu beginnen.",
+        "Tu n’as aucune vérification attribuée. Prends une demande ci-dessous pour commencer.",
+    ),
+    ("Verification tasks", "Verifizierungsaufgaben", "Tâches de vérification"),
+    ("Member requests", "Mitgliederanfragen", "Demandes des membres"),
+    ("Optional badges", "Optionale Abzeichen", "Badges facultatifs"),
+    (
+        "No unclaimed requests match these filters. Your assigned work is shown above.",
+        "Keine freien Anfragen entsprechen diesen Filtern. Deine zugewiesenen Aufgaben stehen oben.",
+        "Aucune demande disponible ne correspond à ces filtres. Tes tâches attribuées figurent ci-dessus.",
+    ),
+    (
+        "Confirm a real person by video or voice to add a badge. This decision does not grant Connect Week access.",
+        "Bestätige eine echte Person per Video- oder Sprachanruf, um ein Abzeichen hinzuzufügen. Diese Entscheidung gewährt keinen Zugang zur Connect-Woche.",
+        "Confirme qu’il s’agit d’une vraie personne par appel vidéo ou vocal pour ajouter un badge. Cette décision ne donne pas accès à Connect Week.",
+    ),
+    (
+        "Review the profile and complete its screening checklist. This decision approves the profile; Connect Week video approval is handled separately.",
+        "Prüfe das Profil und vervollständige die Screening-Checkliste. Diese Entscheidung gibt das Profil frei; die Video-Freigabe für die Connect-Woche erfolgt separat.",
+        "Examine le profil et complète sa liste de contrôle. Cette décision approuve le profil ; l’approbation vidéo Connect Week se fait séparément.",
+    ),
+    (
+        "Optional badge outreach",
+        "Kontakt für optionale Abzeichen",
+        "Contacts pour badges facultatifs",
+    ),
+    ("No eligible members", "Keine berechtigten Mitglieder", "Aucun membre éligible"),
+    (
+        "No members are eligible for optional badge outreach right now.",
+        "Derzeit kommen keine Mitglieder für die Kontaktaufnahme zu einem optionalen Abzeichen infrage.",
+        "Aucun membre n’est éligible à une prise de contact pour un badge facultatif actuellement.",
+    ),
+    (
+        "These members have not requested verification. You may offer a video or voice call for an optional badge; it does not grant Connect Week access.",
+        "Diese Mitglieder haben keine Verifizierung angefragt. Du kannst einen Video- oder Sprachanruf für ein optionales Abzeichen anbieten; es gewährt keinen Zugang zur Connect-Woche.",
+        "Ces membres n’ont pas demandé de vérification. Tu peux proposer un appel vidéo ou vocal pour un badge facultatif ; il ne donne pas accès à Connect Week.",
+    ),
+    (
         "Video verification is currently unavailable",
         "Die Video-Verifizierung ist derzeit nicht verfügbar",
         "La vérification vidéo est actuellement indisponible",

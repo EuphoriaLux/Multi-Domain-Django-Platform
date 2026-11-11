@@ -49,11 +49,13 @@ from crush_lu.tests.real_person_check_helpers import (
     make_member,
     profile_of,
 )
+from crush_lu.services import verification_channel
 from crush_lu.tests.test_crush_connect import _grant_consent
 
 User = get_user_model()
 
 BASE = "/en/coach/real-person-checks/"
+CHANNEL = "/en/coach/channel/"
 VOICE = {key: True for key in REQUIRED_CHECKLIST_KEYS["voice"]}
 VIDEO = {key: True for key in REQUIRED_CHECKLIST_KEYS["video"]}
 
@@ -272,7 +274,7 @@ class FlagAndAccessTests(RealPersonViewTestCase):
 
 class QueueTests(RealPersonViewTestCase):
     def test_a_waiting_member_is_listed_with_the_fields_a_coach_triages_on(self):
-        response = self.client.get(BASE)
+        response = self.client.get(CHANNEL + "?work=badges")
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
         profile = profile_of(self.member)
@@ -295,24 +297,24 @@ class QueueTests(RealPersonViewTestCase):
 
     def test_own_claims_are_listed_once_above_the_queue(self):
         check = self.claim()
-        html = self.client.get(BASE).content.decode()
+        html = self.client.get(CHANNEL + "?work=badges").content.decode()
         self.assertIn(f"{BASE}{check.pk}/", html)
         self.assertNotIn(f"{BASE}claim/{self.member.pk}/", html)
         self.assertIn("Your claim ends in", html)
 
     def test_someone_elses_claim_is_not_on_my_list(self):
         self.claim(coach=self.other)
-        response = self.client.get(BASE)
+        response = self.client.get(CHANNEL + "?work=badges")
         self.assertEqual(response.context["total_waiting"], 0)
-        self.assertEqual(response.context["my_checks"], [])
+        self.assertEqual(response.context["assigned"], [])
         self.assertNotIn(f"{BASE}claim/{self.member.pk}/", response.content.decode())
 
     def test_a_long_queue_is_paged_with_a_visible_count(self):
         for name in ("rpcv_q2", "rpcv_q3"):
             self.new_member(name)
-        with mock.patch.object(views_coach_real_person, "QUEUE_PAGE_SIZE", 2):
-            first = self.client.get(BASE)
-            second = self.client.get(BASE + "?page=2")
+        with mock.patch.object(verification_channel, "QUEUE_PAGE_SIZE", 2):
+            first = self.client.get(CHANNEL + "?work=badges")
+            second = self.client.get(CHANNEL + "?work=badges&page=2")
         first_html = first.content.decode()
         self.assertIn("Showing 1–2 of 3", first_html)
         self.assertIn("Page 1 of 2", first_html)
@@ -323,9 +325,9 @@ class QueueTests(RealPersonViewTestCase):
     def test_claim_buttons_are_disabled_at_capacity(self):
         extra = self.new_member("rpcv_cap")
         self.claim()
-        with mock.patch.object(views_coach_real_person, "MAX_OPEN_CLAIMS_PER_COACH", 1):
-            response = self.client.get(BASE)
-        self.assertTrue(response.context["at_capacity"])
+        with mock.patch.object(verification_channel, "MAX_OPEN_CLAIMS_PER_COACH", 1):
+            response = self.client.get(CHANNEL + "?work=badges")
+        self.assertTrue(response.context["badge_at_capacity"])
         html = response.content.decode()
         self.assertIn(f"{BASE}claim/{extra.pk}/", html)
         self.assertIn("disabled", html)
@@ -334,9 +336,9 @@ class QueueTests(RealPersonViewTestCase):
     def test_an_empty_queue_says_so(self):
         ConnectRealPersonCheck.objects.all().delete()
         UserDataConsent.objects.filter(user=self.member).update(crushlu_banned=True)
-        response = self.client.get(BASE)
+        response = self.client.get(CHANNEL + "?work=badges")
         self.assertEqual(response.context["total_waiting"], 0)
-        self.assertIn("Nobody is waiting", response.content.decode())
+        self.assertIn("No eligible members", response.content.decode())
 
     def test_the_flag_off_hides_nothing_it_just_404s(self):
         with override_settings(CONNECT_REAL_PERSON_CHECK_ENABLED=False):
@@ -930,7 +932,7 @@ class DecideTests(RealPersonViewTestCase):
         )
         self.assertIn("unreachable", _flash(response)[0])
         self.assertEqual(
-            self.client.get(BASE).context["total_waiting"],
+            self.client.get(BASE, follow=True).context["total_waiting"],
             1,
             "an unreachable member stays on the list",
         )
@@ -950,7 +952,7 @@ class DecideTests(RealPersonViewTestCase):
         self.assertRedirects(response, BASE, fetch_redirect_response=False)
         check.refresh_from_db()
         self.assertEqual(check.status, "declined")
-        self.assertEqual(self.client.get(BASE).context["total_waiting"], 0)
+        self.assertEqual(self.client.get(BASE, follow=True).context["total_waiting"], 0)
         self.assertIn("declined", _flash(response)[0])
 
     def test_suspected_fake_opens_a_report_that_names_only_the_check(self):
@@ -972,7 +974,7 @@ class DecideTests(RealPersonViewTestCase):
         self.assertNotIn("rpcv-secret-reason", report.details)
         self.assertIn("suspected fake", _flash(response)[0])
         # ... and the member leaves everyone's list until a superuser acts.
-        self.assertEqual(self.client.get(BASE).context["total_waiting"], 0)
+        self.assertEqual(self.client.get(BASE, follow=True).context["total_waiting"], 0)
 
     def test_a_suspected_fake_needs_the_confirmation_too(self):
         check = self.claim()
@@ -1189,23 +1191,20 @@ class ReleaseTests(RealPersonViewTestCase):
 
 
 class NavigationTests(RealPersonViewTestCase):
-    def test_nav_dashboard_and_drawer_link_to_the_queue_only_with_the_flag(self):
-        for url in ("/en/coach/dashboard/", "/en/coach/queue/"):
-            with self.subTest(url=url, flag="on"):
-                html = self.client.get(url).content.decode()
-                self.assertIn(BASE, html)
-                self.assertIn("Real-person checks", html)
-        with override_settings(CONNECT_REAL_PERSON_CHECK_ENABLED=False):
-            for url in ("/en/coach/dashboard/", "/en/coach/queue/"):
-                with self.subTest(url=url, flag="off"):
-                    html = self.client.get(url).content.decode()
-                    self.assertNotIn(BASE, html)
-                    self.assertNotIn("Real-person checks", html)
+    def test_coach_menus_use_the_shared_channel_with_either_flag_state(self):
+        for enabled in (True, False):
+            with override_settings(CONNECT_REAL_PERSON_CHECK_ENABLED=enabled):
+                for url in ("/en/coach/dashboard/", "/en/coach/queue/"):
+                    with self.subTest(url=url, enabled=enabled):
+                        html = self.client.get(url).content.decode()
+                        self.assertIn(f'href="{CHANNEL}"', html)
+                        self.assertNotIn(f'href="{BASE}"', html)
+                        self.assertNotIn('href="/en/coach/profiles/"', html)
 
-    def test_the_link_appears_in_the_dropdown_the_nav_and_the_dashboard(self):
+    def test_the_link_appears_in_each_menu_and_the_dashboard(self):
         html = self.client.get("/en/coach/dashboard/").content.decode()
         # dropdown + collapsed nav + mobile drawer + dashboard tile
-        self.assertGreaterEqual(html.count(f'href="{BASE}"'), 3)
+        self.assertEqual(html.count(f'href="{CHANNEL}"'), 4)
 
 
 class ActionQueueTests(RealPersonViewTestCase):

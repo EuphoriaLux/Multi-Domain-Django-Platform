@@ -767,7 +767,7 @@ class CoachReviewExpiredSubmissionTests(TestCase):
             reverse("crush_lu:coach_review_profile", args=[self.submission.id])
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("crush_lu:coach_profiles"))
+        self.assertEqual(response.url, reverse("crush_lu:coach_verification_channel"))
 
     def test_post_cannot_reopen_expired_row(self):
         self.client.force_login(self.coach_user)
@@ -797,7 +797,7 @@ class CoachReviewExpiredSubmissionTests(TestCase):
             reverse("crush_lu:coach_review_profile", args=[older_pending.id])
         )
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("crush_lu:coach_profiles"))
+        self.assertEqual(response.url, reverse("crush_lu:coach_verification_channel"))
 
         response = self.client.post(
             reverse("crush_lu:coach_review_profile", args=[older_pending.id]),

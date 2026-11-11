@@ -22,7 +22,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 <div class="max-w-3xl mx-auto">
     <a href="{{ urls.queue }}" class="inline-flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-crush-purple mb-4">
         {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
-        {% if is_admission %}{% trans "Verification Channel" %}{% else %}{% trans "All real-person checks" %}{% endif %}
+        {% trans "Verification Channel" %}
     </a>
 
     <div class="mb-4">
@@ -46,11 +46,16 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
     </div>
     {% endif %}
 
+    {% if is_admission %}
+        {% include "crush_lu/partials/_verification_task_purpose.html" with kind="video" %}
+    {% else %}
+        {% include "crush_lu/partials/_verification_task_purpose.html" with kind="badge" %}
+    {% endif %}
+
     {# ===== Photos: what the coach sees vs what other members see ===== #}
     {% if is_admission %}
     <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5">
-        <h3 class="card-title">{% trans "Connect Week video verification" %}</h3>
-        <p class="text-muted-fg mt-2">{% trans "A successful live video approval satisfies human verification for Connect Week. Photo publication, Connect setup and consent remain separate requirements." %}</p>
+        <h3 class="card-title">{% trans "Appointment" %}</h3>
         {% if appointment %}
         <p class="font-semibold mt-3">{{ appointment.start_at|date:"l j F, H:i T" }}</p>
         <form method="post" action="{% url 'crush_lu:coach_video_appointment' check.pk %}" class="mt-3">{% csrf_token %}

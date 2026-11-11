@@ -29183,3 +29183,76 @@ msgid ""
 msgstr ""
 "Video verification is currently unavailable. You can have your participation"
 " confirmed by a coach at a Crush event."
+
+msgid ""
+"Manage profile reviews, Connect Week video requests and optional badges in "
+"one place."
+msgstr ""
+"Manage profile reviews, Connect Week video requests and optional badges in "
+"one place."
+
+msgid "All profile reviews"
+msgstr "All profile reviews"
+
+msgid "Requests waiting"
+msgstr "Requests waiting"
+
+msgid "Profile review"
+msgstr "Profile review"
+
+msgid "Optional real-person badge"
+msgstr "Optional real-person badge"
+
+msgid ""
+"You have no assigned verification work. Claim a request below to start."
+msgstr ""
+"You have no assigned verification work. Claim a request below to start."
+
+msgid "Verification tasks"
+msgstr "Verification tasks"
+
+msgid "Member requests"
+msgstr "Member requests"
+
+msgid "Optional badges"
+msgstr "Optional badges"
+
+msgid ""
+"No unclaimed requests match these filters. Your assigned work is shown "
+"above."
+msgstr ""
+"No unclaimed requests match these filters. Your assigned work is shown "
+"above."
+
+msgid ""
+"Confirm a real person by video or voice to add a badge. This decision does "
+"not grant Connect Week access."
+msgstr ""
+"Confirm a real person by video or voice to add a badge. This decision does "
+"not grant Connect Week access."
+
+msgid ""
+"Review the profile and complete its screening checklist. This decision "
+"approves the profile; Connect Week video approval is handled separately."
+msgstr ""
+"Review the profile and complete its screening checklist. This decision "
+"approves the profile; Connect Week video approval is handled separately."
+
+msgid "Optional badge outreach"
+msgstr "Optional badge outreach"
+
+msgid "No eligible members"
+msgstr "No eligible members"
+
+msgid "No members are eligible for optional badge outreach right now."
+msgstr "No members are eligible for optional badge outreach right now."
+
+msgid ""
+"These members have not requested verification. You may offer a video or "
+"voice call for an optional badge; it does not grant Connect Week access."
+msgstr ""
+"These members have not requested verification. You may offer a video or "
+"voice call for an optional badge; it does not grant Connect Week access."
+
+msgid "Appointment"
+msgstr "Appointment"

@@ -3,7 +3,7 @@
 <nav class="bottom-nav" x-data="bottomNav" aria-label="{% trans 'Main navigation' %}"
      data-events-count="{{ upcoming_events_count|default:0 }}"
      data-requests-count="{{ pending_requests_count|default:0 }}"
-     data-screening-count="{{ pending_screening_count|default:0 }}">
+     data-screening-count="{{ verification_assignment_count|default:0 }}">
 
     {# Home tab #}
     <a href="{% url 'crush_lu:dashboard' %}"
