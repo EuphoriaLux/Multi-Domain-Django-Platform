@@ -95,9 +95,9 @@ class FactStripAndDescriptionTests(EventDetailWave3TestBase):
     """#4-03: a fact strip precedes the (collapsible) description."""
 
     def test_fact_strip_appears_before_description(self):
-        event = self._make_event(registration_fee=15)
+        event = self._make_event(registration_fee=15, min_age=25, max_age=45)
         html = self._get_detail(event)
-        facts_index = html.index("Ages 18")  # part of the quick-facts strip
+        facts_index = html.index("Ages 25-45")  # part of the quick-facts strip
         description_index = html.index("eventDescriptionToggle")
         self.assertLess(
             facts_index,
@@ -105,6 +105,23 @@ class FactStripAndDescriptionTests(EventDetailWave3TestBase):
             "the quick-facts strip must render before the description block",
         )
         self.assertIn("€15", html)
+
+    def test_default_age_range_is_not_shown(self):
+        # 18-99 is the unfilled model default (no age limit). Printed, it read
+        # as "expect anyone from 18 to 99" and put members off signing up.
+        event = self._make_event()
+        html = self._get_detail(event)
+        self.assertNotIn("Ages 18-99", html)
+        self.assertNotIn("data-event-age-range", html)
+        self.assertNotIn("18-99", html)
+        self.assertNotIn("suggestedMaxAge", html)
+        self.assertIn("Registration deadline", html)
+
+    def test_real_age_range_is_shown_in_strip_and_requirements(self):
+        event = self._make_event(min_age=25, max_age=45)
+        html = self._get_detail(event)
+        self.assertEqual(html.count("Ages 25-45"), 2)
+        self.assertIn("data-event-age-range", html)
 
     def test_long_description_is_collapsible(self):
         event = self._make_event()
