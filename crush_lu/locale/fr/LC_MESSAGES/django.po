@@ -47468,3 +47468,77 @@ msgid ""
 msgstr ""
 "La vérification vidéo est actuellement indisponible. Vous pouvez faire "
 "confirmer votre participation par un coach lors d’un événement Crush."
+
+msgid ""
+"Manage profile reviews, Connect Week video requests and optional badges in "
+"one place."
+msgstr ""
+"Gère les examens de profils, les demandes vidéo Connect Week et les badges "
+"facultatifs au même endroit."
+
+msgid "All profile reviews"
+msgstr "Tous les examens de profils"
+
+msgid "Requests waiting"
+msgstr "Demandes en attente"
+
+msgid "Optional real-person badge"
+msgstr "Badge d’authenticité facultatif"
+
+msgid ""
+"You have no assigned verification work. Claim a request below to start."
+msgstr ""
+"Tu n’as aucune vérification attribuée. Prends une demande ci-dessous pour "
+"commencer."
+
+msgid "Verification tasks"
+msgstr "Tâches de vérification"
+
+msgid "Member requests"
+msgstr "Demandes des membres"
+
+msgid "Optional badges"
+msgstr "Badges facultatifs"
+
+msgid ""
+"No unclaimed requests match these filters. Your assigned work is shown "
+"above."
+msgstr ""
+"Aucune demande disponible ne correspond à ces filtres. Tes tâches attribuées"
+" figurent ci-dessus."
+
+msgid ""
+"Confirm a real person by video or voice to add a badge. This decision does "
+"not grant Connect Week access."
+msgstr ""
+"Confirme qu’il s’agit d’une vraie personne par appel vidéo ou vocal pour "
+"ajouter un badge. Cette décision ne donne pas accès à Connect Week."
+
+msgid ""
+"Review the profile and complete its screening checklist. This decision "
+"approves the profile; Connect Week video approval is handled separately."
+msgstr ""
+"Examine le profil et complète sa liste de contrôle. Cette décision approuve "
+"le profil ; l’approbation vidéo Connect Week se fait séparément."
+
+msgid "Optional badge outreach"
+msgstr "Contacts pour badges facultatifs"
+
+msgid "No eligible members"
+msgstr "Aucun membre éligible"
+
+msgid "No members are eligible for optional badge outreach right now."
+msgstr ""
+"Aucun membre n’est éligible à une prise de contact pour un badge facultatif "
+"actuellement."
+
+msgid ""
+"These members have not requested verification. You may offer a video or "
+"voice call for an optional badge; it does not grant Connect Week access."
+msgstr ""
+"Ces membres n’ont pas demandé de vérification. Tu peux proposer un appel "
+"vidéo ou vocal pour un badge facultatif ; il ne donne pas accès à Connect "
+"Week."
+
+msgid "Appointment"
+msgstr "Rendez-vous"

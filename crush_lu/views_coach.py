@@ -1670,7 +1670,7 @@ def coach_review_profile(request, submission_id):
                 "their identity self-serve. It can no longer be reviewed."
             ),
         )
-        return redirect("crush_lu:coach_profiles")
+        return redirect("crush_lu:coach_verification_channel")
 
     # Block changes to already-reviewed submissions
     if submission.status in ("approved", "rejected") and submission.reviewed_at:
@@ -1680,7 +1680,7 @@ def coach_review_profile(request, submission_id):
                 "This profile has already been reviewed. No further changes are allowed."
             ),
         )
-        return redirect("crush_lu:coach_profiles")
+        return redirect("crush_lu:coach_verification_channel")
 
     if request.method == "POST":
         form = ProfileReviewForm(request.POST, instance=submission)
@@ -1875,7 +1875,7 @@ def coach_review_profile(request, submission_id):
                     logger.error(f"Failed to send recontact notification: {e}")
 
             submission.save()
-            return redirect("crush_lu:coach_profiles")
+            return redirect("crush_lu:coach_verification_channel")
     else:
         form = ProfileReviewForm(instance=submission)
 
@@ -6513,9 +6513,7 @@ def _score_submission_for_coach(coach, submission, hours_waiting):
 
 @coach_required
 def coach_verification_channel(request):
-    """Coach-facing channel: every active coach sees all pending, unclaimed profiles
-    and claims the ones they want. Race-safe claim logic lives in api_coach_claim_submission.
-    """
+    """Shared workspace for profile reviews, video requests and optional badges."""
     coach = request.coach
     now = timezone.now()
 
@@ -6573,12 +6571,24 @@ def coach_verification_channel(request):
         ]
 
     coach_langs = set(coach.spoken_languages or [])
-    from crush_lu.services.verification_channel import channel_video_context
+    from crush_lu.services.real_person_check import real_person_check_enabled
+    from crush_lu.services.verification_channel import (
+        assigned_channel_items,
+        badge_channel_context,
+        channel_video_context,
+    )
+
+    badges_enabled = real_person_check_enabled()
+    work_tab = (
+        "badges"
+        if badges_enabled and request.GET.get("work") == "badges"
+        else "requests"
+    )
 
     for submission in channel:
         submission.kind = "submission"
         submission.at_capacity = not coach.can_accept_reviews()
-    video_items, video_owned = channel_video_context(
+    video_items = channel_video_context(
         coach,
         lang=filter_lang,
         region=filter_region,
@@ -6606,15 +6616,16 @@ def coach_verification_channel(request):
     else:
         channel.sort(key=lambda s: s.submitted_at)
 
-    my_pending = ProfileSubmission.objects.filter(coach=coach, status="pending").count()
+    assigned = assigned_channel_items(coach)
 
     context = {
         "coach": coach,
         "channel": channel,
         "channel_count": len(channel),
-        "my_pending": my_pending + len(video_owned),
-        "video_owned": video_owned,
-        "video_owned_count": len(video_owned),
+        "my_pending": len(assigned),
+        "assigned": assigned,
+        "work_tab": work_tab,
+        "badges_enabled": badges_enabled,
         "at_capacity": bool(channel) and all(item.at_capacity for item in channel),
         "sort_mode": sort_mode,
         "sort_choices": SORT_CHOICES,
@@ -6627,6 +6638,8 @@ def coach_verification_channel(request):
         ),
         "language_options": list(CrushCoach.LANGUAGE_DISPLAY.items()),
     }
+    if work_tab == "badges":
+        context.update(badge_channel_context(coach, request.GET.get("page")))
     return render(request, "crush_lu/coach_verification_channel.html", context)
 
 

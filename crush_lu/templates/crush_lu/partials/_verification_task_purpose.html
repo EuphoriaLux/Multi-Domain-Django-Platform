@@ -1,0 +1,13 @@
+{% load i18n %}
+<section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5" aria-labelledby="verification-purpose-heading">
+    <h3 id="verification-purpose-heading" class="card-title">{% include "crush_lu/partials/_verification_task_label.html" %}</h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        {% if kind == 'badge' %}
+            {% trans "Confirm a real person by video or voice to add a badge. This decision does not grant Connect Week access." %}
+        {% elif kind == 'video' %}
+            {% trans "A successful live video approval satisfies human verification for Connect Week. Photo publication, Connect setup and consent remain separate requirements." %}
+        {% else %}
+            {% trans "Review the profile and complete its screening checklist. This decision approves the profile; Connect Week video approval is handled separately." %}
+        {% endif %}
+    </p>
+</section>

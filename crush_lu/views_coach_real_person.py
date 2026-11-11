@@ -28,7 +28,6 @@ from functools import wraps
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -82,9 +81,7 @@ from crush_lu.services.real_person_check import (
     claim_check,
     decide_check,
     log_outreach,
-    open_checks_for_coach,
     real_person_check_enabled,
-    real_person_check_queue,
     release_check,
 )
 from crush_lu.services.video_call import video_call_context, video_calls_available
@@ -93,7 +90,6 @@ from crush_lu.views_coach import _outreach_links
 
 logger = logging.getLogger(__name__)
 
-QUEUE_PAGE_SIZE = 20
 
 # Registers (spec): flash and guard messages are formal (DE Sie / FR vous).
 # Several reuse msgids ``coach_verify_member`` already ships translated.
@@ -478,11 +474,7 @@ def _check_context(request, check, *, now=None, **extra):
             "log": reverse("crush_lu:coach_real_person_log", args=[check.pk]),
             "decide": reverse("crush_lu:coach_real_person_decide", args=[check.pk]),
             "release": reverse("crush_lu:coach_real_person_release", args=[check.pk]),
-            "queue": reverse(
-                "crush_lu:coach_verification_channel"
-                if admission
-                else "crush_lu:coach_real_person_queue"
-            ),
+            "queue": reverse("crush_lu:coach_verification_channel"),
         },
     }
     context.update(
@@ -559,35 +551,14 @@ def _redirect_stale(request, exc, *, admission=False):
 @_flag_required
 @require_GET
 def coach_real_person_queue(request):
-    """The coach's own open checks, then everyone they may claim."""
-    coach = request.coach
-    now = timezone.now()
-    mine = list(
-        open_checks_for_coach(coach, now).prefetch_related("profile__photo_framings")
-    )
-    # The queue keeps a member the coach already holds (it is theirs to work);
-    # they are listed above, so leave them out here rather than twice.
-    held_user_ids = [check.profile.user_id for check in mine]
-    queue = (
-        real_person_check_queue(coach, now)
-        .exclude(pk__in=held_user_ids)
-        .prefetch_related("crushprofile__photo_framings")
-    )
-    paginator = Paginator(queue, QUEUE_PAGE_SIZE)
-    page = paginator.get_page(request.GET.get("page"))
-    return render(
-        request,
-        "crush_lu/coach_real_person_queue.html",
-        {
-            "coach": coach,
-            "now": now,
-            "my_checks": mine,
-            "page": page,
-            "total_waiting": paginator.count,
-            "open_count": len(mine),
-            "max_open": MAX_OPEN_CLAIMS_PER_COACH,
-            "at_capacity": len(mine) >= MAX_OPEN_CLAIMS_PER_COACH,
-        },
+    """Keep existing bookmarks and action redirects in the shared workspace."""
+    from urllib.parse import urlencode
+
+    query = {"work": "badges"}
+    if request.GET.get("page"):
+        query["page"] = request.GET["page"]
+    return redirect(
+        f"{reverse('crush_lu:coach_verification_channel')}?{urlencode(query)}"
     )
 
 

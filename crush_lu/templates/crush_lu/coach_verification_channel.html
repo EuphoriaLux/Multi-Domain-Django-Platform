@@ -12,7 +12,8 @@
         <span>{% trans "Verification Channel" %}</span>
     </div>
     <h2 class="text-2xl font-bold dark:text-white">{% trans "Verification Channel" %}</h2>
-    <p class="text-gray-500 dark:text-gray-400">{% trans "Every active coach sees every pending profile. Claim the ones that fit you." %}</p>
+    <p class="text-gray-500 dark:text-gray-400">{% trans "Manage profile reviews, Connect Week video requests and optional badges in one place." %}</p>
+    <a href="{% url 'crush_lu:coach_profiles' %}" class="inline-block mt-2 text-sm text-crush-purple hover:underline">{% trans "All profile reviews" %}</a>
 </div>
 
 <div x-data="coachTeamStats">
@@ -26,7 +27,7 @@
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
         <div class="flex items-center gap-6">
             <div>
-                <div class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{% trans "Profiles waiting" %}</div>
+                <div class="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-500 font-semibold">{% trans "Requests waiting" %}</div>
                 <div class="text-2xl font-bold text-crush-purple">{{ channel_count }}</div>
             </div>
             <div class="w-px h-10 bg-gray-200 dark:bg-gray-700"></div>
@@ -43,16 +44,36 @@
         {% endif %}
     </div>
 
-    {% if video_owned %}
-    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5">
-        <h3 class="card-title">{% trans "Your video verifications" %} ({{ video_owned_count }})</h3>
-        <ul class="mt-3 space-y-3">
-        {% for check in video_owned %}
-            <li><a href="{% url 'crush_lu:coach_real_person_check' check.pk %}" class="btn-crush-outline btn-sm">{{ check.profile.display_name }} — {% trans "Continue verification" %}</a></li>
+    <section id="assigned-work" class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5" aria-labelledby="assigned-heading">
+        <h3 id="assigned-heading" class="card-title">{% trans "In your queue" %} ({{ my_pending }})</h3>
+        {% if assigned %}
+        <ul class="mt-3 divide-y divide-gray-100 dark:divide-gray-700">
+        {% for item in assigned %}
+            <li class="py-3 flex flex-wrap items-center justify-between gap-3" data-assigned-kind="{{ item.kind }}">
+                <div class="min-w-0">
+                    <p class="font-semibold text-gray-900 dark:text-white">{{ item.profile.display_name }}</p>
+                    <p class="text-sm text-crush-purple">{% include "crush_lu/partials/_verification_task_label.html" with kind=item.kind %}</p>
+                    {% if item.lease_expires_at %}<p class="text-xs text-gray-500 dark:text-gray-400">{% blocktrans with d=item.lease_expires_at|timeuntil %}Your claim ends in {{ d }}{% endblocktrans %}</p>{% endif %}
+                </div>
+                <a href="{{ item.continue_url }}" class="btn-crush-outline btn-sm">{% trans "Continue" %}</a>
+            </li>
         {% endfor %}
         </ul>
+        {% else %}
+        <p class="text-sm text-gray-500 dark:text-gray-400 mt-3">{% trans "You have no assigned verification work. Claim a request below to start." %}</p>
+        {% endif %}
     </section>
-    {% endif %}
+
+    <nav class="flex flex-wrap gap-2 mb-5" aria-label="{% trans 'Verification tasks' %}">
+        <a href="{% url 'crush_lu:coach_verification_channel' %}" class="{% if work_tab == 'requests' %}btn-crush-solid{% else %}btn-crush-outline{% endif %} btn-sm"{% if work_tab == 'requests' %} aria-current="page"{% endif %}>{% trans "Member requests" %}</a>
+        {% if badges_enabled %}
+        <a href="{% url 'crush_lu:coach_verification_channel' %}?work=badges" class="{% if work_tab == 'badges' %}btn-crush-solid{% else %}btn-crush-outline{% endif %} btn-sm"{% if work_tab == 'badges' %} aria-current="page"{% endif %}>{% trans "Optional badges" %}</a>
+        {% endif %}
+    </nav>
+
+    {% if work_tab == 'badges' %}
+        {% include "crush_lu/partials/_verification_badge_candidates.html" %}
+    {% else %}
     {# Filter + sort bar #}
     <form method="get" class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 mb-6 px-6 py-4 flex flex-wrap items-end gap-4">
         <div class="flex flex-col">
@@ -113,7 +134,7 @@
                         {# Name row #}
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                             <p class="font-semibold text-gray-900 dark:text-white">{{ p.display_name }}</p>
-                            {% if sub.kind == 'video' %}<span class="text-sm font-semibold text-crush-purple">{% trans "Connect Week video verification" %} · LuxID ✓ · {% trans "Photo approved" %}</span>{% endif %}
+                            <span class="text-sm font-semibold text-crush-purple">{% include "crush_lu/partials/_verification_task_label.html" with kind=sub.kind %}{% if sub.kind == 'video' %} · LuxID ✓ · {% trans "Photo approved" %}{% endif %}</span>
                             {% if p.age_display %}
                             <span class="text-sm text-gray-500 dark:text-gray-400">{{ p.age_display }}</span>
                             {% endif %}
@@ -195,7 +216,7 @@
                     <button
                         @click="claimFromButton"
                         data-submission-id="{{ sub.id }}"
-                        class="btn-crush-primary text-sm px-4 py-2 whitespace-nowrap w-full sm:w-auto">
+                        class="btn-crush-solid text-sm px-4 py-2 whitespace-nowrap w-full sm:w-auto">
                         {% trans "Claim" %}
                     </button>
                     {% else %}
@@ -214,8 +235,9 @@
             {% include "shared/icons/check-circle.html" with class="w-8 h-8 text-green-500" %}
         </div>
         <h3 class="font-semibold text-lg dark:text-white mb-1">{% trans "Channel is empty" %}</h3>
-        <p class="text-gray-500 dark:text-gray-400">{% trans "No profiles are waiting for a coach right now. New submissions will appear here." %}</p>
+        <p class="text-gray-500 dark:text-gray-400">{% trans "No unclaimed requests match these filters. Your assigned work is shown above." %}</p>
     </div>
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %}

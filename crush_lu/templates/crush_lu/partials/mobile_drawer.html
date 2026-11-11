@@ -144,25 +144,19 @@
                             {% endif %}
                         </a>
                     {% endif %}
-                    <a href="{% url 'crush_lu:coach_profiles' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm justify-between">
+                    <a href="{% url 'crush_lu:coach_verification_channel' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm justify-between">
                         <div class="flex items-center gap-3">
                             {% include "shared/icons/clipboard.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
-                            <span>{% trans "Profile Queue" %}</span>
+                            <span>{% trans "Verification Channel" %}</span>
                         </div>
-                        {% if pending_screening_count > 0 %}
-                            <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-amber-500 text-white rounded-full">{{ pending_screening_count }}</span>
+                        {% if verification_assignment_count > 0 %}
+                            <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-amber-500 text-white rounded-full">{{ verification_assignment_count }}</span>
                         {% endif %}
                     </a>
                     <a href="{% url 'crush_lu:coach_unverified_profiles' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                         {% include "shared/icons/user-check.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Unverified Profiles" %}</span>
                     </a>
-                    {% if connect_real_person_check_enabled %}
-                        <a href="{% url 'crush_lu:coach_real_person_queue' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
-                            {% include "shared/icons/video-camera.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
-                            <span>{% trans "Real-person checks" %}</span>
-                        </a>
-                    {% endif %}
                     <a href="{% url 'crush_lu:coach_connections' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                         {% include "shared/icons/heart.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Connections" %}</span>
@@ -184,10 +178,6 @@
                     <a href="{% url 'crush_lu:coach_connect_members' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                         {% include "shared/icons/user-check.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
                         <span>{% trans "Coach Picks" %}</span>
-                    </a>
-                    <a href="{% url 'crush_lu:coach_verification_channel' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
-                        {% include "shared/icons/inbox.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}
-                        <span>{% trans "Verification Channel" %}</span>
                     </a>
                     <a href="{% url 'crush_lu:coach_verification_history' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                         {% include "shared/icons/clipboard-document-check.html" with class="w-5 h-5 text-purple-500 dark:text-purple-400" %}

@@ -47354,3 +47354,78 @@ msgid ""
 msgstr ""
 "Die Video-Verifizierung ist derzeit nicht verfügbar. Lassen Sie Ihre "
 "Teilnahme bei einem Crush-Event von einem Coach bestätigen."
+
+msgid ""
+"Manage profile reviews, Connect Week video requests and optional badges in "
+"one place."
+msgstr ""
+"Profilprüfungen, Videoanfragen für die Connect-Woche und optionale Abzeichen"
+" an einem Ort verwalten."
+
+msgid "All profile reviews"
+msgstr "Alle Profilprüfungen"
+
+msgid "Requests waiting"
+msgstr "Offene Anfragen"
+
+msgid "Optional real-person badge"
+msgstr "Optionales Echtheitsabzeichen"
+
+msgid ""
+"You have no assigned verification work. Claim a request below to start."
+msgstr ""
+"Dir sind keine Verifizierungen zugewiesen. Übernimm unten eine Anfrage, um "
+"zu beginnen."
+
+msgid "Verification tasks"
+msgstr "Verifizierungsaufgaben"
+
+msgid "Member requests"
+msgstr "Mitgliederanfragen"
+
+msgid "Optional badges"
+msgstr "Optionale Abzeichen"
+
+msgid ""
+"No unclaimed requests match these filters. Your assigned work is shown "
+"above."
+msgstr ""
+"Keine freien Anfragen entsprechen diesen Filtern. Deine zugewiesenen "
+"Aufgaben stehen oben."
+
+msgid ""
+"Confirm a real person by video or voice to add a badge. This decision does "
+"not grant Connect Week access."
+msgstr ""
+"Bestätige eine echte Person per Video- oder Sprachanruf, um ein Abzeichen "
+"hinzuzufügen. Diese Entscheidung gewährt keinen Zugang zur Connect-Woche."
+
+msgid ""
+"Review the profile and complete its screening checklist. This decision "
+"approves the profile; Connect Week video approval is handled separately."
+msgstr ""
+"Prüfe das Profil und vervollständige die Screening-Checkliste. Diese "
+"Entscheidung gibt das Profil frei; die Video-Freigabe für die Connect-Woche "
+"erfolgt separat."
+
+msgid "Optional badge outreach"
+msgstr "Kontakt für optionale Abzeichen"
+
+msgid "No eligible members"
+msgstr "Keine berechtigten Mitglieder"
+
+msgid "No members are eligible for optional badge outreach right now."
+msgstr ""
+"Derzeit kommen keine Mitglieder für die Kontaktaufnahme zu einem optionalen "
+"Abzeichen infrage."
+
+msgid ""
+"These members have not requested verification. You may offer a video or "
+"voice call for an optional badge; it does not grant Connect Week access."
+msgstr ""
+"Diese Mitglieder haben keine Verifizierung angefragt. Du kannst einen Video-"
+" oder Sprachanruf für ein optionales Abzeichen anbieten; es gewährt keinen "
+"Zugang zur Connect-Woche."
+
+msgid "Appointment"
+msgstr "Termin"

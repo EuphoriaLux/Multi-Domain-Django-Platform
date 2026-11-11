@@ -302,6 +302,11 @@ def crush_user_context(request):
                 review_call_completed=False,
             ).count()
             context["pending_screening_count"] = pending_screening_count
+            from crush_lu.services.verification_channel import assignment_count
+
+            context["verification_assignment_count"] = assignment_count(
+                request.user.crushcoach
+            )
 
             # WhatsApp inbox entry: only once the coach's number is connected.
             coach = request.user.crushcoach
