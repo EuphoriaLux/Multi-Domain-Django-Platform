@@ -1,0 +1,35 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "A request is waiting for your answer" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "A request is waiting for your answer" %} 💜{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Hi {{ first_name }}!{% endblocktrans %}</h2>
+
+<p>{% blocktrans with name=requester_name %}<strong>{{ name }}</strong> chose you after their Connect Week, and you have not answered yet.{% endblocktrans %}</p>
+
+<div class="info-box">
+    <strong>{% trans "The request closes soon" %}</strong>
+    <p style="margin-bottom: 0;">{% blocktrans with deadline=expires_at|date:"DATETIME_FORMAT" %}The request stays open until {{ deadline }}. After that it quietly expires — no one is told either way.{% endblocktrans %}</p>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ inbox_url }}" class="button">{% trans "See who chose you" %}</a>
+</p>
+
+<div class="info-box">
+    <strong>{% trans "Your choice stays private" %}</strong>
+    <p style="margin-bottom: 0;">{% trans "If you say yes, a temporary chat opens so you can plan a coffee. If you decline, they are never told — it simply stops being pending." %}</p>
+</div>
+
+<p>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because a Crush Connect member sent you their one weekly request." %}<br>
+{% endblock %}

@@ -459,6 +459,41 @@ def send_connect_week_request_notification(user, weekly_request):
     )
 
 
+def send_connect_week_request_reminder_notification(user, weekly_request):
+    """Web push reminding ``user`` that a received request is still open."""
+    subscriptions = user.push_subscriptions.filter(
+        enabled=True, notify_new_connections=True
+    )
+    if not subscriptions.exists():
+        return
+
+    requester = weekly_request.requester
+    display_name = (
+        requester.crushprofile.display_name
+        if hasattr(requester, "crushprofile")
+        else requester.first_name
+    )
+
+    with user_language_context(user):
+        title = _("A request is waiting for your answer")
+        body = _(
+            "%(name)s chose you and the request closes soon. Take a look and decide."
+        ) % {"name": display_name}
+
+    url = get_user_language_url(user, "crush_lu:connect_week_inbox")
+
+    return send_push_notification(
+        user=user,
+        title=title,
+        body=body,
+        url=url,
+        # Same tag as the request's own push: on a device that still shows
+        # it, the reminder replaces it instead of stacking a second one.
+        tag=f"connect-week-request-{weekly_request.id}",
+        preference_key="new_connections",
+    )
+
+
 def send_new_message_notification(user, message):
     """
     Send notification for new connection message.

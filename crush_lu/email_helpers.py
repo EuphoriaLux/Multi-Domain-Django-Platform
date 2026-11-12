@@ -2302,6 +2302,63 @@ def send_connect_week_request_notification(recipient, weekly_request, request=No
     )
 
 
+def send_connect_week_request_reminder(recipient, weekly_request, request=None):
+    """
+    Email the recipient once that a Connect Week request is still open.
+
+    Sent by the hourly sweep, so ``request`` is normally None: URLs build
+    against the canonical crush.lu domain and the sender is picked by domain.
+
+    Returns:
+        int: Number of emails sent
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    if not can_send_email(recipient, "new_connections"):
+        logger.info(
+            "Skipping Connect Week request reminder to user %s - user unsubscribed",
+            recipient.pk,
+        )
+        return 0
+
+    lang = get_user_preferred_language(user=recipient, request=request, default="en")
+
+    requester = weekly_request.requester
+    if hasattr(requester, "crushprofile"):
+        requester_name = requester.crushprofile.display_name
+    else:
+        requester_name = requester.first_name
+
+    inbox_url = get_user_language_url(recipient, "crush_lu:connect_week_inbox", request)
+
+    context = get_email_context_with_unsubscribe(
+        recipient,
+        request,
+        first_name=recipient.first_name,
+        requester_name=requester_name,
+        inbox_url=inbox_url,
+        expires_at=timezone.localtime(weekly_request.expires_at),
+    )
+
+    with translation.override(lang):
+        subject = _("%(name)s is waiting for your answer") % {"name": requester_name}
+        html_message = render_to_string(
+            "crush_lu/emails/connect_week_request_reminder.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[recipient.email],
+        request=request,
+        domain=None if request is not None else "crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_connection_accepted_notification(recipient, connection, accepter, request):
     """
     Notify user that their connection request was accepted.

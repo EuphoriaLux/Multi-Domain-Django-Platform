@@ -47542,3 +47542,21 @@ msgstr ""
 
 msgid "Appointment"
 msgstr "Rendez-vous"
+
+msgid "A request is waiting for your answer"
+msgstr "Une demande attend votre réponse"
+
+msgid "A Crush Connect member chose you and their request closes soon. Take a look and decide."
+msgstr "Un membre de Crush Connect vous a choisi(e) et sa demande expire bientôt. Jetez un œil et décidez."
+
+msgid "%(name)s chose you and the request closes soon. Take a look and decide."
+msgstr "%(name)s vous a choisi(e) et la demande expire bientôt. Jetez un œil et décidez."
+
+msgid "%(name)s is waiting for your answer"
+msgstr "%(name)s attend votre réponse"
+
+msgid "<strong>%(name)s</strong> chose you after their Connect Week, and you have not answered yet."
+msgstr "<strong>%(name)s</strong> vous a choisi(e) après sa Connect Week, et vous n'avez pas encore répondu."
+
+msgid "The request closes soon"
+msgstr "La demande expire bientôt"

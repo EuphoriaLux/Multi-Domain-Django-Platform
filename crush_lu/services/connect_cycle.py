@@ -1002,6 +1002,148 @@ def get_pending_inbox(user):
 
 
 # ---------------------------------------------------------------------------
+# Reminder for a request that is still unanswered (hourly sweep)
+# ---------------------------------------------------------------------------
+
+# Measured on prod over the 90 days to 2026-11-10: 58% of requests expired
+# unanswered although the request email went out for ~97% of them. The one
+# notice arrives at whatever hour the sender chose, and nothing followed it.
+#
+# The reminder goes out at the first sweep, in waking hours, that finds the
+# request within REQUEST_REMINDER_LEAD_HOURS of its deadline. The quiet period
+# is 11 hours and the sweep is hourly, so a 14-hour lead always contains a
+# waking sweep that leaves the member about two hours or more to answer.
+# Expressed relative to ``expires_at``, so it holds if the window changes.
+REQUEST_REMINDER_LEAD_HOURS = 14
+# Not worth a nudge the member cannot act on (only reached after an outage).
+REQUEST_REMINDER_MIN_HOURS_LEFT = 1
+# No reminder between 21:00 and 08:00 Luxembourg time.
+REQUEST_REMINDER_QUIET_FROM_HOUR = 21
+REQUEST_REMINDER_QUIET_UNTIL_HOUR = 8
+# Sends are synchronous inside the timer's request; the rest waits an hour.
+REQUEST_REMINDER_BATCH = 20
+
+
+def send_due_request_reminders(*, now=None, dry_run=False) -> dict:
+    """Remind each recipient once about a request that is about to expire.
+
+    Reads ``ConnectWeeklyRequest`` rows only. It must never advance a
+    session: syncing a dormant member's session opens their 24h review while
+    they are away (ai-memory-hub/memories/crush-connect-cycle-lazy-state-machine.md).
+    Syncing the recipient's own overdue *requests*, which ``get_pending_inbox``
+    does, is safe: those are already dead.
+
+    A request is reminded only if the recipient's inbox would show it right
+    now, so nobody is sent to a page that hides the request (block, assigned
+    coach pair, requester no longer eligible).
+
+    Once only: the bell row carries a ``dedupe_key`` that the database accepts
+    a single time. The claim is written before the email and the push, so a
+    delivery that fails afterwards is not retried; the reminder is best
+    effort and the request's own notice has already gone out.
+
+    Returns counters for the sweep's log line.
+    """
+    from crush_lu.connect_phase import candidate_access_open
+    from crush_lu.models import Notification
+    from crush_lu.models.crush_connect_cycle import ConnectWeeklyRequest
+    from crush_lu.notification_service import (
+        NotificationType,
+        connect_week_request_reminder_key,
+        notify_connect_week_request_reminder,
+    )
+    from crush_lu.services.crush_connect import is_catalogue_eligible
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    now = now if now is not None else timezone.now()
+    counts = {
+        "quiet_hours": False,
+        "due": 0,
+        "sent": 0,
+        "hidden": 0,
+        "already_claimed": 0,
+        "failed": 0,
+    }
+
+    # Only the hour is read off the local clock; the window itself is
+    # computed on the UTC ``now``, so a daylight-saving change cannot skew it.
+    local_hour = timezone.localtime(now).hour
+    if not (
+        REQUEST_REMINDER_QUIET_UNTIL_HOUR
+        <= local_hour
+        < REQUEST_REMINDER_QUIET_FROM_HOUR
+    ):
+        counts["quiet_hours"] = True
+        return counts
+
+    reminder_type = NotificationType.CONNECT_WEEK_REQUEST_REMINDER.value
+    candidates = list(
+        ConnectWeeklyRequest.objects.filter(
+            status=ConnectWeeklyRequest.Status.PENDING,
+            expires_at__gt=now + timedelta(hours=REQUEST_REMINDER_MIN_HOURS_LEFT),
+            expires_at__lte=now + timedelta(hours=REQUEST_REMINDER_LEAD_HOURS),
+            recipient__is_active=True,
+        )
+        .select_related("requester__crushprofile", "recipient__crushprofile")
+        .order_by("expires_at", "pk")
+    )
+    # The claim keys are per request, so the "already reminded" test is one
+    # query over the candidates' keys rather than a correlated subquery.
+    claimed = set(
+        Notification.objects.filter(
+            notification_type=reminder_type,
+            dedupe_key__in=[connect_week_request_reminder_key(r) for r in candidates],
+        ).values_list("user_id", "dedupe_key")
+    )
+    due = [
+        r
+        for r in candidates
+        if (r.recipient_id, connect_week_request_reminder_key(r)) not in claimed
+    ][:REQUEST_REMINDER_BATCH]
+    counts["due"] = len(due)
+    if dry_run:
+        return counts
+
+    for weekly_request in due:
+        try:
+            recipient = weekly_request.recipient
+            # The gate of views_connect_cycle.connect_week_inbox (a paused
+            # member is not catalogue eligible), then the inbox's own list.
+            visible = (
+                candidate_access_open()
+                and is_catalogue_eligible(recipient)
+                and any(
+                    shown.pk == weekly_request.pk
+                    for shown in get_pending_inbox(recipient)
+                )
+            )
+            if not visible:
+                counts["hidden"] += 1
+                continue
+            result = notify_connect_week_request_reminder(recipient, weekly_request)
+            if result.deduped:
+                counts["already_claimed"] += 1
+            else:
+                counts["sent"] += 1
+                logger.info(
+                    "Connect Week request %s: reminder sent "
+                    "(email=%s, push=%s, errors=%s)",
+                    weekly_request.pk,
+                    result.email_sent,
+                    result.push_success_count,
+                    len(result.errors),
+                )
+        except Exception:  # noqa: BLE001 - one request must not stop the sweep
+            counts["failed"] += 1
+            logger.exception(
+                "Connect Week request %s: reminder failed", weekly_request.pk
+            )
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # Notifications — in-app bell + email, never block the caller
 # ---------------------------------------------------------------------------
 

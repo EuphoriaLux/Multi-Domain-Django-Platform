@@ -57,6 +57,9 @@ class NotificationType(Enum):
     # Value kept equal to the bell row type the pre-#994 code wrote, so
     # existing Notification rows and any filter on it keep matching.
     CONNECT_WEEK_REQUEST = "connect_week_request_received"
+    # One reminder while a received request is still open, sent by the hourly
+    # sweep (services.connect_cycle.send_due_request_reminders).
+    CONNECT_WEEK_REQUEST_REMINDER = "connect_week_request_reminder"
 
     @property
     def preference_key(self) -> str:
@@ -88,6 +91,7 @@ class NotificationType(Enum):
             "spark_journey_ready": "new_connections",
             "spark_completed": "new_connections",
             "connect_week_request_received": "new_connections",
+            "connect_week_request_reminder": "new_connections",
         }
         return preference_mapping.get(self.value, self.value)
 
@@ -707,6 +711,24 @@ class NotificationService:
                     },
                 }
 
+            if notification_type == NotificationType.CONNECT_WEEK_REQUEST_REMINDER:
+                weekly_request = context.get("weekly_request")
+                return {
+                    "title": _("A request is waiting for your answer"),
+                    "body": _(
+                        "A Crush Connect member chose you and their request "
+                        "closes soon. Take a look and decide."
+                    ),
+                    "link_url": get_user_language_url(
+                        user, "crush_lu:connect_week_inbox", request
+                    ),
+                    "metadata": {
+                        "weekly_request_id": (
+                            weekly_request.pk if weekly_request else None
+                        )
+                    },
+                }
+
             if notification_type == NotificationType.EVENT_REMINDER and event:
                 return {
                     "title": _("Event reminder: {title}").format(title=event.title),
@@ -1076,6 +1098,16 @@ class NotificationService:
                         or {}
                     )
 
+            elif notification_type == NotificationType.CONNECT_WEEK_REQUEST_REMINDER:
+                weekly_request = context.get("weekly_request")
+                if weekly_request:
+                    return (
+                        push_notifications.send_connect_week_request_reminder_notification(
+                            user, weekly_request
+                        )
+                        or {}
+                    )
+
             # For types without specific push functions, use generic
             return {"success": 0, "failed": 0, "total": 0}
 
@@ -1320,6 +1352,14 @@ class NotificationService:
                 # helper builds its URLs and picks the sender by domain.
                 if weekly_request:
                     result = email_helpers.send_connect_week_request_notification(
+                        user, weekly_request, request
+                    )
+                    return result == 1
+
+            elif notification_type == NotificationType.CONNECT_WEEK_REQUEST_REMINDER:
+                weekly_request = context.get("weekly_request")
+                if weekly_request:
+                    result = email_helpers.send_connect_week_request_reminder(
                         user, weekly_request, request
                     )
                     return result == 1
@@ -1603,6 +1643,29 @@ def notify_connect_week_request(
         logger.error("WhatsApp Connect Week request send crashed: %s", e)
         result.errors.append(f"WhatsApp error: {e}")
     return result
+
+
+def connect_week_request_reminder_key(weekly_request) -> str:
+    """The reminder's once-only claim token on the recipient's bell row."""
+    return f"weekly-request:{weekly_request.pk}"
+
+
+def notify_connect_week_request_reminder(
+    recipient, weekly_request
+) -> NotificationResult:
+    """Remind the recipient once that a Connect Week request is still open.
+
+    Email + push + bell in the recipient's language. The bell row is the
+    once-only claim (``dedupe_key``): overlapping sweeps agree in the database
+    on who delivers, and the loser returns ``deduped`` having sent nothing.
+    No WhatsApp: the paid template is for the request itself.
+    """
+    return NotificationService.notify(
+        user=recipient,
+        notification_type=NotificationType.CONNECT_WEEK_REQUEST_REMINDER,
+        context={"weekly_request": weekly_request},
+        dedupe_key=connect_week_request_reminder_key(weekly_request),
+    )
 
 
 def send_connect_week_request_whatsapp(recipient, weekly_request):

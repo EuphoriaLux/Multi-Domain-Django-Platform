@@ -122,8 +122,30 @@ def event_recaps_sweep(request):
     drift far enough into that window to miss an event entirely depending on
     what time it ended; an hourly one fires within an hour of the event
     becoming eligible and the idempotency flag absorbs the extra runs.
+
+    Second pass: the one reminder for a Connect Week request close to expiry
+    (``send_connect_request_reminders``). It rides this timer because it is
+    the hourly, all-day one, and a new Function timer would redeploy the
+    Function App on merge. The pass is isolated: its failure is logged and
+    never changes the recaps answer.
     """
-    return _run(request, "event_recaps", "send_event_recaps")
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+    response = _run(request, "event_recaps", "send_event_recaps")
+    _run_second_pass("connect_request_reminders", "send_connect_request_reminders")
+    return response
+
+
+def _run_second_pass(label: str, command: str) -> None:
+    """Run ``command`` after an endpoint's own; log the outcome, never raise."""
+    buffer = StringIO()
+    try:
+        call_command(command, stdout=buffer, stderr=buffer)
+    except Exception:  # noqa: BLE001 - must not fail the endpoint's first pass
+        _log_output(label, buffer)
+        logger.exception("[%s] Unhandled error", label)
+        return
+    logger.info("[%s] completed: %s", label, buffer.getvalue().strip())
 
 
 @csrf_exempt
