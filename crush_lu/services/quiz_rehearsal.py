@@ -36,6 +36,89 @@ def require_rehearsal():
         raise PermissionDenied("Quiz rehearsal is only available on staging.")
 
 
+#: The one permanent rehearsal event. Identified by title so no migration is
+#: needed; ``create_quiz_night_event`` already matches on the exact title.
+REHEARSAL_TITLE = "Quiz Night REHEARSAL"
+
+
+def is_rehearsal_quiz(quiz):
+    """True for the staging rehearsal quiz (never true off staging)."""
+    return rehearsal_enabled() and quiz.event.title == REHEARSAL_TITLE
+
+
+def is_rehearsal_host(quiz, user):
+    """On the rehearsal event every active coach may host, so any coach can
+    train without being assigned first. Real events keep the strict rule."""
+    if not user or not user.is_authenticated or not is_rehearsal_quiz(quiz):
+        return False
+    from crush_lu.models import CrushCoach
+
+    return CrushCoach.objects.filter(user=user, is_active=True).exists()
+
+
+def ensure_rehearsal_quiz(owner, coach_users=(), guests=12, pack="classic", tables=4):
+    """Create the permanent rehearsal event if missing, otherwise reuse it.
+
+    Safe to call on every visit: it keeps the event "live" (start time moved to
+    now, free, published), assigns the coaches, and only seeds guests while the
+    quiz is still a draft, so it never disturbs a quiz being played.
+    Returns ``(event, quiz)``.
+    """
+    from datetime import timedelta
+
+    from django.core.management import call_command
+    from django.core.management.base import CommandError
+
+    from crush_lu.models import CrushCoach
+    from crush_lu.models.events import MeetupEvent
+    from crush_lu.models.quiz import QuizEvent
+
+    require_rehearsal()
+    now = timezone.now()
+    try:
+        call_command(
+            "create_quiz_night_event",
+            title=REHEARSAL_TITLE,
+            pack=pack,
+            tables=tables,
+            date=now.isoformat(),
+            publish=True,
+            max_participants=200,
+            created_by=owner.username,
+            verbosity=0,
+        )
+    except CommandError as exc:
+        # An existing rehearsal that already has rounds is the normal re-visit.
+        if "already has" not in str(exc):
+            raise
+
+    event = MeetupEvent.objects.get(title=REHEARSAL_TITLE, event_type="quiz_night")
+    # Keep it permanently joinable: a start time that is "now" never expires.
+    event.registration_fee = 0
+    event.date_time = now
+    event.registration_deadline = now + timedelta(days=365)
+    event.is_published = True
+    event.save(
+        update_fields=[
+            "registration_fee",
+            "date_time",
+            "registration_deadline",
+            "is_published",
+        ]
+    )
+    quiz = QuizEvent.objects.get(event=event)
+
+    for user in coach_users:
+        coach = CrushCoach.objects.filter(user=user, is_active=True).first()
+        if coach is not None:
+            coach.assigned_events.add(event)
+
+    if quiz.status == "draft":
+        add_rehearsal_guests(quiz, guests)
+        add_coaches_as_guests(quiz, coach_users)
+    return event, quiz
+
+
 def add_rehearsal_guests(quiz, count):
     """Create/reuse ``count`` synthetic attendees, mark them attended and seat them.
 
