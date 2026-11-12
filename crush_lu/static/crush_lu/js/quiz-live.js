@@ -1012,6 +1012,7 @@ document.addEventListener("alpine:init", function () {
             confirmingEnd: false,
             _confirmTimer: null,
             confirmingReset: false,
+            confirmingRehearsalReset: false,
             _confirmResetTimer: null,
 
             // Consolidation (compact tables after no-shows)
@@ -1881,6 +1882,50 @@ document.addEventListener("alpine:init", function () {
                         }),
                     );
                 }
+            },
+
+            // --- Staging-only rehearsal tools (buttons are server-gated) ---
+
+            _rehearsalPost: function (path, payload) {
+                fetch("/api/quiz/" + this.quizId + "/rehearsal/" + path + "/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this._getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload || {}),
+                })
+                    .then(function (resp) {
+                        if (resp.ok) window.location.reload();
+                    })
+                    .catch(function () {});
+            },
+
+            rehearsalReset: function () {
+                // Two-tap confirm, same pattern as resetQuiz.
+                if (!this.confirmingRehearsalReset) {
+                    this.confirmingRehearsalReset = true;
+                    var self = this;
+                    setTimeout(function () {
+                        self.confirmingRehearsalReset = false;
+                    }, 5000);
+                    return;
+                }
+                this.confirmingRehearsalReset = false;
+                this._rehearsalPost("reset", {});
+            },
+
+            rehearsalAddGuests: function () {
+                this._rehearsalPost("add-guests", { count: 8 });
+            },
+
+            get isNotConfirmingRehearsalReset() {
+                return !this.confirmingRehearsalReset;
+            },
+
+            get isConfirmingRehearsalReset() {
+                return this.confirmingRehearsalReset;
             },
 
             // --- Table scoring (quiz night) ---
