@@ -116,19 +116,29 @@ class LocationAdmin(admin.ModelAdmin):
         "partnership_stage",
         "max_capacity",
         "account_manager",
+        "claimed_by",
+        "external_source",
         "last_contact_date",
     )
     list_filter = (
         "partnership_stage",
+        "external_source",
         "country",
         "has_outdoor_space",
         "has_kitchen",
         "has_private_room",
         "has_sound_system",
     )
-    search_fields = ("name", "address", "city", "account_manager", "notes")
+    search_fields = (
+        "name",
+        "address",
+        "city",
+        "account_manager",
+        "external_id",
+        "notes",
+    )
     date_hierarchy = "last_contact_date"
-    raw_id_fields = ("echo_venue",)
+    raw_id_fields = ("echo_venue", "claimed_by")
     inlines = (LocationContactInline, PartnerOnboardingStepInline)
 
 

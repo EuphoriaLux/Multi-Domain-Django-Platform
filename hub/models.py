@@ -152,6 +152,27 @@ class Location(models.Model):
         default=PartnershipStage.PROSPECT,
     )
     account_manager = models.CharField(max_length=255, blank=True, default="")
+    claimed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="claimed_hub_locations",
+    )
+    claimed_at = models.DateTimeField(blank=True, null=True)
+    external_source = models.CharField(
+        max_length=32,
+        blank=True,
+        default="",
+        db_default="",
+    )
+    external_id = models.CharField(
+        max_length=128,
+        blank=True,
+        default="",
+        db_default="",
+        db_index=True,
+    )
     commercial_terms = models.TextField(blank=True, default="")
     partner_since = models.DateField(blank=True, null=True)
 
