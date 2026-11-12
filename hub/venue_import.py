@@ -322,9 +322,7 @@ def compose_legacy_address(
 ) -> str:
     street_part = " ".join(part for part in (street.strip(), number.strip()) if part)
     town_part = " ".join(
-        part
-        for part in (f"L-{postcode}" if postcode else "", town.strip())
-        if part
+        part for part in (f"L-{postcode}" if postcode else "", town.strip()) if part
     )
     if street_part and town_part:
         return f"{street_part}, {town_part}"
@@ -341,7 +339,9 @@ def parse_osm_element(element: dict) -> dict | None:
     if tags.get("disused:amenity") or tags.get("abandoned:amenity"):
         return None
 
-    name = (tags.get("name") or tags.get("name:fr") or tags.get("name:en") or "").strip()
+    name = (
+        tags.get("name") or tags.get("name:fr") or tags.get("name:en") or ""
+    ).strip()
     if not name:
         return None
     name = name[:200]
@@ -377,10 +377,7 @@ def parse_osm_element(element: dict) -> dict | None:
     longitude = _quantize_coord(lon_raw, -180, 180)
 
     website = _clean_url(
-        tags.get("website")
-        or tags.get("contact:website")
-        or tags.get("url")
-        or ""
+        tags.get("website") or tags.get("contact:website") or tags.get("url") or ""
     )
     opening_hours = (tags.get("opening_hours") or "").strip()
     has_outdoor = (tags.get("outdoor_seating") or "").strip().lower() in (
@@ -409,10 +406,7 @@ def parse_osm_element(element: dict) -> dict | None:
         venue_tags.append("capacite-estimee")
 
     phone = (
-        tags.get("phone")
-        or tags.get("contact:phone")
-        or tags.get("telephone")
-        or ""
+        tags.get("phone") or tags.get("contact:phone") or tags.get("telephone") or ""
     ).strip()[:50]
     email = (tags.get("email") or tags.get("contact:email") or "").strip()
     if email and "@" not in email:
@@ -520,7 +514,9 @@ def _find_existing_location(parsed: dict) -> Location | None:
 
 
 @transaction.atomic
-def upsert_venue_record(parsed: dict, dry_run: bool = False) -> tuple[str, Location | None]:
+def upsert_venue_record(
+    parsed: dict, dry_run: bool = False
+) -> tuple[str, Location | None]:
     """Idempotently insert or backfill a ``hub.Location`` in ``Prospect``.
 
     Never overwrites ``partnership_stage``, ``claimed_by``, ``account_manager``,
@@ -621,7 +617,9 @@ def upsert_venue_record(parsed: dict, dry_run: bool = False) -> tuple[str, Locat
     return "skipped", existing
 
 
-def parse_echo_lu_venue_record(record: dict, echo_venue_obj: EchoVenue | None = None) -> dict | None:
+def parse_echo_lu_venue_record(
+    record: dict, echo_venue_obj: EchoVenue | None = None
+) -> dict | None:
     """Convert an ``echo.lu`` venue API record into a normalized venue dict."""
     venue_id = echo_lu.extract_experience_id(record)
     title = record.get("title") or ""
@@ -647,9 +645,7 @@ def parse_echo_lu_venue_record(record: dict, echo_venue_obj: EchoVenue | None = 
     address = compose_legacy_address(street, number, postcode, town)
 
     coords = loc_block.get("coordinates") or loc_block.get("geo") or {}
-    latitude = _quantize_coord(
-        coords.get("lat") or coords.get("latitude"), -90, 90
-    )
+    latitude = _quantize_coord(coords.get("lat") or coords.get("latitude"), -90, 90)
     longitude = _quantize_coord(
         coords.get("lng") or coords.get("lon") or coords.get("longitude"), -180, 180
     )

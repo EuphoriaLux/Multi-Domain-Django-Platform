@@ -1077,9 +1077,7 @@ class PartnerClaimAPITests(ThrottleIsolatedTestCase):
 
         # Listing as coach_b shows claimedByMe=False
         listing = self.client.get("/hub/locations")
-        item = next(
-            i for i in listing.data["items"] if i["id"] == str(self.venue.pk)
-        )
+        item = next(i for i in listing.data["items"] if i["id"] == str(self.venue.pk))
         self.assertFalse(item["claimedByMe"])
         self.assertEqual(item["claimedByName"], "Wesley Coach")
 
@@ -1232,9 +1230,7 @@ class LuxembourgVenueMatchingTests(TestCase):
         fake_client = type("FakeClient", (), {"api_key": "test-key"})()
         out = StringIO()
         with (
-            patch(
-                "crush_lu.services.echo_lu.EchoLuClient", return_value=fake_client
-            ),
+            patch("crush_lu.services.echo_lu.EchoLuClient", return_value=fake_client),
             patch(
                 "crush_lu.services.echo_lu.iter_venue_records",
                 return_value=iter([duplicate]),
@@ -1363,4 +1359,3 @@ class LuxembourgVenueImportTests(TestCase):
         self.assertEqual(
             scotts.partnership_stage, Location.PartnershipStage.NEGOTIATING
         )
-

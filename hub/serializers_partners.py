@@ -279,8 +279,7 @@ class LocationSerializer(serializers.ModelSerializer):
     def get_claimedByName(self, obj):
         if obj.claimed_by_id and obj.claimed_by:
             return (
-                obj.claimed_by.get_full_name().strip()
-                or obj.claimed_by.get_username()
+                obj.claimed_by.get_full_name().strip() or obj.claimed_by.get_username()
             )
         return obj.account_manager or ""
 

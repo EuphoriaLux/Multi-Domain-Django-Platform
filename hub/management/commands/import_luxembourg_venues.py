@@ -20,7 +20,7 @@ from crush_lu.services import echo_lu
 from hub.venue_import import (
     fetch_osm_luxembourg_elements,
     load_osm_elements_from_file,
-     normalize_postcode,
+    normalize_postcode,
     parse_echo_lu_venue_record,
     parse_osm_element,
     sync_cached_echo_venues_to_locations,
