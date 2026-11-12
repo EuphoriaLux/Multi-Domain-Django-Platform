@@ -437,6 +437,7 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             "show_leaderboard",
             "dissolve_table",
             "reset_quiz",
+            "reopen_quiz",
         }
 
         if action in host_actions:
@@ -491,6 +492,9 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
 
         elif action == "reset_quiz":
             await self.handle_reset_quiz(content)
+
+        elif action == "reopen_quiz":
+            await self.handle_reopen_quiz()
 
     async def send_error(self, message):
         """Send an error message back to the client."""
@@ -571,13 +575,16 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 )
 
     async def handle_next_question(self):
-        # For quiz night events, ensure all tables are scored before advancing
-        all_scored = await self.check_all_tables_scored()
-        if all_scored is not None and not all_scored:
-            await self.send_error("All tables must be scored before advancing.")
+        # Status and all-tables-scored checks run inside advance_question's row
+        # lock. A refusal goes to the host's own socket and broadcasts nothing.
+        outcome = await self.advance_question()
+        if outcome is None:
+            return
+        if outcome.get("error"):
+            await self.send_error(outcome["error"])
             return
 
-        question_data = await self.advance_question()
+        question_data = outcome.get("question")
         if question_data:
             # Enrich with table count for scoring grid reset
             question_data["total_tables"] = self._total_tables
@@ -600,15 +607,10 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                         self.quiz_group,
                         {"type": "quiz.status", "data": result},
                     )
-                else:
-                    # Fallback: still broadcast round_complete
-                    await self.channel_layer.group_send(
-                        self.quiz_group,
-                        {
-                            "type": "quiz.status",
-                            "data": {"status": "round_complete", "is_last_round": True},
-                        },
-                    )
+                elif result:
+                    # Lost a race (another host socket already finished or
+                    # paused it): tell this host, broadcast nothing.
+                    await self.send_error(result["error"])
             else:
                 await self.channel_layer.group_send(
                     self.quiz_group,
@@ -775,6 +777,19 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         clears scoring state when ``clear_scores=True``."""
         clear_scores = bool(content.get("clear_scores", False))
         result = await self.reset_quiz_to_draft(clear_scores=clear_scores)
+        if result is None:
+            return
+        if result.get("error"):
+            await self.send_error(result["error"])
+            return
+        await self.channel_layer.group_send(
+            self.quiz_group,
+            {"type": "quiz.status", "data": result},
+        )
+
+    async def handle_reopen_quiz(self):
+        """Bring a finished quiz back to paused, keeping scores and position."""
+        result = await self.reopen_quiz()
         if result is None:
             return
         if result.get("error"):
@@ -1474,38 +1489,66 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
 
         CONC-01: Uses select_for_update to prevent race conditions when
         multiple host tabs send next_question simultaneously.
-        STATE-02: Only advances if quiz is in active state.
+        STATE-02 / M4: the status check and the all-tables-scored check both
+        run inside the lock, and the result tells the outcomes apart:
+
+        - ``{"question": q_data}``: advanced.
+        - ``{"round_complete": True}``: quiz is active and the round is truly
+          exhausted (and, for quiz night, its last question is fully scored).
+        - ``{"error": reason}``: refused; nothing changed, nothing to broadcast.
+        - ``None``: the quiz no longer exists.
         """
         from django.db import transaction
 
-        from crush_lu.models.quiz import QuizEvent
+        from crush_lu.models.quiz import (
+            QuizEvent,
+            QuizRound,
+            QuizTable,
+            TableRoundScore,
+        )
 
         with transaction.atomic():
             try:
                 # Lock QuizEvent row without select_related on nullable FK
-                # (current_round is nullable → LEFT OUTER JOIN → incompatible
-                # with FOR UPDATE on PostgreSQL).
+                # (current_round is nullable -> LEFT OUTER JOIN -> incompatible
+                # with FOR UPDATE on PostgreSQL). Quiz row first, as everywhere.
                 quiz = QuizEvent.objects.select_for_update().get(id=self.quiz_id)
             except QuizEvent.DoesNotExist:
                 return None
 
             # STATE-02: Only advance questions on an active quiz
             if quiz.status != "active":
-                return None
+                return {
+                    "error": (
+                        f"Cannot go to the next question while the quiz is "
+                        f"{quiz.status}."
+                    )
+                }
 
             if not quiz.current_round_id:
-                return None
+                return {"error": "No round is selected."}
 
-            # Fetch round separately (outside select_for_update scope)
-            from crush_lu.models.quiz import QuizRound
-
+            # Quiz night: the question on screen must be scored by every table.
+            # Nothing is shown yet when the index is -1.
             current_round = QuizRound.objects.get(pk=quiz.current_round_id)
-            questions = current_round.questions.order_by("sort_order")
-            total = questions.count()
+            questions = list(current_round.questions.order_by("sort_order"))
+            total = len(questions)
+            if (
+                quiz.event.event_type == "quiz_night"
+                and 0 <= quiz.current_question_index < total
+            ):
+                total_tables = QuizTable.objects.filter(quiz=quiz).count()
+                if total_tables > 0:
+                    scored = TableRoundScore.objects.filter(
+                        quiz=quiz, question=questions[quiz.current_question_index]
+                    ).count()
+                    if scored < total_tables:
+                        return {"error": "All tables must be scored before advancing."}
+
             next_index = quiz.current_question_index + 1
 
             if next_index >= total:
-                return None  # Round complete
+                return {"round_complete": True}
 
             quiz.current_question_index = next_index
             quiz.question_started_at = timezone.now()
@@ -1518,7 +1561,31 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         q_data["total"] = total
         q_data["is_bonus"] = current_round.is_bonus
 
-        return q_data
+        return {"question": q_data}
+
+    @database_sync_to_async
+    def reopen_quiz(self):
+        """Finished -> paused, keeping scores, round and question position."""
+        from django.db import transaction
+
+        from crush_lu.models.quiz import QuizEvent
+
+        with transaction.atomic():
+            try:
+                quiz = QuizEvent.objects.select_for_update().get(id=self.quiz_id)
+            except QuizEvent.DoesNotExist:
+                return None
+            if quiz.status != "finished":
+                return {
+                    "error": (
+                        f"Only a finished quiz can be reopened (it is "
+                        f"'{quiz.status}')."
+                    )
+                }
+            quiz.status = "paused"
+            quiz.question_started_at = None
+            quiz.save(update_fields=["status", "question_started_at"])
+        return {"status": "paused", "reopened": True}
 
     @database_sync_to_async
     def reset_quiz_to_draft(self, clear_scores=False):
@@ -1816,6 +1883,22 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 quiz = QuizEvent.objects.select_for_update().get(id=self.quiz_id)
             except QuizEvent.DoesNotExist:
                 return {}
+
+            # M4: re-check under the lock. The handler's guard ran before it,
+            # so a stray Rotate while paused/finished, or a second host tab,
+            # could otherwise slip through.
+            if quiz.status != "active":
+                return {
+                    "error": (
+                        f"Cannot rotate while the quiz is {quiz.status}. "
+                        f"Resume it first."
+                    )
+                }
+            from crush_lu.services.quiz_rotation import check_can_rotate
+
+            guard = check_can_rotate(quiz.id)
+            if guard.get("error"):
+                return guard
 
             # Fetch current_round separately (nullable FK, outside lock scope)
             from crush_lu.models.quiz import QuizRound

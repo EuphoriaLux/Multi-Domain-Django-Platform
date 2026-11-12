@@ -47493,3 +47493,15 @@ msgstr "<strong>%(name)s</strong> hat dich nach der Connect-Woche ausgewählt, u
 
 msgid "The request closes soon"
 msgstr "Die Anfrage läuft bald ab"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Reopen Quiz"
+msgstr "Quiz wieder öffnen"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Confirm reopen?"
+msgstr "Wieder öffnen bestätigen?"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Revealing in {n}s"
+msgstr "Auflösung in {n} s"
