@@ -8,6 +8,7 @@ from .views_events import (
 )
 from .views_partners import (
     OfferEventDraftView,
+    PartnerClaimView,
     PartnerDetailView,
     PartnerOfferDetailView,
     PartnerOffersView,
@@ -97,6 +98,12 @@ urlpatterns = [
     path("locations/", PartnersView.as_view()),
     path("locations/<int:pk>", PartnerDetailView.as_view(), name="location_detail"),
     path("locations/<int:pk>/", PartnerDetailView.as_view()),
+    path(
+        "locations/<int:pk>/claim",
+        PartnerClaimView.as_view(),
+        name="location_claim",
+    ),
+    path("locations/<int:pk>/claim/", PartnerClaimView.as_view()),
     path(
         "locations/<int:pk>/offers",
         PartnerOffersView.as_view(),

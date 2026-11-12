@@ -1019,3 +1019,466 @@ class ContactInlineAdminTests(ThrottleIsolatedTestCase):
         self.assertIn(
             "Only one contact can be primary.", str(formset.non_form_errors())
         )
+
+
+class PartnerClaimAPITests(ThrottleIsolatedTestCase):
+    def setUp(self):
+        super().setUp()
+        self.coach_a = User.objects.create_user(
+            username="wesley",
+            email="wesley@crush.lu",
+            first_name="Wesley",
+            last_name="Coach",
+            password="password123",
+            is_staff=True,
+        )
+        self.coach_b = User.objects.create_user(
+            username="natascha",
+            email="natascha@crush.lu",
+            first_name="Natascha",
+            last_name="Coach",
+            password="password123",
+            is_staff=True,
+        )
+        self.superuser = User.objects.create_superuser(
+            username="tom",
+            email="tom@crush.lu",
+            first_name="Tom",
+            last_name="Admin",
+            password="password123",
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.coach_a)
+        self.venue = make_partner(
+            name="De Gudde Wëllen",
+            address="17 Rue du Saint-Esprit, L-1475 Luxembourg",
+            city="Luxembourg",
+            address_postcode="1475",
+            partnership_stage=Location.PartnershipStage.PROSPECT,
+        )
+
+    def test_coach_can_claim_unclaimed_prospect_and_second_coach_gets_409(self):
+        claim_url = f"/hub/locations/{self.venue.pk}/claim"
+        res = self.client.post(claim_url, format="json")
+        self.assertEqual(res.status_code, 200, res.data)
+        self.assertEqual(res.data["claimedById"], str(self.coach_a.pk))
+        self.assertEqual(res.data["claimedByName"], "Wesley Coach")
+        self.assertEqual(res.data["claimedByEmail"], "wesley@crush.lu")
+        self.assertTrue(res.data["claimedByMe"])
+        self.assertEqual(res.data["accountManager"], "Wesley Coach")
+        self.assertIsNotNone(res.data.get("claimedAt"))
+
+        # Second coach attempting to claim the same venue receives 409 Conflict
+        self.client.force_authenticate(user=self.coach_b)
+        conflict = self.client.post(claim_url, format="json")
+        self.assertEqual(conflict.status_code, 409)
+        self.assertIn("Wesley Coach", conflict.data["detail"])
+        self.assertEqual(conflict.data["claimedByName"], "Wesley Coach")
+
+        # Listing as coach_b shows claimedByMe=False
+        listing = self.client.get("/hub/locations")
+        item = next(i for i in listing.data["items"] if i["id"] == str(self.venue.pk))
+        self.assertFalse(item["claimedByMe"])
+        self.assertEqual(item["claimedByName"], "Wesley Coach")
+
+    def test_only_claiming_coach_or_superuser_can_release_or_force_claim(self):
+        claim_url = f"/hub/locations/{self.venue.pk}/claim"
+        self.client.post(claim_url, format="json")
+
+        # Coach B cannot release Coach A's venue
+        self.client.force_authenticate(user=self.coach_b)
+        forbidden = self.client.delete(claim_url)
+        self.assertEqual(forbidden.status_code, 403)
+
+        # Superuser can force-claim
+        self.client.force_authenticate(user=self.superuser)
+        forced = self.client.post(claim_url, {"force": True}, format="json")
+        self.assertEqual(forced.status_code, 200)
+        self.assertEqual(forced.data["claimedById"], str(self.superuser.pk))
+        self.assertEqual(forced.data["accountManager"], "Tom Admin")
+
+        # Superuser can release
+        released = self.client.delete(claim_url)
+        self.assertEqual(released.status_code, 200)
+        self.assertNotIn("claimedById", released.data)
+        self.assertEqual(released.data["claimedByName"], "")
+        self.assertEqual(released.data["accountManager"], "")
+        self.assertFalse(released.data["claimedByMe"])
+
+    def test_duplicate_guard_blocks_manual_recreation_of_existing_venue(self):
+        self.client.post(f"/hub/locations/{self.venue.pk}/claim", format="json")
+        dup = self.client.post(
+            "/hub/locations",
+            {
+                "name": "de gudde wëllen",
+                "maxCapacity": 50,
+                "addressStreet": "Rue du Saint-Esprit",
+                "addressNumber": "17",
+                "addressPostcode": "1475",
+                "addressTown": "Luxembourg",
+            },
+            format="json",
+        )
+        self.assertEqual(dup.status_code, 400)
+        self.assertIn("name", dup.data)
+        self.assertIn("Wesley Coach", str(dup.data["name"]))
+
+    def test_partner_edit_from_a_stale_read_keeps_a_claim_committed_meanwhile(self):
+        from hub.serializers_partners import LocationSerializer
+
+        # PartnerDetailView reads without a row lock: model a PATCH whose read
+        # happened before the claim committed (SQLite ignores locks anyway).
+        stale = Location.objects.get(pk=self.venue.pk)
+        claimed = self.client.post(
+            f"/hub/locations/{self.venue.pk}/claim", format="json"
+        )
+        self.assertEqual(claimed.status_code, 200, claimed.data)
+
+        serializer = LocationSerializer(
+            stale, data={"notes": "Called the owner"}, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        self.venue.refresh_from_db()
+        self.assertEqual(self.venue.notes, "Called the owner")
+        self.assertEqual(self.venue.claimed_by, self.coach_a)
+        self.assertIsNotNone(self.venue.claimed_at)
+        self.assertEqual(self.venue.account_manager, "Wesley Coach")
+
+
+class LuxembourgVenueMatchingTests(TestCase):
+    """Import matching must never fold two distinct premises into one row."""
+
+    @staticmethod
+    def _osm(osm_id, name, **tags):
+        from hub.venue_import import parse_osm_element
+
+        return parse_osm_element(
+            {
+                "type": "node",
+                "id": osm_id,
+                "tags": {"name": name, "amenity": "restaurant", **tags},
+            }
+        )
+
+    def test_known_but_different_postcodes_stay_two_venues(self):
+        from hub.venue_import import upsert_venue_record
+
+        manual = make_partner(
+            name="Brasserie du Centre",
+            city="Luxembourg",
+            address_postcode="1111",
+        )
+        action, created = upsert_venue_record(
+            self._osm(
+                11,
+                "Brasserie du Centre",
+                **{"addr:postcode": "2222", "addr:city": "Luxembourg"},
+            )
+        )
+        self.assertEqual(action, "created")
+        self.assertNotEqual(created.pk, manual.pk)
+        manual.refresh_from_db()
+        self.assertEqual(manual.external_id, "")
+
+    def test_city_fallback_still_matches_when_one_postcode_is_missing(self):
+        from hub.venue_import import upsert_venue_record
+
+        manual = make_partner(name="Brasserie du Centre", city="Luxembourg")
+        action, matched = upsert_venue_record(
+            self._osm(
+                12,
+                "Brasserie du Centre",
+                **{"addr:postcode": "2222", "addr:city": "Luxembourg"},
+            )
+        )
+        self.assertEqual(action, "updated")
+        self.assertEqual(matched.pk, manual.pk)
+        manual.refresh_from_db()
+        self.assertEqual(manual.external_id, "osm:node:12")
+
+    def test_two_osm_outlets_in_one_town_without_postcodes_stay_two_venues(self):
+        from hub.venue_import import parse_osm_element, upsert_venue_record
+
+        # Same name, same commune, no postcode: only the differing OSM ids say
+        # these are two premises.
+        def outlet(osm_id):
+            return parse_osm_element(
+                {"type": "node", "id": osm_id, "tags": {"name": "Café de la Gare"}},
+                ["Ettelbruck"],
+            )
+
+        _, first = upsert_venue_record(outlet(21))
+        action, second = upsert_venue_record(outlet(22))
+        self.assertEqual(action, "created")
+        self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(second.city, "Ettelbruck")
+        # Re-running the same element is still idempotent.
+        action, again = upsert_venue_record(outlet(22))
+        self.assertEqual(action, "skipped")
+        self.assertEqual(again.pk, second.pk)
+
+
+class LuxembourgVenueTownAndCantonTests(TestCase):
+    """Town and canton come from the data, never from a "Luxembourg" default."""
+
+    # Shape of OVERPASS_LUXEMBOURG_QUERY's output: the venues, then each
+    # commune's boundary followed by the bare ids of the venues inside it.
+    PAYLOAD = [
+        {"type": "node", "id": 1, "tags": {"name": "Op der Bréck", "amenity": "pub"}},
+        {
+            "type": "node",
+            "id": 2,
+            "tags": {"name": "Grenzcafé", "amenity": "cafe", "addr:postcode": "9081"},
+        },
+        {"type": "node", "id": 3, "tags": {"name": "Nowhere Bar", "amenity": "bar"}},
+        {
+            "type": "relation",
+            "id": 900,
+            "tags": {"boundary": "administrative", "admin_level": "8", "name": "Wiltz"},
+        },
+        {"type": "node", "id": 1},
+        {"type": "node", "id": 2},
+        {
+            "type": "relation",
+            "id": 901,
+            "tags": {
+                "boundary": "administrative",
+                "admin_level": "8",
+                "name": "Ettelbruck",
+            },
+        },
+        {"type": "node", "id": 2},
+    ]
+
+    def test_boundary_pass_is_split_from_the_venues(self):
+        from hub.venue_import import split_osm_elements
+
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        self.assertEqual([v["id"] for v in venues], [1, 2, 3])
+        self.assertEqual(
+            communes,
+            {"osm:node:1": ["Wiltz"], "osm:node:2": ["Wiltz", "Ettelbruck"]},
+        )
+
+    def test_untagged_venue_takes_town_and_canton_from_its_commune(self):
+        from hub.venue_import import parse_osm_element, split_osm_elements
+
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        parsed = parse_osm_element(venues[0], communes["osm:node:1"])
+        self.assertEqual(parsed["city"], "Wiltz")
+        self.assertEqual(parsed["canton"], "Wiltz")
+        self.assertEqual(parsed["address"], "Wiltz")
+
+    def test_border_venue_prefers_the_commune_its_postcode_names(self):
+        from crush_lu.services.echo_lu_postcodes import POSTCODE_TO_COMMUNE
+        from hub.venue_import import parse_osm_element, split_osm_elements
+
+        self.assertEqual(POSTCODE_TO_COMMUNE["9081"], "Ettelbruck")
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        parsed = parse_osm_element(venues[1], communes["osm:node:2"])
+        self.assertEqual(parsed["city"], "Ettelbruck")
+        self.assertEqual(parsed["canton"], "Diekirch")
+
+    def test_unknown_town_stays_blank_and_a_later_run_fills_it(self):
+        from hub.venue_import import (
+            parse_osm_element,
+            split_osm_elements,
+            upsert_venue_record,
+        )
+
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        # A file without the commune pass: nothing says where the venue is.
+        action, row = upsert_venue_record(parse_osm_element(venues[0]))
+        self.assertEqual(action, "created")
+        self.assertEqual((row.city, row.address_town, row.canton), ("", "", ""))
+        self.assertEqual(row.address, "")
+
+        action, row = upsert_venue_record(
+            parse_osm_element(venues[0], communes["osm:node:1"])
+        )
+        self.assertEqual(action, "updated")
+        row.refresh_from_db()
+        self.assertEqual(
+            (row.city, row.address_town, row.canton, row.address),
+            ("Wiltz", "Wiltz", "Wiltz", "Wiltz"),
+        )
+
+    def test_import_command_reads_the_commune_pass(self):
+        import json
+        import os
+        import tempfile
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp:
+            json.dump({"elements": self.PAYLOAD}, tmp)
+        self.addCleanup(os.remove, tmp.name)
+        out = StringIO()
+        call_command("import_luxembourg_venues", osm_file=tmp.name, stdout=out)
+
+        self.assertIn("3 OSM venue element(s); 2 placed in a commune", out.getvalue())
+        rows = {
+            row.external_id: (row.city, row.canton) for row in Location.objects.all()
+        }
+        self.assertEqual(
+            rows,
+            {
+                "osm:node:1": ("Wiltz", "Wiltz"),
+                "osm:node:2": ("Ettelbruck", "Diekirch"),
+                "osm:node:3": ("", ""),
+            },
+        )
+
+    def test_live_echo_scan_never_repoints_an_existing_venue_mapping(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        from crush_lu.models.echo_lu import EchoVenue
+
+        EchoVenue.objects.create(
+            key="scott's pub|1238", venue_id="echo-scotts-123", title="Scott's Pub"
+        )
+        duplicate = {
+            "id": "echo-other-999",
+            "title": "Scott's Pub",
+            "location": {"address": {"postcode": "1238", "town": "Luxembourg"}},
+        }
+        fake_client = type("FakeClient", (), {"api_key": "test-key"})()
+        out = StringIO()
+        with (
+            patch("crush_lu.services.echo_lu.EchoLuClient", return_value=fake_client),
+            patch(
+                "crush_lu.services.echo_lu.iter_venue_records",
+                return_value=iter([duplicate]),
+            ),
+        ):
+            call_command(
+                "import_luxembourg_venues",
+                skip_osm=True,
+                with_echo_lu=True,
+                stdout=out,
+            )
+
+        mapping = EchoVenue.objects.get(key="scott's pub|1238")
+        self.assertEqual(mapping.venue_id, "echo-scotts-123")
+        self.assertFalse(
+            Location.objects.filter(external_id="echo:echo-other-999").exists()
+        )
+        self.assertEqual(
+            Location.objects.filter(external_id="echo:echo-scotts-123").count(), 1
+        )
+        self.assertIn("kept echo-scotts-123, ignored echo-other-999", out.getvalue())
+
+
+class LuxembourgVenueImportTests(TestCase):
+    def test_osm_and_echo_lu_import_creates_prospects_and_preserves_claims(self):
+        import json
+        import tempfile
+        from django.core.management import call_command
+        from crush_lu.models.echo_lu import EchoVenue
+
+        coach = User.objects.create_user(
+            username="franz",
+            first_name="Franz",
+            last_name="Coach",
+            is_staff=True,
+        )
+        EchoVenue.objects.create(
+            key="scott's pub|1238",
+            venue_id="echo-scotts-123",
+            title="Scott's Pub",
+        )
+
+        sample_osm = {
+            "elements": [
+                {
+                    "type": "node",
+                    "id": 1001,
+                    "lat": 49.610123,
+                    "lon": 6.133456,
+                    "tags": {
+                        "name": "Scott's Pub",
+                        "amenity": "pub",
+                        "addr:street": "Bisserwee",
+                        "addr:housenumber": "4",
+                        "addr:postcode": "L-1238",
+                        "addr:city": "Luxembourg",
+                        "outdoor_seating": "yes",
+                        "website": "www.scottspub.lu",
+                        "phone": "+352 22 75 65",
+                    },
+                },
+                {
+                    "type": "way",
+                    "id": 2002,
+                    "center": {"lat": 49.502345, "lon": 5.948123},
+                    "tags": {
+                        "name": "Brasserie Rockhal",
+                        "amenity": "restaurant",
+                        "addr:postcode": "4361",
+                        "cuisine": "burger;french",
+                        "capacity": "120",
+                    },
+                },
+                {
+                    "type": "node",
+                    "id": 3003,
+                    "tags": {"amenity": "bar"},  # unnamed -> ignored
+                },
+            ]
+        }
+
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp:
+            json.dump(sample_osm, tmp)
+            tmp_path = tmp.name
+
+        call_command(
+            "import_luxembourg_venues",
+            osm_file=tmp_path,
+            with_echo_lu=True,
+        )
+
+        scotts = Location.objects.get(external_id="osm:node:1001")
+        self.assertEqual(scotts.partnership_stage, Location.PartnershipStage.PROSPECT)
+        self.assertEqual(scotts.address_postcode, "1238")
+        self.assertEqual(scotts.canton, "Luxembourg")
+        self.assertTrue(scotts.has_outdoor_space)
+        self.assertEqual(scotts.website, "https://www.scottspub.lu")
+        self.assertEqual(scotts.max_capacity, 40)
+        self.assertIn("capacite-estimee", scotts.tags)
+        self.assertIsNotNone(scotts.echo_venue)
+        self.assertEqual(scotts.primary_contact.phone, "+352 22 75 65")
+
+        rockhal = Location.objects.get(external_id="osm:way:2002")
+        self.assertEqual(rockhal.city, "Esch-sur-Alzette")
+        self.assertEqual(rockhal.canton, "Esch-sur-Alzette")
+        self.assertEqual(rockhal.max_capacity, 120)
+        self.assertTrue(rockhal.has_kitchen)
+        self.assertNotIn("capacite-estimee", rockhal.tags)
+
+        # Claim Scott's Pub and advance stage to Negotiating; re-run import must not overwrite
+        scotts.claimed_by = coach
+        scotts.account_manager = "Franz Coach"
+        scotts.partnership_stage = Location.PartnershipStage.NEGOTIATING
+        scotts.save()
+
+        call_command(
+            "import_luxembourg_venues",
+            osm_file=tmp_path,
+            with_echo_lu=True,
+        )
+        scotts.refresh_from_db()
+        self.assertEqual(scotts.claimed_by, coach)
+        self.assertEqual(scotts.account_manager, "Franz Coach")
+        self.assertEqual(
+            scotts.partnership_stage, Location.PartnershipStage.NEGOTIATING
+        )

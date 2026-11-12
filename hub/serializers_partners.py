@@ -7,7 +7,7 @@ every key the old read-only ``/hub/locations`` payload had, so the live
 Spec: ai-memory-hub/specs/2026-10-01-hub-partner-and-offers.md
 """
 
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from rest_framework import serializers
 
@@ -43,6 +43,8 @@ _OMIT_WHEN_NULL = (
     "revenueSharePercent",
     "depositAmount",
     "echoVenueId",
+    "claimedById",
+    "claimedAt",
 )
 
 
@@ -198,6 +200,12 @@ class LocationSerializer(serializers.ModelSerializer):
     primaryContact = serializers.SerializerMethodField()
     offerCount = serializers.SerializerMethodField()
     onboardingProgress = serializers.SerializerMethodField()
+    claimedById = serializers.SerializerMethodField()
+    claimedByName = serializers.SerializerMethodField()
+    claimedByEmail = serializers.SerializerMethodField()
+    claimedAt = serializers.DateTimeField(source="claimed_at", read_only=True)
+    claimedByMe = serializers.SerializerMethodField()
+    externalSource = serializers.CharField(source="external_source", read_only=True)
 
     class Meta:
         model = Location
@@ -217,6 +225,12 @@ class LocationSerializer(serializers.ModelSerializer):
             "partnershipStage",
             "primaryContact",
             "accountManager",
+            "claimedById",
+            "claimedByName",
+            "claimedByEmail",
+            "claimedAt",
+            "claimedByMe",
+            "externalSource",
             "commercialTerms",
             "partnerSince",
             "lastContactDate",
@@ -258,6 +272,28 @@ class LocationSerializer(serializers.ModelSerializer):
     def get_onboardingProgress(self, obj):
         done = sum(1 for step in obj.onboarding_steps.all() if step.done_at)
         return {"done": done, "total": len(PartnerOnboardingStep.Key.values)}
+
+    def get_claimedById(self, obj):
+        return str(obj.claimed_by_id) if obj.claimed_by_id else None
+
+    def get_claimedByName(self, obj):
+        if obj.claimed_by_id and obj.claimed_by:
+            return (
+                obj.claimed_by.get_full_name().strip() or obj.claimed_by.get_username()
+            )
+        return obj.account_manager or ""
+
+    def get_claimedByEmail(self, obj):
+        if obj.claimed_by_id and obj.claimed_by:
+            return obj.claimed_by.email or ""
+        return ""
+
+    def get_claimedByMe(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        return bool(obj.claimed_by_id and obj.claimed_by_id == user.id)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -363,6 +399,37 @@ class LocationSerializer(serializers.ModelSerializer):
                 errors["maxCapacity"] = (
                     f"An offer here seats {largest}; lower or edit it first."
                 )
+        if instance is None and not errors:
+            raw_name = (attrs.get("name") or "").strip()
+            postcode = (attrs.get("address_postcode") or "").strip()
+            city_val = (attrs.get("city") or attrs.get("address_town") or "").strip()
+            if raw_name and (postcode or city_val):
+                dup_qs = Location.objects.select_related("claimed_by").filter(
+                    name__iexact=raw_name
+                )
+                if postcode:
+                    dup_qs = dup_qs.filter(
+                        models.Q(address_postcode=postcode)
+                        | models.Q(address_postcode="", city__iexact=city_val)
+                    )
+                else:
+                    dup_qs = dup_qs.filter(city__iexact=city_val)
+                existing = dup_qs.first()
+                if existing is not None:
+                    owner = (
+                        (
+                            existing.claimed_by.get_full_name().strip()
+                            or existing.claimed_by.get_username()
+                        )
+                        if existing.claimed_by_id and existing.claimed_by
+                        else existing.account_manager
+                    )
+                    owner_suffix = (
+                        f" (réclamé par {owner})" if owner else " (actuellement libre)"
+                    )
+                    errors["name"] = (
+                        f"Ce lieu existe déjà dans le Hub : {existing.name} ({existing.city}){owner_suffix}."
+                    )
         if errors:
             raise serializers.ValidationError(errors)
         return attrs
@@ -398,7 +465,10 @@ class LocationSerializer(serializers.ModelSerializer):
         contacts = validated_data.pop("contacts", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
+        # Write only the edited columns. The instance was read without a lock,
+        # so a full save would write back a stale claimed_by / claimed_at and
+        # erase a claim that PartnerClaimView committed in the meantime.
+        instance.save(update_fields=[*validated_data, "updated_at"])
         if contacts is not None:
             self._sync_contacts(instance, contacts)
         return instance

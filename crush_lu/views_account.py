@@ -805,7 +805,10 @@ ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS = (
 # hub.SocialPost, hub.WhatsAppMessage (staff-authored business records),
 # token_blacklist.OutstandingToken (deleting it would un-blacklist refresh
 # tokens; the anonymised user is inactive), and staff-actor SET_NULL links
-# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by).
+# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by,
+# hub.Location.claimed_by). The user row is anonymised, not deleted, so a
+# departed coach's venue claim (and its account_manager name) stays until a
+# superuser releases or force-claims the venue.
 
 # User-keyed crush_lu models deliberately KEPT after account deletion, and why.
 # ``test_account_deletion`` fails when a new User FK model is in neither list,

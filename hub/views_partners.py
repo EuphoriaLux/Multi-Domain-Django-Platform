@@ -23,7 +23,15 @@ from .serializers_partners import (
 
 
 def _partners():
-    return Location.objects.prefetch_related("contacts", "offers", "onboarding_steps")
+    return Location.objects.select_related("claimed_by").prefetch_related(
+        "contacts", "offers", "onboarding_steps"
+    )
+
+
+def _user_display_name(user):
+    if not user:
+        return ""
+    return user.get_full_name().strip() or user.get_username()
 
 
 class PartnersView(generics.ListCreateAPIView):
@@ -220,3 +228,117 @@ class PartnerOnboardingView(APIView):
                     step.done_by = None
             step.save()
         return Response({"items": _onboarding_payload(partner)})
+
+
+class PartnerClaimView(APIView):
+    """Atomic venue claim/release endpoint so Crush Coaches do not collide.
+
+    Spec: ai-memory-hub/specs/2026-11-12-crush-hub-venue-extraction-and-claiming.md
+    """
+
+    permission_classes = [IsAdminUser]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        partner = get_object_or_404(
+            Location.objects.select_for_update(of=("self",)), pk=pk
+        )
+        force = bool(
+            request.user.is_superuser and (request.data or {}).get("force") is True
+        )
+        coach_name = _user_display_name(request.user)
+
+        if (
+            partner.claimed_by_id is not None
+            and partner.claimed_by_id != request.user.id
+            and not force
+        ):
+            claimer_name = (
+                _user_display_name(partner.claimed_by)
+                or partner.account_manager
+                or "un autre coach"
+            )
+            return Response(
+                {
+                    "detail": f"Ce lieu est déjà réclamé par {claimer_name}.",
+                    "claimedById": str(partner.claimed_by_id),
+                    "claimedByName": claimer_name,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        legacy_owner = (partner.account_manager or "").strip()
+        if (
+            partner.claimed_by_id is None
+            and legacy_owner
+            and legacy_owner.lower()
+            not in {coach_name.lower(), request.user.get_username().lower()}
+            and not force
+        ):
+            return Response(
+                {
+                    "detail": f"Ce lieu est déjà attribué à {legacy_owner}.",
+                    "claimedByName": legacy_owner,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        partner.claimed_by = request.user
+        partner.claimed_at = timezone.now()
+        partner.account_manager = coach_name
+        partner.save(
+            update_fields=["claimed_by", "claimed_at", "account_manager", "updated_at"]
+        )
+
+        refreshed = _partners().get(pk=partner.pk)
+        return Response(
+            LocationSerializer(refreshed, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+    @transaction.atomic
+    def delete(self, request, pk):
+        partner = get_object_or_404(
+            Location.objects.select_for_update(of=("self",)), pk=pk
+        )
+        coach_name = _user_display_name(request.user)
+        legacy_owner = (partner.account_manager or "").strip()
+
+        if (
+            partner.claimed_by_id is not None
+            and partner.claimed_by_id != request.user.id
+            and not request.user.is_superuser
+        ):
+            return Response(
+                {
+                    "detail": "Seul le coach responsable ou un administrateur peut libérer ce lieu."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if (
+            partner.claimed_by_id is None
+            and legacy_owner
+            and legacy_owner.lower()
+            not in {coach_name.lower(), request.user.get_username().lower()}
+            and not request.user.is_superuser
+        ):
+            return Response(
+                {
+                    "detail": "Seul le coach responsable ou un administrateur peut libérer ce lieu."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        partner.claimed_by = None
+        partner.claimed_at = None
+        partner.account_manager = ""
+        partner.save(
+            update_fields=["claimed_by", "claimed_at", "account_manager", "updated_at"]
+        )
+
+        refreshed = _partners().get(pk=partner.pk)
+        return Response(
+            LocationSerializer(refreshed, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
