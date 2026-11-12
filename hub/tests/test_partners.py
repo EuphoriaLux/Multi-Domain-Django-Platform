@@ -1482,3 +1482,170 @@ class LuxembourgVenueImportTests(TestCase):
         self.assertEqual(
             scotts.partnership_stage, Location.PartnershipStage.NEGOTIATING
         )
+
+
+class LuxembourgVenueEchoLuScanTests(TestCase):
+    """The live echo.lu scan only enriches venues that already exist.
+
+    Regression tests for the first production run (2026-11-13): it created
+    1,832 venues and as many ``EchoVenue`` mappings from the registry, stopped
+    at the page cap without saying so, and its dry run overcounted.
+    """
+
+    OSM = {
+        "elements": [
+            {
+                "type": "node",
+                "id": 1001,
+                "tags": {
+                    "name": "Scott's Pub",
+                    "amenity": "pub",
+                    "addr:postcode": "L-1238",
+                    "addr:city": "Luxembourg",
+                },
+            }
+        ]
+    }
+    SCOTTS = {
+        "id": "echo-scotts-123",
+        "title": "Scott's Pub",
+        "website": "https://scotts.example",
+        "location": {
+            "address": {
+                "street": "Bisserwee",
+                "number": "4",
+                "postcode": "1238",
+                "town": "Luxembourg",
+            }
+        },
+    }
+    SCHOOL = {
+        "id": "ecole-privee-1",
+        "title": "Ecole privée Sainte-Anne",
+        "location": {"address": {"postcode": "9051", "town": "Ettelbruck"}},
+    }
+
+    def _run(self, records, **options):
+        import json
+        import os
+        import tempfile
+        from io import StringIO
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp:
+            json.dump(self.OSM, tmp)
+        self.addCleanup(os.remove, tmp.name)
+        fake_client = type("FakeClient", (), {"api_key": "test-key"})()
+        out = StringIO()
+        with (
+            patch("crush_lu.services.echo_lu.EchoLuClient", return_value=fake_client),
+            patch(
+                "crush_lu.services.echo_lu.iter_venue_records",
+                return_value=iter(records),
+            ),
+        ):
+            call_command(
+                "import_luxembourg_venues",
+                osm_file=tmp.name,
+                with_echo_lu=True,
+                stdout=out,
+                **options,
+            )
+        return out.getvalue()
+
+    def test_unmatched_registry_record_creates_no_venue_and_no_mapping(self):
+        from crush_lu.models.echo_lu import EchoVenue
+
+        output = self._run([self.SCHOOL, self.SCOTTS])
+
+        self.assertEqual(
+            list(Location.objects.values_list("external_id", flat=True)),
+            ["osm:node:1001"],
+        )
+        self.assertEqual(EchoVenue.objects.count(), 0)
+        self.assertIn("1 created, 1 updated", output)
+        self.assertIn("1 echo.lu record(s) matching no venue left out", output)
+
+    def test_matched_record_fills_blanks_and_keeps_the_venue_its_own(self):
+        self._run([self.SCOTTS])
+
+        scotts = Location.objects.get()
+        self.assertEqual(scotts.address_street, "Bisserwee")
+        self.assertEqual(scotts.website, "https://scotts.example")
+        # Still an OSM venue: the enriching source leaves no id of its own, and
+        # no mapping is made for it, so the event sync is unaffected.
+        self.assertEqual(scotts.external_source, "osm")
+        self.assertEqual(scotts.external_id, "osm:node:1001")
+        self.assertIsNone(scotts.echo_venue)
+
+    def test_hand_entered_venue_is_enriched_without_a_source_id_or_estimate_tag(self):
+        partner = Location.objects.create(
+            name="Scott's Pub",
+            address="Luxembourg",
+            city="Luxembourg",
+            address_postcode="1238",
+            max_capacity=80,
+            partnership_stage=Location.PartnershipStage.ACTIVE,
+        )
+        self._run([self.SCOTTS], skip_osm=True)
+
+        partner.refresh_from_db()
+        self.assertEqual(partner.address_street, "Bisserwee")
+        self.assertEqual(partner.external_source, "")
+        self.assertEqual(partner.external_id, "")
+        self.assertNotIn("capacite-estimee", partner.tags)
+        self.assertEqual(partner.partnership_stage, Location.PartnershipStage.ACTIVE)
+        self.assertEqual(Location.objects.count(), 1)
+
+    def test_dry_run_reports_the_real_counts_and_writes_nothing(self):
+        from crush_lu.models.echo_lu import EchoVenue
+
+        preview = self._run([self.SCHOOL, self.SCOTTS], dry_run=True)
+
+        self.assertEqual(Location.objects.count(), 0)
+        self.assertEqual(EchoVenue.objects.count(), 0)
+        real = self._run([self.SCHOOL, self.SCOTTS])
+        self.assertEqual(Location.objects.count(), 1)
+        counts = "1 created, 1 updated, 0 unchanged, 0 ignored, 1 echo.lu"
+        self.assertIn(counts, preview)
+        self.assertIn(counts, real)
+        self.assertIn("DRY-RUN, rolled back", preview)
+
+    def test_reaching_the_page_cap_is_reported(self):
+        records = [
+            {"id": f"hall-{n}", "title": f"Hall {n}", "location": {}}
+            for n in range(100)
+        ]
+        capped = self._run(records, echo_pages=1)
+        self.assertIn("stopped at the 1-page cap (100 venues)", capped)
+
+        complete = self._run(records[:99], echo_pages=1)
+        self.assertNotIn("page cap", complete)
+
+    def test_a_failed_registry_read_writes_nothing(self):
+        from unittest.mock import patch
+
+        from django.core.management import CommandError, call_command
+
+        from crush_lu.services import echo_lu
+
+        fake_client = type("FakeClient", (), {"api_key": "test-key"})()
+        with (
+            patch("crush_lu.services.echo_lu.EchoLuClient", return_value=fake_client),
+            patch(
+                "crush_lu.services.echo_lu.iter_venue_records",
+                side_effect=echo_lu.EchoLuError("boom"),
+            ),
+            patch(
+                "hub.management.commands.import_luxembourg_venues."
+                "fetch_osm_luxembourg_elements",
+                return_value=self.OSM["elements"],
+            ),
+            self.assertRaises(CommandError),
+        ):
+            call_command("import_luxembourg_venues", with_echo_lu=True)
+        self.assertEqual(Location.objects.count(), 0)
