@@ -553,6 +553,12 @@ document.addEventListener("alpine:init", function () {
                             }
                         }
                     }
+                    // The review shows the question again, with the hidden word
+                    // of a {{word}} question filled in (it is on this message only)
+                    this._renderQuestionCopy(
+                        this.$refs.reviewCopy,
+                        _localized(data, "revealed_segments"),
+                    );
                     // Transition to review screen — persistent until next question
                     this.screen = "review";
                     // Clear any previous auto-hide timer (feedback stays until next question)
@@ -616,8 +622,17 @@ document.addEventListener("alpine:init", function () {
                 }
                 this.screen = "question";
                 this._renderChoices();
+                this._renderQuestionCopy(this.$refs.questionCopy);
                 this._renderMedia();
                 this.startCountdown();
+            },
+
+            // Question text with its hidden word drawn as an animated blank;
+            // `segments` (reveal only) fills the blank with the real word.
+            _renderQuestionCopy: function (el, segments) {
+                if (window.QuizBlanks) {
+                    window.QuizBlanks.render(el, this.questionText, segments);
+                }
             },
 
             _renderMedia: function () {

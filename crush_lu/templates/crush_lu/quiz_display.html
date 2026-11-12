@@ -137,7 +137,7 @@
 
             <div class="quiz-display-question__body">
                 <div>
-                    <p class="quiz-display-question__copy" x-text="questionText"></p>
+                    <p class="quiz-display-question__copy" x-ref="questionCopy"></p>
                     <p class="mt-3 text-center text-lg text-slate-400">
                         <span x-text="questionPoints"></span> {% trans "points" %}
                         <span x-show="isBonusRound" class="font-semibold text-amber-300"> (&times;2)</span>
@@ -177,6 +177,7 @@
                 <p class="quiz-stage-kicker" x-text="roundLabel"></p>
                 <h2 class="text-5xl font-black text-white">{% trans "Results" %}</h2>
             </div>
+            <p x-show="hasRevealCopy" x-cloak x-ref="revealCopy" class="quiz-display-question__copy mb-8"></p>
             <div class="w-full max-w-6xl">
                 <div x-ref="revealgrid" class="grid gap-5" style="grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));"></div>
             </div>
@@ -236,6 +237,7 @@
     </main>
 
     <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-media.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-blanks.js' %}"></script>
     <script nonce="{{ csp_nonce }}" src="{% static 'crush_lu/js/quiz-display.js' %}"></script>
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/vendor/alpinejs-csp-3.13.3.min.js' %}"></script>
 </body>

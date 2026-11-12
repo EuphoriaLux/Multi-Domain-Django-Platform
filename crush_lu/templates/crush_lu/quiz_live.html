@@ -96,7 +96,7 @@
                     <span x-text="roundTitle"></span>
                     <span x-text="pointsLabel"></span>
                 </div>
-                <p class="quiz-question-copy" x-text="questionText"></p>
+                <p class="quiz-question-copy" x-ref="questionCopy"></p>
             </div>
 
             <div x-ref="media"></div>
@@ -126,7 +126,7 @@
         <section x-show="isReview" x-cloak class="space-y-4">
             <div class="quiz-focus-panel quiz-question-card text-center">
                 <p class="quiz-stage-kicker">{% trans "Question complete" %}</p>
-                <p class="quiz-question-copy" x-text="questionText"></p>
+                <p class="quiz-question-copy" x-ref="reviewCopy"></p>
                 <p class="quiz-question-points" x-text="pointsLabel"></p>
             </div>
             <div x-show="hasTableScoredFeedback"
@@ -201,9 +201,11 @@
 {% if assets_dev %}
     {% now "U" as ts %}
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-media.js' %}?v={{ ts }}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-blanks.js' %}?v={{ ts }}"></script>
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-live.js' %}?v={{ ts }}"></script>
 {% else %}
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-media.js' %}"></script>
+    <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-blanks.js' %}"></script>
     <script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/quiz-live.js' %}"></script>
 {% endif %}
 {% endblock %}

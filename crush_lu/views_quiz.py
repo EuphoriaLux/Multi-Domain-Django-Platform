@@ -528,6 +528,10 @@ def quiz_table_display_data(request, event_id):
                 )
             reveal.sort(key=lambda x: x["table_number"])
             data["reveal_results"] = reveal
+            # The hidden word of a ``{{word}}`` question, only once revealed.
+            from crush_lu.services.quiz_blanks import revealed_segments_payload
+
+            data.update(revealed_segments_payload(question))
 
     # Include leaderboard
     leaderboard_tables = []

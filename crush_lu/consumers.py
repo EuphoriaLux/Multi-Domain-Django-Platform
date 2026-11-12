@@ -7,6 +7,7 @@ from django.db.models import Sum
 from django.utils import timezone
 
 from crush_lu.models.quiz import parse_choices as _parse_choices
+from crush_lu.services.quiz_blanks import mask_blanks, revealed_segments_payload
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,11 @@ def _build_question_data(question, include_answers=False):
     """
     q_data = {
         "id": question.id,
-        "text": question.text,
+        # ``{{word}}`` markers are masked here, for every viewer: this payload
+        # is broadcast to the whole group (the host's extra answer keys are
+        # stripped per connection), so the word must never be in it. The word
+        # comes back only with the all-tables-scored reveal.
+        "text": mask_blanks(question.text),
         "question_type": question.question_type,
         "points": question.points,
         # Media stimulus (image/video/audio) is language-neutral and safe for
@@ -36,7 +41,7 @@ def _build_question_data(question, include_answers=False):
     for lang in _QUIZ_LANGUAGES:
         val = getattr(question, f"text_{lang}", None)
         if val:
-            q_data[f"text_{lang}"] = val
+            q_data[f"text_{lang}"] = mask_blanks(val)
 
     if question.question_type in ("multiple_choice", "true_false"):
         # Default choices (active language)
@@ -697,6 +702,7 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                     "data": {
                         "question_id": question_id,
                         "results": result["reveal_results"],
+                        **result.get("revealed_segments", {}),
                     },
                 },
             )
@@ -1765,6 +1771,8 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                     }
                 )
             result["reveal_results"] = reveal_results
+            # The hidden word of a ``{{word}}`` question, sent only now.
+            result["revealed_segments"] = revealed_segments_payload(question)
 
         return result
 
