@@ -445,6 +445,8 @@ class AccountErasureCompletenessTests(TestCase):
             ("hub", "WhatsAppMessage"),
             ("token_blacklist", "OutstandingToken"),
             ("hub", "PartnerOnboardingStep"),
+            # Venue claim: a staff (coach) actor link, like done_by above.
+            ("hub", "Location"),
             ("onboarding", "OnboardingSession"),
             ("arborist", "ArboristLead"),
             ("arborist", "LeadEvent"),
