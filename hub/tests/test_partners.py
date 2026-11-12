@@ -1198,18 +1198,141 @@ class LuxembourgVenueMatchingTests(TestCase):
         manual.refresh_from_db()
         self.assertEqual(manual.external_id, "osm:node:12")
 
-    def test_two_osm_outlets_without_address_tags_stay_two_venues(self):
-        from hub.venue_import import upsert_venue_record
+    def test_two_osm_outlets_in_one_town_without_postcodes_stay_two_venues(self):
+        from hub.venue_import import parse_osm_element, upsert_venue_record
 
-        # No addr:* tags: both resolve to city "Luxembourg" with no postcode.
-        _, first = upsert_venue_record(self._osm(21, "Café de la Gare"))
-        action, second = upsert_venue_record(self._osm(22, "Café de la Gare"))
+        # Same name, same commune, no postcode: only the differing OSM ids say
+        # these are two premises.
+        def outlet(osm_id):
+            return parse_osm_element(
+                {"type": "node", "id": osm_id, "tags": {"name": "Café de la Gare"}},
+                ["Ettelbruck"],
+            )
+
+        _, first = upsert_venue_record(outlet(21))
+        action, second = upsert_venue_record(outlet(22))
         self.assertEqual(action, "created")
         self.assertNotEqual(first.pk, second.pk)
+        self.assertEqual(second.city, "Ettelbruck")
         # Re-running the same element is still idempotent.
-        action, again = upsert_venue_record(self._osm(22, "Café de la Gare"))
+        action, again = upsert_venue_record(outlet(22))
         self.assertEqual(action, "skipped")
         self.assertEqual(again.pk, second.pk)
+
+
+class LuxembourgVenueTownAndCantonTests(TestCase):
+    """Town and canton come from the data, never from a "Luxembourg" default."""
+
+    # Shape of OVERPASS_LUXEMBOURG_QUERY's output: the venues, then each
+    # commune's boundary followed by the bare ids of the venues inside it.
+    PAYLOAD = [
+        {"type": "node", "id": 1, "tags": {"name": "Op der Bréck", "amenity": "pub"}},
+        {
+            "type": "node",
+            "id": 2,
+            "tags": {"name": "Grenzcafé", "amenity": "cafe", "addr:postcode": "9081"},
+        },
+        {"type": "node", "id": 3, "tags": {"name": "Nowhere Bar", "amenity": "bar"}},
+        {
+            "type": "relation",
+            "id": 900,
+            "tags": {"boundary": "administrative", "admin_level": "8", "name": "Wiltz"},
+        },
+        {"type": "node", "id": 1},
+        {"type": "node", "id": 2},
+        {
+            "type": "relation",
+            "id": 901,
+            "tags": {
+                "boundary": "administrative",
+                "admin_level": "8",
+                "name": "Ettelbruck",
+            },
+        },
+        {"type": "node", "id": 2},
+    ]
+
+    def test_boundary_pass_is_split_from_the_venues(self):
+        from hub.venue_import import split_osm_elements
+
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        self.assertEqual([v["id"] for v in venues], [1, 2, 3])
+        self.assertEqual(
+            communes,
+            {"osm:node:1": ["Wiltz"], "osm:node:2": ["Wiltz", "Ettelbruck"]},
+        )
+
+    def test_untagged_venue_takes_town_and_canton_from_its_commune(self):
+        from hub.venue_import import parse_osm_element, split_osm_elements
+
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        parsed = parse_osm_element(venues[0], communes["osm:node:1"])
+        self.assertEqual(parsed["city"], "Wiltz")
+        self.assertEqual(parsed["canton"], "Wiltz")
+        self.assertEqual(parsed["address"], "Wiltz")
+
+    def test_border_venue_prefers_the_commune_its_postcode_names(self):
+        from crush_lu.services.echo_lu_postcodes import POSTCODE_TO_COMMUNE
+        from hub.venue_import import parse_osm_element, split_osm_elements
+
+        self.assertEqual(POSTCODE_TO_COMMUNE["9081"], "Ettelbruck")
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        parsed = parse_osm_element(venues[1], communes["osm:node:2"])
+        self.assertEqual(parsed["city"], "Ettelbruck")
+        self.assertEqual(parsed["canton"], "Diekirch")
+
+    def test_unknown_town_stays_blank_and_a_later_run_fills_it(self):
+        from hub.venue_import import (
+            parse_osm_element,
+            split_osm_elements,
+            upsert_venue_record,
+        )
+
+        venues, communes = split_osm_elements(self.PAYLOAD)
+        # A file without the commune pass: nothing says where the venue is.
+        action, row = upsert_venue_record(parse_osm_element(venues[0]))
+        self.assertEqual(action, "created")
+        self.assertEqual((row.city, row.address_town, row.canton), ("", "", ""))
+        self.assertEqual(row.address, "")
+
+        action, row = upsert_venue_record(
+            parse_osm_element(venues[0], communes["osm:node:1"])
+        )
+        self.assertEqual(action, "updated")
+        row.refresh_from_db()
+        self.assertEqual(
+            (row.city, row.address_town, row.canton, row.address),
+            ("Wiltz", "Wiltz", "Wiltz", "Wiltz"),
+        )
+
+    def test_import_command_reads_the_commune_pass(self):
+        import json
+        import os
+        import tempfile
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        with tempfile.NamedTemporaryFile(
+            "w", suffix=".json", delete=False, encoding="utf-8"
+        ) as tmp:
+            json.dump({"elements": self.PAYLOAD}, tmp)
+        self.addCleanup(os.remove, tmp.name)
+        out = StringIO()
+        call_command("import_luxembourg_venues", osm_file=tmp.name, stdout=out)
+
+        self.assertIn("3 OSM venue element(s); 2 placed in a commune", out.getvalue())
+        rows = {
+            row.external_id: (row.city, row.canton) for row in Location.objects.all()
+        }
+        self.assertEqual(
+            rows,
+            {
+                "osm:node:1": ("Wiltz", "Wiltz"),
+                "osm:node:2": ("Ettelbruck", "Diekirch"),
+                "osm:node:3": ("", ""),
+            },
+        )
 
     def test_live_echo_scan_never_repoints_an_existing_venue_mapping(self):
         from io import StringIO

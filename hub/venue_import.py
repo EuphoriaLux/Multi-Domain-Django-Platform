@@ -34,15 +34,31 @@ OVERPASS_ENDPOINTS = (
     "https://overpass.kumi.systems/api/interpreter",
 )
 
+# Two passes in one request. The first returns the venues. The second walks the
+# 100 communes (admin_level 8) and, after each commune's boundary, lists the bare
+# ids of the venues inside it. About half of Luxembourg's OSM venues carry no
+# postcode or city, so this point-in-boundary answer is the only reliable town
+# and canton for them. ``split_osm_elements`` separates the two passes.
 OVERPASS_LUXEMBOURG_QUERY = """
-[out:json][timeout:90];
+[out:json][timeout:180];
 area["ISO3166-1"="LU"]->.searchArea;
 (
   node["amenity"~"^(restaurant|bar|pub|cafe|biergarten|nightclub)$"]["name"](area.searchArea);
   way["amenity"~"^(restaurant|bar|pub|cafe|biergarten|nightclub)$"]["name"](area.searchArea);
   relation["amenity"~"^(restaurant|bar|pub|cafe|biergarten|nightclub)$"]["name"](area.searchArea);
+)->.venues;
+.venues out center tags;
+rel["boundary"="administrative"]["admin_level"="8"](area.searchArea)->.communes;
+foreach.communes->.commune(
+  .commune out tags;
+  .commune map_to_area->.communeArea;
+  (
+    node.venues(area.communeArea);
+    way.venues(area.communeArea);
+    relation.venues(area.communeArea);
+  );
+  out ids;
 );
-out center tags;
 """.strip()
 
 
@@ -246,50 +262,32 @@ def normalize_postcode(raw_postcode: str) -> str:
     return match.group(1) if match else ""
 
 
-def resolve_commune_and_canton(postcode: str, raw_city: str = "") -> tuple[str, str]:
-    """Return ``(commune_or_town, canton)`` for a Luxembourg postcode and/or city."""
-    norm_postcode = normalize_postcode(postcode)
-    commune = POSTCODE_TO_COMMUNE.get(norm_postcode, "")
-    town = (raw_city or "").strip() or commune or "Luxembourg"
-    lookup_commune = commune or town
+def resolve_commune_and_canton(
+    postcode: str, raw_city: str = "", boundary_communes=()
+) -> tuple[str, str]:
+    """Return ``(town, canton)``; either is ``""`` when the data does not say.
 
-    canton = COMMUNE_TO_CANTON.get(_fold(lookup_commune), "")
-    if not canton and town:
-        canton = COMMUNE_TO_CANTON.get(_fold(town), "")
-
-    if not canton and norm_postcode:
-        prefix2 = int(norm_postcode[:2])
-        if 10 <= prefix2 <= 29:
-            canton = "Luxembourg"
-        elif 30 <= prefix2 <= 49:
-            canton = "Esch-sur-Alzette"
-        elif 50 <= prefix2 <= 53:
-            canton = "Luxembourg"
-        elif 54 <= prefix2 <= 57:
-            canton = "Remich"
-        elif 58 <= prefix2 <= 59:
-            canton = "Luxembourg"
-        elif 60 <= prefix2 <= 65:
-            canton = "Echternach"
-        elif 66 <= prefix2 <= 69:
-            canton = "Grevenmacher"
-        elif 70 <= prefix2 <= 73:
-            canton = "Luxembourg"
-        elif 74 <= prefix2 <= 77:
-            canton = "Mersch"
-        elif 78 <= prefix2 <= 84:
-            canton = "Capellen"
-        elif 85 <= prefix2 <= 88:
-            canton = "Redange"
-        elif 89 <= prefix2 <= 93:
-            canton = "Diekirch"
-        elif prefix2 == 94:
-            canton = "Vianden"
-        elif 95 <= prefix2 <= 96:
-            canton = "Wiltz"
-        elif 97 <= prefix2 <= 99:
-            canton = "Clervaux"
-
+    Town: the address's own city, else the postcode's commune, else the commune
+    whose boundary holds the venue. Canton: from the boundary commune first
+    (where the venue's coordinates are), then the postcode's commune, then the
+    address city. Nothing is guessed. A default such as "Luxembourg" would put
+    every untagged venue in the capital's canton, and since the importer only
+    backfills empty fields, a later run could never correct it; a blank can be
+    filled.
+    """
+    postcode_commune = POSTCODE_TO_COMMUNE.get(normalize_postcode(postcode), "")
+    communes = [name for name in boundary_communes if name]
+    # A venue on a border is listed under both communes: prefer the postcode's.
+    boundary = next(
+        (name for name in communes if _fold(name) == _fold(postcode_commune)),
+        communes[0] if communes else "",
+    )
+    town = (raw_city or "").strip() or postcode_commune or boundary
+    canton = ""
+    for candidate in (boundary, postcode_commune, raw_city):
+        canton = COMMUNE_TO_CANTON.get(_fold(candidate), "") if candidate else ""
+        if canton:
+            break
     return town[:100], canton
 
 
@@ -330,11 +328,45 @@ def compose_legacy_address(
         return street_part
     if town_part:
         return town_part
-    return fallback.strip() or "Luxembourg"
+    return fallback.strip()
 
 
-def parse_osm_element(element: dict) -> dict | None:
-    """Convert a raw Overpass JSON element into a normalized venue dict."""
+def osm_external_id(element: dict) -> str:
+    osm_id = element.get("id")
+    if osm_id is None:
+        return ""
+    return f"osm:{element.get('type') or 'node'}:{osm_id}"
+
+
+def split_osm_elements(elements: list[dict]) -> tuple[list[dict], dict[str, list]]:
+    """Separate the venues from the commune pass of ``OVERPASS_LUXEMBOURG_QUERY``.
+
+    Returns ``(venues, communes_by_id)``, where ``communes_by_id`` maps an OSM
+    external id to the commune(s) whose boundary holds it. A file saved from a
+    query without the commune pass yields an empty map.
+    """
+    venues, communes_by_id = [], {}
+    commune = ""
+    for element in elements:
+        tags = element.get("tags")
+        if tags is None:
+            # ``out ids`` rows: a venue inside the commune announced last.
+            if commune:
+                communes_by_id.setdefault(osm_external_id(element), []).append(commune)
+            continue
+        if tags.get("boundary") == "administrative":
+            commune = (tags.get("name") or "").strip()
+            continue
+        venues.append(element)
+    return venues, communes_by_id
+
+
+def parse_osm_element(element: dict, communes=()) -> dict | None:
+    """Convert a raw Overpass JSON element into a normalized venue dict.
+
+    ``communes`` are the commune(s) whose boundary holds the element, from
+    :func:`split_osm_elements`.
+    """
     tags = element.get("tags") or {}
     if tags.get("disused:amenity") or tags.get("abandoned:amenity"):
         return None
@@ -347,9 +379,7 @@ def parse_osm_element(element: dict) -> dict | None:
     name = name[:200]
 
     amenity = (tags.get("amenity") or "restaurant").strip().lower()
-    osm_type = element.get("type") or "node"
-    osm_id = element.get("id")
-    external_id = f"osm:{osm_type}:{osm_id}" if osm_id is not None else ""
+    external_id = osm_external_id(element)
 
     street = (tags.get("addr:street") or "")[:200].strip()
     number = (tags.get("addr:housenumber") or "")[:20].strip()
@@ -364,7 +394,7 @@ def parse_osm_element(element: dict) -> dict | None:
         or ""
     ).strip()
 
-    town, canton = resolve_commune_and_canton(postcode, raw_city)
+    town, canton = resolve_commune_and_canton(postcode, raw_city, communes)
     address = compose_legacy_address(street, number, postcode, town)
 
     lat_raw = element.get("lat")
@@ -438,7 +468,7 @@ def parse_osm_element(element: dict) -> dict | None:
     }
 
 
-def fetch_osm_luxembourg_elements(timeout: int = 90) -> list[dict]:
+def fetch_osm_luxembourg_elements(timeout: int = 200) -> list[dict]:
     """Query the public Overpass API for Luxembourg restaurants and bars."""
     last_exc = None
     for endpoint in OVERPASS_ENDPOINTS:
@@ -568,6 +598,10 @@ def upsert_venue_record(
     backfill_Attrs = (
         "external_source",
         "external_id",
+        # Blank when an earlier run had no town for the venue (see
+        # resolve_commune_and_canton); a coach-entered row always has both.
+        "address",
+        "city",
         "address_street",
         "address_number",
         "address_postcode",

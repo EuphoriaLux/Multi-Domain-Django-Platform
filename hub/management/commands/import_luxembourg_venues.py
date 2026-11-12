@@ -21,8 +21,10 @@ from hub.venue_import import (
     fetch_osm_luxembourg_elements,
     load_osm_elements_from_file,
     normalize_postcode,
+    osm_external_id,
     parse_echo_lu_venue_record,
     parse_osm_element,
+    split_osm_elements,
     sync_cached_echo_venues_to_locations,
     upsert_venue_record,
 )
@@ -92,9 +94,23 @@ class Command(BaseCommand):
                 except Exception as exc:
                     raise CommandError(f"Overpass query failed: {exc}") from exc
 
-            self.stdout.write(f"Fetched {len(elements)} raw OSM element(s).")
-            for element in elements:
-                parsed = parse_osm_element(element)
+            venues, communes_by_id = split_osm_elements(elements)
+            self.stdout.write(
+                f"Fetched {len(venues)} OSM venue element(s); "
+                f"{len(communes_by_id)} placed in a commune."
+            )
+            if venues and not communes_by_id:
+                self.stdout.write(
+                    self.style.WARNING(
+                        "No commune boundaries in this OSM data: venues without "
+                        "a postcode or city get a blank town and canton, which "
+                        "a later run with boundaries fills in."
+                    )
+                )
+            for element in venues:
+                parsed = parse_osm_element(
+                    element, communes_by_id.get(osm_external_id(element), ())
+                )
                 if parsed is None:
                     totals["ignored"] += 1
                     continue
