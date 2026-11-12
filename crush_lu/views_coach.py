@@ -453,6 +453,11 @@ def coach_dashboard(request):
         1 for r in pending_submissions if r["sla_state"] in ("breach", "escalated")
     )
 
+    from crush_lu.services.quiz_rehearsal import rehearsal_enabled
+
+    # Staging/local only: shows the "Quiz rehearsal" link.
+    context["rehearsal_enabled"] = rehearsal_enabled()
+
     return render(request, "crush_lu/coach_dashboard.html", context)
 
 

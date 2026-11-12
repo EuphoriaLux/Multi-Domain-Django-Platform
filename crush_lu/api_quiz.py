@@ -41,7 +41,11 @@ def _is_quiz_host(quiz, user):
     if quiz.created_by_id == user.id:
         return True
     from crush_lu.models import CrushCoach
+    from crush_lu.services.quiz_rehearsal import is_rehearsal_host
 
+    # Staging rehearsal event only: any active coach may host.
+    if is_rehearsal_host(quiz, user):
+        return True
     return CrushCoach.objects.filter(
         user=user, is_active=True, assigned_events=quiz.event_id
     ).exists()
