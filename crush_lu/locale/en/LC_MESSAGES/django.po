@@ -12600,6 +12600,10 @@ msgstr ""
 msgid "Shown to the host for manual grading."
 msgstr ""
 
+#: .\crush_lu\templates\crush_lu\coach_quiz_question_form.html:199
+msgid "To hide a word from guests, wrap it in double braces in the question text, e.g. {{word}}. Guests see an animated blank until the reveal."
+msgstr ""
+
 #: .\crush_lu\templates\crush_lu\coach_quiz_round_form.html:4
 #: .\crush_lu\templates\crush_lu\coach_quiz_round_form.html:16
 #: .\crush_lu\templates\crush_lu\coach_quiz_round_form.html:18

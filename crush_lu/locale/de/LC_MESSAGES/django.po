@@ -19088,6 +19088,10 @@ msgstr "Musterantwort"
 msgid "Shown to the host for manual grading."
 msgstr "Wird dem Host zur manuellen Bewertung angezeigt."
 
+#: templates/crush_lu/coach_quiz_question_form.html:199
+msgid "To hide a word from guests, wrap it in double braces in the question text, e.g. {{word}}. Guests see an animated blank until the reveal."
+msgstr "Um ein Wort vor den Gästen zu verbergen, setze es im Fragetext in doppelte geschweifte Klammern, z. B. {{Wort}}. Die Gäste sehen eine animierte Lücke bis zur Auflösung."
+
 #: templates/crush_lu/coach_quiz_round_form.html:4
 #: templates/crush_lu/coach_quiz_round_form.html:16
 #: templates/crush_lu/coach_quiz_round_form.html:18

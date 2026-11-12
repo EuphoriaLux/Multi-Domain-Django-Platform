@@ -23,6 +23,7 @@ from crush_lu.models.quiz import (
     QuizTableMembership,
     TableRoundScore,
 )
+from crush_lu.services.quiz_blanks import mask_blanks
 from crush_lu.views_quiz import get_table_occupants
 
 logger = logging.getLogger(__name__)
@@ -114,7 +115,7 @@ def quiz_state(request, quiz_id):
     if question and quiz.is_active:
         q_data = {
             "id": question.id,
-            "text": question.text,
+            "text": mask_blanks(question.text),
             "question_type": question.question_type,
             "points": question.points,
             "media": question.get_media_payload(),

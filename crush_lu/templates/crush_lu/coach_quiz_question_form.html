@@ -198,6 +198,8 @@
                 </div>
             </div>
 
+            <p class="text-xs text-gray-500 dark:text-gray-400">{% trans "To hide a word from guests, wrap it in double braces in the question text, e.g. {{word}}. Guests see an animated blank until the reveal." %}</p>
+
             <!-- Hidden choices JSON (all 3 languages always submitted) -->
             <input type="hidden" name="choices_json_en" x-bind:value="choicesJsonEn">
             <input type="hidden" name="choices_json_de" x-bind:value="choicesJsonDe">

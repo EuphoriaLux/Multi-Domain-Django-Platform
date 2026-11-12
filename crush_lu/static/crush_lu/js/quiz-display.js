@@ -139,6 +139,8 @@ document.addEventListener("alpine:init", function () {
 
             // --- Score reveal ---
             revealResults: [],
+            // True when the reveal carries the hidden word of a {{word}} question
+            revealHasCopy: false,
 
             // --- Leaderboard ---
             leaderboardTables: [],
@@ -167,6 +169,9 @@ document.addEventListener("alpine:init", function () {
             },
             get isReveal() {
                 return this.screen === "reveal";
+            },
+            get hasRevealCopy() {
+                return this.revealHasCopy;
             },
             get isLeaderboard() {
                 return this.screen === "leaderboard";
@@ -631,7 +636,29 @@ document.addEventListener("alpine:init", function () {
                 this.startCountdown(time);
 
                 this.screen = "question";
+                this._renderQuestionCopy();
                 this._renderMedia();
+            },
+
+            // Question text with its hidden word drawn as an animated blank.
+            _renderQuestionCopy: function () {
+                if (window.QuizBlanks) {
+                    window.QuizBlanks.render(this.$refs.questionCopy, this.questionText);
+                }
+            },
+
+            // Fill the blank in once the server reveals the word. The segments
+            // are only on the reveal message, never on the question itself.
+            _renderRevealCopy: function (data) {
+                var segments = _localized(data, "revealed_segments");
+                this.revealHasCopy = Array.isArray(segments) && segments.length > 1;
+                if (this.revealHasCopy && window.QuizBlanks) {
+                    window.QuizBlanks.render(
+                        this.$refs.revealCopy,
+                        this.questionText,
+                        segments,
+                    );
+                }
             },
 
             showQuestion: function (data) {
@@ -656,6 +683,7 @@ document.addEventListener("alpine:init", function () {
                 this.startCountdown(time);
 
                 this.screen = "question";
+                this._renderQuestionCopy();
                 this._renderMedia();
             },
 
@@ -740,6 +768,7 @@ document.addEventListener("alpine:init", function () {
                 this.revealResults.sort(function (a, b) {
                     return a.table_number - b.table_number;
                 });
+                this._renderRevealCopy(data);
                 this.screen = "reveal";
             },
 
@@ -896,6 +925,11 @@ document.addEventListener("alpine:init", function () {
                                         };
                                     },
                                 );
+                                // Once per reveal: the 5 s poll must not restart
+                                // the word's animation.
+                                if (self.screen !== "reveal") {
+                                    self._renderRevealCopy(data);
+                                }
                                 self.screen = "reveal";
                             } else if (
                                 self.screen === "waiting" ||
@@ -916,7 +950,10 @@ document.addEventListener("alpine:init", function () {
                                     self.screen !== "question" ||
                                     self.questionId !== prevQuestionId;
                                 self.screen = "question";
-                                if (mediaStale) self._renderMedia();
+                                if (mediaStale) {
+                                    self._renderQuestionCopy();
+                                    self._renderMedia();
+                                }
                             }
                         } else if (
                             !data.question &&
