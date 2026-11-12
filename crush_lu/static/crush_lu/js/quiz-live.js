@@ -74,6 +74,12 @@ document.addEventListener("alpine:init", function () {
             correct: "Correct!",
             wrong: "Wrong!",
             correctAnswer: "Correct answer: {answer}",
+            moveToTable: "Move to Table {n}!",
+            stayAtTable: "Stay at your table!",
+            moveToNextTable: "Please move to the next table.",
+            nextRoundMove: "Next round: you move to Table {n}",
+            nextRoundStay: "Next round: you stay at your table",
+            nextRoundSoon: "The next round starts soon.",
         };
         if (!raw) return defaults;
         try {
@@ -102,7 +108,7 @@ document.addEventListener("alpine:init", function () {
             isQuizNight: false,
 
             // State
-            screen: "waiting", // waiting | question | leaderboard | rotate
+            screen: "waiting", // waiting | question | review | roundbreak | rotate | finished
             countdown: 0,
             countdownTotal: 30,
             countdownTimer: null,
@@ -161,6 +167,9 @@ document.addEventListener("alpine:init", function () {
             get isFinished() {
                 return this.screen === "finished";
             },
+            get isRoundBreak() {
+                return this.screen === "roundbreak";
+            },
             get isReview() {
                 return this.screen === "review";
             },
@@ -191,8 +200,18 @@ document.addEventListener("alpine:init", function () {
             get hasTableInfo() {
                 return this.isQuizNight && this.tableNumber > 0;
             },
-            get hasNextTable() {
-                return this.nextTable !== null;
+            // True when the next round seats this player at another table.
+            get willMove() {
+                return this.nextTable !== null && this.nextTable !== this.tableNumber;
+            },
+            // Shown between rounds, before the host rotates: where this player
+            // sits next. `nextTable` is the server's seating for the next
+            // round; it is null on a quiz without rotation.
+            get roundBreakMessage() {
+                if (!this._i18n) return "";
+                if (this.nextTable === null) return this._i18n.nextRoundSoon;
+                if (!this.willMove) return this._i18n.nextRoundStay;
+                return this._i18n.nextRoundMove.replace("{n}", this.nextTable);
             },
             get hasTableScoredFeedback() {
                 return this.tableScoredFeedback !== "";
@@ -255,26 +274,20 @@ document.addEventListener("alpine:init", function () {
             get hasPersonalScore() {
                 return this.personalScore > 0;
             },
-            get nextTableLabel() {
-                if (!this.nextTable) return "";
-                return "Next: Table " + this.nextTable;
-            },
             get roleLabel() {
                 if (this.userRole === "anchor") return this._i18n.anchorStay;
                 if (this.userRole === "rotator") return this._i18n.rotatorMove;
                 return "";
             },
-            get rotateDestination() {
-                return this.tableNumber || this.nextTable || "";
-            },
             get rotateMessage() {
+                if (!this._i18n) return "";
                 if (this.userRole === "anchor") {
-                    return "Stay at your table!";
+                    return this._i18n.stayAtTable;
                 }
                 if (this.tableNumber) {
-                    return "Move to Table " + this.tableNumber + "!";
+                    return this._i18n.moveToTable.replace("{n}", this.tableNumber);
                 }
-                return "Please move to the next table.";
+                return this._i18n.moveToNextTable;
             },
             get tableScoredFeedbackClass() {
                 if (this._tableScoredCorrect) {
@@ -300,6 +313,7 @@ document.addEventListener("alpine:init", function () {
                         .join(". ");
                 }
                 if (this.isRotate) return this.rotateMessage;
+                if (this.isRoundBreak) return this.roundBreakMessage;
                 if (this.isReview && this.tableScoredFeedback) {
                     return this.tableScoredFeedback;
                 }
@@ -451,6 +465,16 @@ document.addEventListener("alpine:init", function () {
                         this.screen = "finished";
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
+                    } else if (data.status === "active" && data.round_complete) {
+                        // Reload or reconnect between rounds: the server still
+                        // holds the round's last question, but it is over.
+                        if (data.current_round) {
+                            this.roundName = _localized(data.current_round, "title");
+                            this.isBonusRound = data.current_round.is_bonus || false;
+                        }
+                        this._enterRoundBreak();
+                        this._renderTableLeaderboard();
+                        this._renderIndividualLeaderboard();
                     } else if (data.status === "active" && data.question) {
                         if (data.current_round) {
                             this.roundName = _localized(data.current_round, "title");
@@ -465,12 +489,25 @@ document.addEventListener("alpine:init", function () {
                             this.roundName = _localized(data.current_round, "title");
                             this.isBonusRound = data.current_round.is_bonus || false;
                         }
+                        // The host rotated while this player was offline: the
+                        // break is over, and the refetched table is the one
+                        // to move to.
+                        if (data.status === "active" && this.isRoundBreak) {
+                            this.nextTable = null;
+                            this.screen = "rotate";
+                        }
                         // Render persistent leaderboard
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
                     }
                 } else if (type === "quiz.question") {
-                    this.showQuestion(data);
+                    // Resume between two rounds re-sends the finished round's
+                    // last question: stay on the break.
+                    if (data.round_complete) {
+                        this._enterRoundBreak();
+                    } else {
+                        this.showQuestion(data);
+                    }
                 } else if (type === "quiz.answer_result") {
                     this.lastResult = data;
                 } else if (type === "quiz.leaderboard") {
@@ -495,7 +532,12 @@ document.addEventListener("alpine:init", function () {
                         this._renderIndividualLeaderboard();
                         return;
                     }
-                    // Re-fetch assignment to get new table number
+                    // Show the table announced during the break straight away;
+                    // the refetch below confirms it and loads the tablemates.
+                    if (this.nextTable) {
+                        this.tableNumber = this.nextTable;
+                        this.nextTable = null;
+                    }
                     if (this.isQuizNight) {
                         this.fetchAssignment();
                     }
@@ -513,7 +555,7 @@ document.addEventListener("alpine:init", function () {
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "round_complete") {
-                        this.screen = "waiting";
+                        this._enterRoundBreak();
                     } else if (data.status === "paused" && this.screen === "finished") {
                         // Host reopened a finished quiz: leave the final-results
                         // view. The resumed question moves the screen on again.
@@ -576,6 +618,13 @@ document.addEventListener("alpine:init", function () {
                 } else if (type === "quiz.table_update") {
                     // New person checked in at this table — refresh tablemates
                     this.fetchAssignment();
+                } else if (
+                    type === "quiz.table_dissolved" ||
+                    type === "quiz.tables_consolidated"
+                ) {
+                    // Seating was rebuilt: this table and the next one may
+                    // both have changed.
+                    if (this.isQuizNight) this.fetchAssignment();
                 } else if (type === "quiz.my_assignment") {
                     // Sent on connect/reconnect so the user sees the
                     // correct table immediately even if they missed a
@@ -602,6 +651,19 @@ document.addEventListener("alpine:init", function () {
                 this.errorTimer = setTimeout(function () {
                     self.errorMessage = "";
                 }, 5000);
+            },
+
+            // Between two rounds: the round is over and the host has not
+            // rotated yet. Tell the player where they sit next.
+            _enterRoundBreak: function () {
+                if (this.countdownTimer) {
+                    clearInterval(this.countdownTimer);
+                    this.countdownTimer = null;
+                }
+                this.screen = "roundbreak";
+                // Seating for the next round can be rebuilt up to the rotation
+                // (late arrival, merged tables), so ask again now.
+                if (this.isQuizNight) this.fetchAssignment();
             },
 
             showQuestion: function (data) {
@@ -1310,7 +1372,10 @@ document.addEventListener("alpine:init", function () {
             },
             get holdLabel() {
                 if (this.heldScore === null) return "";
-                return this._i18n.revealingIn.replace("{n}", this.holdSecondsLeft);
+                return this._i18n.revealingIn.replace(
+                    "{n}",
+                    Math.max(this.holdSecondsLeft, 0),
+                );
             },
             get isConfirmingReset() {
                 return this.confirmingReset;
@@ -1571,6 +1636,9 @@ document.addEventListener("alpine:init", function () {
                             this.totalTables = data.total_tables;
                         this._updateTableButtons();
                     }
+                } else if (type === "quiz.score_hold") {
+                    // Another host holds (or undid) the last score.
+                    this._followRemoteHold(data);
                 } else if (type === "quiz.reveal_scores") {
                     // All tables scored — reveal correct/incorrect
                     this._cancelHold();
@@ -2060,7 +2128,9 @@ document.addEventListener("alpine:init", function () {
                 this._sendScore(tableId, isCorrect, false);
             },
 
-            _holdScore: function (tableId, isCorrect) {
+            // `remote`: the hold belongs to another host's screen. This one
+            // only shows the countdown and the Undo; it never sends the score.
+            _holdScore: function (tableId, isCorrect, remote, seconds) {
                 var self = this;
                 this._cancelHold();
                 this.myChoices[String(tableId)] = isCorrect;
@@ -2069,13 +2139,50 @@ document.addEventListener("alpine:init", function () {
                     tableId: tableId,
                     isCorrect: isCorrect,
                     questionId: this.currentQuestion.id,
+                    remote: !!remote,
                 };
-                this.holdSecondsLeft = 3;
+                this.holdSecondsLeft = seconds || 3;
                 this._updateTableButtons();
+                if (!remote) this._sendHold("hold_score", this.heldScore);
                 this._holdTimer = setInterval(function () {
                     self.holdSecondsLeft--;
-                    if (self.holdSecondsLeft <= 0) self._releaseHold();
+                    if (self.heldScore && self.heldScore.remote) {
+                        // The score comes from the other screen. If it never
+                        // does (that host went offline), free the table.
+                        if (self.holdSecondsLeft <= -3) self._cancelHold();
+                    } else if (self.holdSecondsLeft <= 0) {
+                        self._releaseHold();
+                    }
                 }, 1000);
+            },
+
+            _sendHold: function (action, held) {
+                if (!this.ws || !this.connected || !held) return;
+                this.ws.send(
+                    JSON.stringify({
+                        action: action,
+                        table_id: held.tableId,
+                        question_id: held.questionId,
+                        is_correct: held.isCorrect,
+                        seconds: this.holdSecondsLeft,
+                    }),
+                );
+            },
+
+            _followRemoteHold: function (data) {
+                if (!this.currentQuestion || data.question_id !== this.currentQuestion.id)
+                    return;
+                var key = String(data.table_id);
+                if (!data.active) {
+                    // Undo from another screen: drop the hold, ours or theirs.
+                    if (this.heldScore && String(this.heldScore.tableId) === key) {
+                        this._cancelHold();
+                    }
+                    return;
+                }
+                // Keep our own hold; never touch a table that is already scored.
+                if (this.heldScore || this.scoredTables[key] !== undefined) return;
+                this._holdScore(data.table_id, !!data.is_correct, true, data.seconds);
             },
 
             _releaseHold: function () {
@@ -2120,6 +2227,8 @@ document.addEventListener("alpine:init", function () {
             },
 
             undoHeldScore: function () {
+                // Any host can undo; the others drop the hold too.
+                this._sendHold("cancel_hold", this.heldScore);
                 this._cancelHold();
             },
 
