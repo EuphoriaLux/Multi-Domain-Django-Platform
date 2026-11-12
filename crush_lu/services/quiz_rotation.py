@@ -17,7 +17,11 @@ the evening. So the pairing cycles every N rounds at odd N and every N/2 at
 even N, and at 2 tables, where the only move is a swap, every round.
 """
 
+import logging
+
 from django.core.exceptions import ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 def _distribute_evenly(people, num_buckets):
@@ -917,6 +921,7 @@ def reset_quiz_to_draft(quiz, clear_scores=False):
     from crush_lu.models.quiz import (
         IndividualScore,
         QuizEvent,
+        QuizTable,
         TableRoundScore,
     )
 
@@ -947,6 +952,17 @@ def reset_quiz_to_draft(quiz, clear_scores=False):
 
         cleared = 0
         if clear_scores:
+            # Last record of the evening's scores: table number and total only,
+            # no member data (this line lands in App Insights).
+            standings = [
+                {"table": t.table_number, "total": t.get_total_score()}
+                for t in QuizTable.objects.filter(quiz=locked).order_by("table_number")
+            ]
+            logger.info(
+                "Quiz %s reset with clear_scores; table standings before deletion: %s",
+                locked.pk,
+                standings,
+            )
             cleared = TableRoundScore.objects.filter(quiz=locked).count()
             TableRoundScore.objects.filter(quiz=locked).delete()
             IndividualScore.objects.filter(quiz=locked).delete()

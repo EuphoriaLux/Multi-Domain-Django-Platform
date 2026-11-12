@@ -18,7 +18,7 @@
          data-table-count="{{ tables.count }}"
          data-table-members="{{ table_members_json }}"
          data-round-number="{{ round_number }}"
-         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","table":"{% trans "Table" %}","complete":"{% trans "complete" %}","noMembers":"{% trans "No members assigned" %}","now":"{% trans "NOW" %}","done":"{% trans "DONE" %}","draft":"{% trans "Draft" %}","active":"{% trans "Active" %}","paused":"{% trans "Paused" %}","finished":"{% trans "Finished" %}","connected":"{% trans "WebSocket connected" %}","disconnected":"{% trans "Disconnected" %}","roundComplete":"{% trans "Round Complete!" %}","loadingMedia":"{% trans "Loading media" %}","previewReady":"{% trans "Preview loaded here" %}","mediaUnavailable":"{% trans "Media unavailable" %}","mediaLabel":"{% trans "Quiz media" %}","dissolveTable":"{% trans "Dissolve table" %}","confirmDissolve":"{% trans "Confirm — dissolve?" %}","consolidatePlan":"{% trans "Reduce {from} → {to} tables. The moves below will run on confirm." %}","consolidateNoOp":"{% trans "Tables are already consolidated." %}","consolidateMove":"{% trans "{name}: Table {from} → Table {to} ({role})" %}","consolidateFailed":"{% trans "Consolidation failed." %}","consolidateSuccess":"{% trans "Tables consolidated." %}","consolidateEditedNote":"{% trans "You changed the layout, so the block information for the automatic plan no longer applies. Any warnings are shown after you apply." %}"}'>
+         data-i18n='{"pts":"{% trans "pts" %}","anchor":"{% trans "Anchor" %}","rotator":"{% trans "Rotator" %}","table":"{% trans "Table" %}","complete":"{% trans "complete" %}","noMembers":"{% trans "No members assigned" %}","now":"{% trans "NOW" %}","done":"{% trans "DONE" %}","draft":"{% trans "Draft" %}","active":"{% trans "Active" %}","paused":"{% trans "Paused" %}","finished":"{% trans "Finished" %}","connected":"{% trans "WebSocket connected" %}","disconnected":"{% trans "Disconnected" %}","roundComplete":"{% trans "Round Complete!" %}","loadingMedia":"{% trans "Loading media" %}","previewReady":"{% trans "Preview loaded here" %}","mediaUnavailable":"{% trans "Media unavailable" %}","mediaLabel":"{% trans "Quiz media" %}","dissolveTable":"{% trans "Dissolve table" %}","confirmDissolve":"{% trans "Confirm — dissolve?" %}","consolidatePlan":"{% trans "Reduce {from} → {to} tables. The moves below will run on confirm." %}","consolidateNoOp":"{% trans "Tables are already consolidated." %}","consolidateMove":"{% trans "{name}: Table {from} → Table {to} ({role})" %}","consolidateFailed":"{% trans "Consolidation failed." %}","consolidateSuccess":"{% trans "Tables consolidated." %}","consolidateEditedNote":"{% trans "You changed the layout, so the block information for the automatic plan no longer applies. Any warnings are shown after you apply." %}","revealingIn":"{% trans "Revealing in {n}s" %}"}'>
 
         {# --- Header --- #}
         <header class="quiz-host-header quiz-stage-header">
@@ -208,6 +208,12 @@
             </div>
             <p class="mb-3 text-xs text-gray-500">{% trans "Mark each table correct or wrong. Results reveal when all tables are scored." %}</p>
 
+            {# Held last score: the reveal waits a few seconds so a mis-tap can be undone. #}
+            <div x-show="isHoldingScore" x-cloak class="sticky top-2 z-10 mb-3 flex items-center justify-between gap-3 rounded-lg bg-amber-900/80 px-3 py-2 ring-1 ring-amber-400">
+                <span class="text-sm font-semibold text-amber-100" x-text="holdLabel"></span>
+                <button x-on:click="undoHeldScore" class="quiz-action rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-500 active:scale-95">{% trans "Undo" %}</button>
+            </div>
+
             <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 {% for table in tables %}
                 <div data-table-id="{{ table.id }}" class="quiz-table-card rounded-xl bg-slate-700/50 p-3 transition-all">
@@ -326,7 +332,19 @@
                     <span x-show="isConfirmingEnd">{% trans "Confirm End?" %}</span>
                 </button>
 
-            {# Reset Quiz — only shown when finished/paused. Two-tap confirmation to avoid accidental reset. #}
+            {# Reopen Quiz — only when finished. Back to paused with scores and position kept; two-tap confirmation. #}
+            <button x-on:click="reopenQuiz"
+                    x-show="canReopen"
+                    x-bind:class="reopenQuizBtnClass"
+                    class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl py-3 text-xs font-medium shadow transition-all active:scale-95">
+                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4"/>
+                </svg>
+                <span x-show="isNotConfirmingReopen">{% trans "Reopen Quiz" %}</span>
+                <span x-show="isConfirmingReopen">{% trans "Confirm reopen?" %}</span>
+            </button>
+
+            {# Reset Quiz — only shown when finished. Two-tap confirmation to avoid accidental reset. #}
             <button x-on:click="resetQuiz"
                     x-show="canReset"
                     x-bind:class="resetQuizBtnClass"
@@ -337,6 +355,19 @@
                 <span x-show="isNotConfirmingReset">{% trans "Reset Quiz (clears scores)" %}</span>
                 <span x-show="isConfirmingReset">{% trans "Confirm — wipe scores and reset?" %}</span>
             </button>
+
+            {% if rehearsal_enabled %}
+            {# Staging/local only: rehearsal tools. Reset works from ANY state and re-seats guests. #}
+            <button x-on:click="rehearsalReset"
+                    class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl bg-amber-600 py-3 text-xs font-medium text-white shadow transition-all active:scale-95">
+                <span x-show="isNotConfirmingRehearsalReset">Rehearsal: reset and re-seat</span>
+                <span x-show="isConfirmingRehearsalReset">Confirm — wipe everything?</span>
+            </button>
+            <button x-on:click="rehearsalAddGuests"
+                    class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl bg-amber-600 py-3 text-xs font-medium text-white shadow transition-all active:scale-95">
+                <span>Rehearsal: add 8 test guests</span>
+            </button>
+            {% endif %}
             </div>
         </aside>
 

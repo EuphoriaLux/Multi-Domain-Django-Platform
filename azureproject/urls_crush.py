@@ -944,6 +944,17 @@ urlpatterns = (
             api_quiz.assign_table_view,
             name="api_quiz_assign_table",
         ),
+        # Staging-only rehearsal tools (404 elsewhere; see services/quiz_rehearsal.py)
+        path(
+            "api/quiz/<int:quiz_id>/rehearsal/reset/",
+            api_quiz.rehearsal_reset_view,
+            name="api_quiz_rehearsal_reset",
+        ),
+        path(
+            "api/quiz/<int:quiz_id>/rehearsal/add-guests/",
+            api_quiz.rehearsal_add_guests_view,
+            name="api_quiz_rehearsal_add_guests",
+        ),
         # Quiz table display — redirect legacy /quiz/<id>/display/ to language-prefixed URL
         # The actual view lives in i18n_patterns below so Django's LocaleMiddleware sets
         # request.LANGUAGE_CODE before the view renders the template.

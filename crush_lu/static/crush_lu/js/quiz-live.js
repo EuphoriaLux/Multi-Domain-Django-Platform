@@ -70,6 +70,7 @@ document.addEventListener("alpine:init", function () {
             consolidateMove: "{name}: Table {from} → Table {to} ({role})",
             consolidateFailed: "Consolidation failed.",
             consolidateSuccess: "Tables consolidated.",
+            revealingIn: "Revealing in {n}s",
             correct: "Correct!",
             wrong: "Wrong!",
             correctAnswer: "Correct answer: {answer}",
@@ -512,6 +513,10 @@ document.addEventListener("alpine:init", function () {
                         this._renderTableLeaderboard();
                         this._renderIndividualLeaderboard();
                     } else if (data.status === "round_complete") {
+                        this.screen = "waiting";
+                    } else if (data.status === "paused" && this.screen === "finished") {
+                        // Host reopened a finished quiz: leave the final-results
+                        // view. The resumed question moves the screen on again.
                         this.screen = "waiting";
                     }
                     // Start broadcasts the first round here; nothing else
@@ -1000,6 +1005,15 @@ document.addEventListener("alpine:init", function () {
             scoringQuestionId: null,
             scoredCount: 0,
             totalTables: 0,
+            // The host's own choice per table for the current question
+            // ({ tableId: true|false }). The server's table_scored broadcast
+            // carries no correctness, so this is the only record of it.
+            myChoices: {},
+            // The tap that would complete the set is held here for a few
+            // seconds before it is sent: { tableId, isCorrect, questionId }.
+            heldScore: null,
+            holdSecondsLeft: 0,
+            _holdTimer: null,
 
             // Table overview (who sits where)
             tableMembers: [], // [{ table_number, members: [{display_name, role}], total_score }]
@@ -1012,7 +1026,10 @@ document.addEventListener("alpine:init", function () {
             confirmingEnd: false,
             _confirmTimer: null,
             confirmingReset: false,
+            confirmingRehearsalReset: false,
             _confirmResetTimer: null,
+            confirmingReopen: false,
+            _confirmReopenTimer: null,
 
             // Consolidation (compact tables after no-shows)
             consolidationPreview: null,
@@ -1254,7 +1271,31 @@ document.addEventListener("alpine:init", function () {
                 return "bg-red-700/80 text-red-100 hover:bg-red-600";
             },
             get canReset() {
-                return this.status === "finished" || this.status === "paused";
+                // Reset wipes every score, so it is only offered once the quiz
+                // is over. A paused quiz is resumed, not reset.
+                return this.status === "finished";
+            },
+            get canReopen() {
+                return this.status === "finished";
+            },
+            get isConfirmingReopen() {
+                return this.confirmingReopen;
+            },
+            get isNotConfirmingReopen() {
+                return !this.confirmingReopen;
+            },
+            get reopenQuizBtnClass() {
+                if (this.confirmingReopen) {
+                    return "bg-amber-600 text-white ring-2 ring-amber-400 animate-pulse";
+                }
+                return "bg-slate-700 text-amber-200 hover:bg-amber-900/40 ring-1 ring-amber-500/30";
+            },
+            get isHoldingScore() {
+                return this.heldScore !== null;
+            },
+            get holdLabel() {
+                if (this.heldScore === null) return "";
+                return this._i18n.revealingIn.replace("{n}", this.holdSecondsLeft);
             },
             get isConfirmingReset() {
                 return this.confirmingReset;
@@ -1391,10 +1432,13 @@ document.addEventListener("alpine:init", function () {
                         this.currentQuestion = data.question;
                         this.roundComplete = false;
                         // Restore scoring state for reconnecting coach
-                        this.scoringQuestionId = data.question.id;
+                        this._followQuestion(data.question.id);
                         this.questionCount = data.question_count || data.total || 0;
                         this.scoredCount = data.scored_count || 0;
                         this.totalTables = data.total_tables || 0;
+                        // A reconnect snapshot replaces the grid, so a tap
+                        // held before the drop must not fire against it.
+                        this._cancelHold();
                         if (data.scored_tables) {
                             this.scoredTables = data.scored_tables;
                         } else {
@@ -1425,10 +1469,13 @@ document.addEventListener("alpine:init", function () {
                     this.status = "active";
                     this.roundComplete = false;
                     this.isLastRound = false;
-                    // Reset scoring state for new question
-                    this.scoredTables = {};
-                    this.scoredCount = 0;
-                    this.scoringQuestionId = data.id;
+                    // The payload carries the server scoring state: zeros for a
+                    // new question, the real counts when Resume re-broadcasts a
+                    // question that was already (fully) scored. Same shapes the
+                    // quiz.state path restores.
+                    this._followQuestion(data.id);
+                    this.scoredTables = data.scored_tables || {};
+                    this.scoredCount = data.scored_count || 0;
                     // Initialize totalTables from question broadcast
                     if (data.total_tables !== undefined)
                         this.totalTables = data.total_tables;
@@ -1440,6 +1487,9 @@ document.addEventListener("alpine:init", function () {
                     // Update scores in table overview
                     this._updateTableScores();
                 } else if (type === "quiz.status") {
+                    if (data.status === "paused" || data.status === "finished") {
+                        this._cancelHold();
+                    }
                     if (data.status === "round_complete") {
                         this.currentQuestion = null;
                         this.roundComplete = true;
@@ -1508,6 +1558,7 @@ document.addEventListener("alpine:init", function () {
                     }
                 } else if (type === "quiz.reveal_scores") {
                     // All tables scored — reveal correct/incorrect
+                    this._cancelHold();
                     var results = data.results || [];
                     for (var i = 0; i < results.length; i++) {
                         this.scoredTables[String(results[i].table_id)] =
@@ -1854,6 +1905,24 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            reopenQuiz: function () {
+                // Finished -> paused, scores and position kept. Same two-tap
+                // confirmation as End and Reset; Resume then continues play.
+                if (!this.confirmingReopen) {
+                    this.confirmingReopen = true;
+                    var self = this;
+                    this._confirmReopenTimer = setTimeout(function () {
+                        self.confirmingReopen = false;
+                    }, 5000);
+                    return;
+                }
+                this.confirmingReopen = false;
+                if (this._confirmReopenTimer) clearTimeout(this._confirmReopenTimer);
+                if (this.ws && this.connected) {
+                    this.ws.send(JSON.stringify({ action: "reopen_quiz" }));
+                }
+            },
+
             resetQuiz: function () {
                 // Two-tap confirmation. Reset always clears scoring —
                 // otherwise the re-score lock from the previous run
@@ -1883,13 +1952,167 @@ document.addEventListener("alpine:init", function () {
                 }
             },
 
+            // --- Staging-only rehearsal tools (buttons are server-gated) ---
+
+            _rehearsalPost: function (path, payload) {
+                fetch("/api/quiz/" + this.quizId + "/rehearsal/" + path + "/", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": this._getCsrfToken(),
+                    },
+                    body: JSON.stringify(payload || {}),
+                })
+                    .then(function (resp) {
+                        if (resp.ok) window.location.reload();
+                    })
+                    .catch(function () {});
+            },
+
+            rehearsalReset: function () {
+                // Two-tap confirm, same pattern as resetQuiz.
+                if (!this.confirmingRehearsalReset) {
+                    this.confirmingRehearsalReset = true;
+                    var self = this;
+                    setTimeout(function () {
+                        self.confirmingRehearsalReset = false;
+                    }, 5000);
+                    return;
+                }
+                this.confirmingRehearsalReset = false;
+                this._rehearsalPost("reset", {});
+            },
+
+            rehearsalAddGuests: function () {
+                this._rehearsalPost("add-guests", { count: 8 });
+            },
+
+            get isNotConfirmingRehearsalReset() {
+                return !this.confirmingRehearsalReset;
+            },
+
+            get isConfirmingRehearsalReset() {
+                return this.confirmingRehearsalReset;
+            },
+
             // --- Table scoring (quiz night) ---
+
+            _followQuestion: function (questionId) {
+                // Own choices and any held tap belong to one question only.
+                if (questionId !== this.scoringQuestionId) {
+                    this.myChoices = {};
+                    this._cancelHold();
+                }
+                this.scoringQuestionId = questionId;
+            },
 
             _scoreTable: function (tableId, isCorrect) {
                 if (!this.currentQuestion) return;
-                // Prevent re-scoring a table that has already been scored
-                if (this.scoredTables[String(tableId)] !== undefined) return;
-                this.scoredTables[String(tableId)] = "pending";
+                var key = String(tableId);
+                var state = this.scoredTables[key];
+                // Revealed (true/false), in flight, or held: nothing to do.
+                if (
+                    state === true ||
+                    state === false ||
+                    state === "pending" ||
+                    state === "held"
+                )
+                    return;
+
+                if (state === "scored") {
+                    // Already scored, not revealed yet: the other button sends a
+                    // correction. After a page reload the choice is unknown, so
+                    // either button goes through (the server no-ops a same value).
+                    if (this.myChoices[key] === isCorrect) return;
+                    this._sendScore(tableId, isCorrect, true);
+                    return;
+                }
+
+                // Unscored. If this tap would score the last table, the reveal
+                // goes to the whole room, so hold it briefly with an Undo.
+                // Count taps still in flight too ("pending" entries), not only
+                // the scores the server has confirmed: two quick taps on the
+                // last two tables must not skip the hold.
+                var unscored = Math.min(
+                    this.totalTables - this.scoredCount - (this.heldScore ? 1 : 0),
+                    this.totalTables - Object.keys(this.scoredTables).length,
+                );
+                if (this.totalTables > 0 && unscored <= 1) {
+                    this._holdScore(tableId, isCorrect);
+                    return;
+                }
+                this._sendScore(tableId, isCorrect, false);
+            },
+
+            _holdScore: function (tableId, isCorrect) {
+                var self = this;
+                this._cancelHold();
+                this.myChoices[String(tableId)] = isCorrect;
+                this.scoredTables[String(tableId)] = "held";
+                this.heldScore = {
+                    tableId: tableId,
+                    isCorrect: isCorrect,
+                    questionId: this.currentQuestion.id,
+                };
+                this.holdSecondsLeft = 3;
+                this._updateTableButtons();
+                this._holdTimer = setInterval(function () {
+                    self.holdSecondsLeft--;
+                    if (self.holdSecondsLeft <= 0) self._releaseHold();
+                }, 1000);
+            },
+
+            _releaseHold: function () {
+                var held = this.heldScore;
+                this._stopHoldTimer();
+                this.heldScore = null;
+                this.holdSecondsLeft = 0;
+                if (!held) return;
+                if (
+                    !this.currentQuestion ||
+                    this.currentQuestion.id !== held.questionId
+                ) {
+                    delete this.scoredTables[String(held.tableId)];
+                    this._updateTableButtons();
+                    return;
+                }
+                this._sendScore(held.tableId, held.isCorrect, false);
+            },
+
+            _stopHoldTimer: function () {
+                if (this._holdTimer) {
+                    clearInterval(this._holdTimer);
+                    this._holdTimer = null;
+                }
+            },
+
+            _cancelHold: function () {
+                // Drop a held tap without sending it (Undo, new question, reveal
+                // from elsewhere, pause/end).
+                var held = this.heldScore;
+                this._stopHoldTimer();
+                this.heldScore = null;
+                this.holdSecondsLeft = 0;
+                if (held) {
+                    var key = String(held.tableId);
+                    if (this.scoredTables[key] === "held") {
+                        delete this.scoredTables[key];
+                        delete this.myChoices[key];
+                    }
+                    this._updateTableButtons();
+                }
+            },
+
+            undoHeldScore: function () {
+                this._cancelHold();
+            },
+
+            _sendScore: function (tableId, isCorrect, isChange) {
+                var key = String(tableId);
+                var previous = this.myChoices[key];
+                this.myChoices[key] = isCorrect;
+                if (!isChange) this.scoredTables[key] = "pending";
                 this._updateTableButtons();
 
                 if (this.ws && this.connected) {
@@ -1926,12 +2149,21 @@ document.addEventListener("alpine:init", function () {
                             if (data.total_tables !== undefined) {
                                 self.totalTables = data.total_tables;
                             }
-                            self.scoredTables[String(tableId)] = "scored";
+                            self.scoredTables[key] = "scored";
                             self._updateTableButtons();
                         })
                         .catch(function () {
                             // Revert on failure
-                            delete self.scoredTables[String(tableId)];
+                            if (isChange) {
+                                if (previous === undefined) {
+                                    delete self.myChoices[key];
+                                } else {
+                                    self.myChoices[key] = previous;
+                                }
+                            } else {
+                                delete self.scoredTables[key];
+                                delete self.myChoices[key];
+                            }
                             self._updateTableButtons();
                         });
                 }
@@ -2015,7 +2247,62 @@ document.addEventListener("alpine:init", function () {
                         );
                         correctBtn.disabled = true;
                         wrongBtn.disabled = true;
-                    } else if (state === "pending" || state === "scored") {
+                    } else if (
+                        (state === "scored" || state === "held") &&
+                        this.myChoices[String(tid)] !== undefined
+                    ) {
+                        // Scored this session, not revealed yet: show the choice.
+                        // A scored table other button stays live (correction);
+                        // a held table is locked until the hold resolves.
+                        var mineCorrect = this.myChoices[String(tid)] === true;
+                        var chosenBtn = mineCorrect ? correctBtn : wrongBtn;
+                        var otherBtn = mineCorrect ? wrongBtn : correctBtn;
+                        cards[i].classList.add(
+                            "bg-amber-900/30",
+                            "ring-2",
+                            "ring-amber-500/50",
+                        );
+                        this._addClasses(
+                            chosenBtn,
+                            mineCorrect
+                                ? "bg-green-600 ring-2 ring-green-400 text-white scale-105 cursor-not-allowed"
+                                : "bg-red-600 ring-2 ring-red-400 text-white scale-105 cursor-not-allowed",
+                        );
+                        chosenBtn.disabled = true;
+                        if (state === "held") {
+                            this._addClasses(
+                                otherBtn,
+                                "bg-slate-700 text-gray-600 opacity-30 cursor-not-allowed",
+                            );
+                            otherBtn.disabled = true;
+                        } else {
+                            this._addClasses(
+                                otherBtn,
+                                mineCorrect
+                                    ? "bg-slate-600 text-gray-300 hover:bg-red-600 hover:text-white"
+                                    : "bg-slate-600 text-gray-300 hover:bg-green-600 hover:text-white",
+                            );
+                            otherBtn.disabled = false;
+                        }
+                    } else if (state === "scored") {
+                        // Scored, but the choice is unknown (page reloaded):
+                        // either button may send a correction.
+                        cards[i].classList.add(
+                            "bg-amber-900/30",
+                            "ring-2",
+                            "ring-amber-500/50",
+                        );
+                        this._addClasses(
+                            correctBtn,
+                            "bg-amber-700 text-white hover:bg-green-600",
+                        );
+                        this._addClasses(
+                            wrongBtn,
+                            "bg-amber-700 text-white hover:bg-red-600",
+                        );
+                        correctBtn.disabled = false;
+                        wrongBtn.disabled = false;
+                    } else if (state === "pending" || state === "held") {
                         // Pending confirmation
                         cards[i].classList.add(
                             "bg-amber-900/30",

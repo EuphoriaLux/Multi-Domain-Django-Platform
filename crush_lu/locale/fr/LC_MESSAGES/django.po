@@ -47600,3 +47600,15 @@ msgstr "<strong>%(name)s</strong> vous a choisi(e) après sa Connect Week, et vo
 
 msgid "The request closes soon"
 msgstr "La demande expire bientôt"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Reopen Quiz"
+msgstr "Rouvrir le Quiz"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Confirm reopen?"
+msgstr "Confirmer la réouverture ?"
+
+#: crush_lu/templates/crush_lu/quiz_coach.html
+msgid "Revealing in {n}s"
+msgstr "Révélation dans {n} s"
