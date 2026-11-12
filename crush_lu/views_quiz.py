@@ -19,6 +19,7 @@ from crush_lu.models.quiz import (
     QuizTable,
     QuizTableMembership,
 )
+from crush_lu.services.quiz_rehearsal import rehearsal_enabled
 from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
 logger = logging.getLogger(__name__)
@@ -360,6 +361,8 @@ def quiz_coach_view(request, event_id):
         "rotation_warnings": rotation_warnings,
         "unassigned_attendees": unassigned_attendees,
         "table_numbers": list(range(1, (quiz.num_tables or 0) + 1)),
+        # Staging/local only: shows the rehearsal reset + add-guests buttons.
+        "rehearsal_enabled": rehearsal_enabled(),
     }
     return render(request, "crush_lu/quiz_coach.html", context)
 

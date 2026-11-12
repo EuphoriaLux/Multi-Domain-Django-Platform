@@ -776,6 +776,64 @@ def assign_table_view(request, quiz_id):
     return JsonResponse({"success": True, **result})
 
 
+def _rehearsal_quiz_or_error(request, quiz_id):
+    """Shared guard for the staging-only rehearsal endpoints.
+
+    Returns ``(quiz, None)`` or ``(None, JsonResponse)``. 404 off staging so the
+    route looks absent on production.
+    """
+    from crush_lu.services.quiz_rehearsal import rehearsal_enabled
+
+    if not rehearsal_enabled():
+        return None, JsonResponse({"error": "Not found"}, status=404)
+    if request.method != "POST":
+        return None, JsonResponse({"error": "POST required"}, status=405)
+    try:
+        quiz = QuizEvent.objects.select_related("event").get(id=quiz_id)
+    except QuizEvent.DoesNotExist:
+        return None, JsonResponse({"error": "Quiz not found"}, status=404)
+    if not _is_quiz_host(quiz, request.user):
+        return None, JsonResponse({"error": "Not authorized"}, status=403)
+    return quiz, None
+
+
+@login_required
+def rehearsal_reset_view(request, quiz_id):
+    """Staging only: reset the quiz from any state and re-seat the guests."""
+    quiz, error = _rehearsal_quiz_or_error(request, quiz_id)
+    if error:
+        return error
+
+    from crush_lu.services.quiz_rehearsal import (
+        broadcast_reset,
+        reset_quiz_for_rehearsal,
+    )
+
+    data = reset_quiz_for_rehearsal(quiz, reseed=True)
+    broadcast_reset(quiz, data)
+    return JsonResponse({"success": True, **data})
+
+
+@login_required
+def rehearsal_add_guests_view(request, quiz_id):
+    """Staging only: add synthetic attended guests (seated at tables)."""
+    quiz, error = _rehearsal_quiz_or_error(request, quiz_id)
+    if error:
+        return error
+
+    try:
+        body = json.loads(request.body) if request.body else {}
+        count = int(body.get("count", 8))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JsonResponse({"error": "Invalid request"}, status=400)
+    count = max(1, min(count, 60))
+
+    from crush_lu.services.quiz_rehearsal import add_rehearsal_guests
+
+    seated = add_rehearsal_guests(quiz, count)
+    return JsonResponse({"success": True, "guests": seated})
+
+
 @login_required
 def consolidate_tables_view(request, quiz_id):
     """Host-only endpoint to compact tables after no-shows.
