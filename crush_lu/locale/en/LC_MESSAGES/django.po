@@ -29256,3 +29256,43 @@ msgstr ""
 
 msgid "Appointment"
 msgstr "Appointment"
+
+
+msgid "The call could not connect. Check your connection and try again."
+msgstr "The call could not connect. Check your connection and try again."
+
+msgid ""
+"Camera or microphone access was refused. Allow both in your phone’s app "
+"settings, then try again."
+msgstr ""
+"Camera or microphone access was refused. Allow both in your phone’s app "
+"settings, then try again."
+
+msgid ""
+"Video calling is unavailable on this device. Try an updated browser or app."
+msgstr ""
+"Video calling is unavailable on this device. Try an updated browser or app."
+
+msgid ""
+"If video still does not start, update Crush.lu or open this page in your "
+"phone’s browser:"
+msgstr ""
+"If video still does not start, update Crush.lu or open this page in your "
+"phone’s browser:"
+
+msgid ""
+"Video calls are not available right now. Arrange another video attempt with "
+"your coach."
+msgstr ""
+"Video calls are not available right now. Arrange another video attempt with "
+"your coach."
+
+msgid "Screening questions"
+msgstr "Screening questions"
+
+msgid ""
+"Use the screening questions during the video call. Keep your observations in"
+" the coach-only notes below."
+msgstr ""
+"Use the screening questions during the video call. Keep your observations in"
+" the coach-only notes below."

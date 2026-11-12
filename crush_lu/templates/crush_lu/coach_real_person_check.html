@@ -96,13 +96,15 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
     {# ===== In-app video call (a crush.lu page, not the coach's phone apps) ===== #}
     <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4 mb-6" aria-labelledby="rpc-call-heading">
         <h3 id="rpc-call-heading" class="text-lg font-semibold dark:text-white mb-1">{% trans "Video call in Crush.lu" %}</h3>
-        {# Inside the apps the partial has no Start button (it points to the browser), so the instruction would contradict it. #}
-        {% if not is_native_app %}
         <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
             {% if is_admission %}{% trans "Join at the agreed time. Nothing is recorded. If video fails, arrange another attempt; a voice conversation does not approve Connect Week access." %}{% else %}{% blocktrans with name=member_label %}{{ name }} joins from the link in your message. Press Start video when they are on the call page. Nothing is recorded or stored. If the video fails, phone them and choose Voice call in the decision below.{% endblocktrans %}{% endif %}
         </p>
-        {% endif %}
-        {% include "crush_lu/partials/video_call.html" %}
+        <div class="grid gap-5 lg:grid-cols-2">
+            <div class="self-start lg:sticky lg:top-16 bg-white dark:bg-gray-800 pb-3">
+                {% include "crush_lu/partials/video_call.html" with compact_video=True %}
+            </div>
+            {% include "crush_lu/partials/_video_review_questions.html" %}
+        </div>
     </section>
     {% endif %}
 

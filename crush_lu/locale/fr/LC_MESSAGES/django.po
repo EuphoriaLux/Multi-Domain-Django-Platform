@@ -47543,6 +47543,46 @@ msgstr ""
 msgid "Appointment"
 msgstr "Rendez-vous"
 
+msgid "The call could not connect. Check your connection and try again."
+msgstr "L’appel n’a pas pu aboutir. Vérifiez votre connexion et réessayez."
+
+msgid ""
+"Camera or microphone access was refused. Allow both in your phone’s app "
+"settings, then try again."
+msgstr ""
+"L’accès à la caméra ou au microphone a été refusé. Autorisez les deux dans "
+"les réglages de l’application sur votre téléphone, puis réessayez."
+
+msgid ""
+"Video calling is unavailable on this device. Try an updated browser or app."
+msgstr ""
+"Les appels vidéo ne sont pas disponibles sur cet appareil. Essayez avec un "
+"navigateur ou une application à jour."
+
+msgid ""
+"If video still does not start, update Crush.lu or open this page in your "
+"phone’s browser:"
+msgstr ""
+"Si la vidéo ne démarre toujours pas, mettez Crush.lu à jour ou ouvrez cette "
+"page dans le navigateur de votre téléphone :"
+
+msgid ""
+"Video calls are not available right now. Arrange another video attempt with "
+"your coach."
+msgstr ""
+"Les appels vidéo ne sont pas disponibles pour le moment. Convenez d’un "
+"nouvel appel vidéo avec votre coach."
+
+msgid "Screening questions"
+msgstr "Questions de présentation"
+
+msgid ""
+"Use the screening questions during the video call. Keep your observations in"
+" the coach-only notes below."
+msgstr ""
+"Utilisez les questions de présentation pendant l’appel vidéo. Notez vos "
+"observations ci-dessous dans les notes réservées aux coachs."
+
 msgid "A request is waiting for your answer"
 msgstr "Une demande attend votre réponse"
 

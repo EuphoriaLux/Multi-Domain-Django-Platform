@@ -450,11 +450,12 @@ class VideoCallTestPageTests(TestCase):
         self.assertNotIn('x-data="videoCall"', response.content.decode())
         self.assertContains(response, "Video calls are not available right now.")
 
-    def test_inside_the_app_it_points_to_the_browser(self):
+    def test_inside_the_app_it_offers_capture_with_failure_guidance(self):
         self.client.force_login(self.superuser)
         response = self.client.get(self.path, HTTP_X_CRUSH_CLIENT="ios-app")
-        self.assertNotIn('x-data="videoCall"', response.content.decode())
-        self.assertContains(response, "Open this page in your browser")
+        self.assertContains(response, 'x-data="videoCall"')
+        self.assertContains(response, "Start video")
+        self.assertContains(response, 'x-show="hasMediaError" x-cloak')
 
 
 @override_settings(DEBUG=False, **TURN)

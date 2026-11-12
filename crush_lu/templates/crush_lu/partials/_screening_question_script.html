@@ -1,0 +1,43 @@
+{% load i18n %}
+{# Shared by the original screening checklist and coach video reviews. #}
+{% if question == 'introduction' %}
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% blocktrans with name=profile.user.first_name %}
+                                "Hello {{ name }}, this is [your name] from Crush.lu. I'm your onboarding coach. Do you have 5-10 minutes for a quick call to discuss your profile and answer any questions?"
+                                {% endblocktrans %}
+                            </p>
+                        </div>
+{% elif question == 'languages' %}
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"I see you've selected some event languages. Can you confirm which languages you're comfortable speaking at events?\"" %}
+                            </p>
+                        </div>
+{% elif question == 'residence' %}
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"Can you confirm you live in Luxembourg or a neighboring country? Our events are held in Luxembourg, so we want to make sure you can attend.\"" %}
+                            </p>
+                        </div>
+{% elif question == 'crush' %}
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"What does 'Crush' mean to you? What would your ideal crush be like?\"" %}
+                            </p>
+                            <p class="text-xs text-blue-600 dark:text-blue-400 mt-2 italic">
+                                {% trans "This open question helps gauge their mindset and expectations about romantic connections." %}
+                            </p>
+                        </div>
+{% elif question == 'questions' %}
+                        <div class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-3">
+                            <p class="text-sm text-blue-800 dark:text-blue-300">
+                                <strong>{% trans "Script:" %}</strong><br>
+                                {% trans "\"Do you have any questions about Crush.lu, our events, or how everything works?\"" %}
+                            </p>
+                        </div>
+{% endif %}

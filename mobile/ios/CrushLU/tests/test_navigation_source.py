@@ -434,6 +434,20 @@ class IOSNavigationSourceTests(unittest.TestCase):
         self.assertIn("check", camera.group(1))
         self.assertIn("Crush Cache", camera.group(1))
 
+    def test_video_capture_is_trusted_and_has_both_usage_descriptions(self):
+        import plistlib
+
+        info = plistlib.loads(_source("Info.plist").encode("utf-8"))
+        self.assertIn("video verification", info["NSCameraUsageDescription"])
+        self.assertIn("coach", info["NSMicrophoneUsageDescription"])
+        self.assertIn("not recorded", info["NSMicrophoneUsageDescription"])
+        capture = _source("CrushWebView.swift").split(
+            "requestMediaCapturePermissionFor origin: WKSecurityOrigin,", 1
+        )[1].split("@available", 1)[0]
+        self.assertIn("guard isTrustedNativeOrigin(origin) else", capture)
+        self.assertIn("case .camera, .microphone, .cameraAndMicrophone:", capture)
+        self.assertIn("@unknown default:", capture)
+
     def test_cold_start_opens_events_not_the_dashboard(self):
         # App Review read the dashboard as "primarily dating" (4.3(b)).
         content_view = _source("ContentView.swift")

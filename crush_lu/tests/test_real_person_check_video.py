@@ -703,20 +703,21 @@ class CoachPageTests(VideoCheckTestCase):
                 self.assertIn(tone, html)
                 self.assertNotIn("joins from the link", html)
 
-    def test_the_app_webview_is_pointed_to_the_browser(self):
-        # In the browser the coach is told to press the button...
-        self.assertIn(
-            "Press Start video when they are on the call page",
-            self.page().content.decode(),
-        )
-        # ...inside the app there is no button, so no instruction for it.
+    def test_the_app_webview_has_the_call_and_the_original_screening_questions(self):
         for header in ("ios-app", "android-app"):
             with self.subTest(header):
                 html = self.page(HTTP_X_CRUSH_CLIENT=header).content.decode()
-                self.assertNotIn('x-data="videoCall"', html)
-                self.assertIn("Open this page in your browser", html)
-                self.assertNotIn("Start video", html)
-                self.assertNotIn("joins from the link", html)
+                self.assertIn('x-data="videoCall"', html)
+                self.assertIn("Start video", html)
+                self.assertIn('x-show="hasMediaError" x-cloak', html)
+                for question in (
+                    "Do you have 5-10 minutes for a quick call",
+                    "comfortable speaking at events",
+                    "live in Luxembourg or a neighboring country",
+                    "What does 'Crush' mean to you?",
+                    "Do you have any questions about Crush.lu",
+                ):
+                    self.assertIn(question, html)
 
     def test_the_flag_off_is_still_a_404(self):
         with override_settings(CONNECT_REAL_PERSON_CHECK_ENABLED=False):
@@ -911,9 +912,9 @@ class MemberPageTests(VideoCheckTestCase):
             return dict(label.findall(call_tag.search(html).group(0)))
 
         english = labels(self.client.get(self.url).content.decode())
-        # Ten status lines, the four mute / camera button labels and the two
+        # Eleven status lines, the four mute / camera button labels and the two
         # microphone meter labels.
-        self.assertEqual(len(english), 16)
+        self.assertEqual(len(english), 17)
         for code in ("de", "fr"):
             html = self.client.get(
                 self.url.replace("/en/", f"/{code}/")
@@ -964,8 +965,8 @@ class MemberPageTests(VideoCheckTestCase):
 
     def test_the_app_notice_is_translated(self):
         for code, text in (
-            ("de", "Videoanrufe funktionieren im Browser deines Handys"),
-            ("fr", "Les appels vidéo fonctionnent dans le navigateur"),
+            ("de", "aktualisieren Sie Crush.lu"),
+            ("fr", "mettez Crush.lu à jour"),
         ):
             with self.subTest(code):
                 html = self.client.get(
@@ -1104,18 +1105,18 @@ class MemberPageTests(VideoCheckTestCase):
         self.assertNotIn("videoCall", html)
         self.assertIn("microphone=()", response["Permissions-Policy"])
 
-    def test_inside_the_app_the_page_points_to_the_browser(self):
+    def test_inside_the_app_the_member_can_start_the_same_video_call(self):
         for header in ("ios-app", "android-app"):
             with self.subTest(header):
                 response = self.client.get(self.url, HTTP_X_CRUSH_CLIENT=header)
                 html = response.content.decode()
                 self.assertEqual(response.status_code, 200)
-                self.assertNotIn('x-data="videoCall"', html)
-                self.assertIn("Open this page in your browser", html)
+                self.assertIn('x-data="videoCall"', html)
+                self.assertIn('x-show="hasMediaError" x-cloak', html)
                 self.assertIn(self.url, html)
-                # No instruction for a button the app does not show.
-                self.assertNotIn("Start video", html)
-                self.assertNotIn("When your coach has been in touch", html)
+                self.assertIn("Start video", html)
+                self.assertIn("When your coach has been in touch", html)
+                self.assertNotIn("data-video-review-questions", html)
 
 
 # ---------------------------------------------------------------------------
