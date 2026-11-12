@@ -19140,6 +19140,10 @@ msgstr "Réponse de référence"
 msgid "Shown to the host for manual grading."
 msgstr "Affiché à l'hôte pour notation manuelle."
 
+#: templates/crush_lu/coach_quiz_question_form.html:199
+msgid "To hide a word from guests, wrap it in double braces in the question text, e.g. {{word}}. Guests see an animated blank until the reveal."
+msgstr "Pour cacher un mot aux invités, l'entourer de doubles accolades dans le texte de la question, par ex. {{mot}}. Les invités voient un blanc animé jusqu'à la révélation."
+
 #: templates/crush_lu/coach_quiz_round_form.html:4
 #: templates/crush_lu/coach_quiz_round_form.html:16
 #: templates/crush_lu/coach_quiz_round_form.html:18

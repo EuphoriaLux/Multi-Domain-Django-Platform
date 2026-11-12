@@ -235,7 +235,65 @@
     text-transform: uppercase;
 }
 
+/* Hidden word of a question (see quiz-blanks.js). The blank is a fixed-width
+   pulsing slot so it never hints at the word's length; at the reveal the same
+   spot fills with the word. */
+.quiz-blank {
+    display: inline-block;
+    vertical-align: baseline;
+}
+
+.quiz-blank--open {
+    width: 4.5ch;
+    height: 0.12em;
+    margin-inline: 0.15em;
+    border-radius: 999px;
+    background: var(--quiz-accent-secondary, #ec4899);
+    animation: quiz-blank-pulse 1.4s ease-in-out infinite;
+}
+
+.quiz-blank--revealed {
+    padding-inline: 0.2em;
+    border-radius: 0.3em;
+    background: rgba(236, 72, 153, 0.18);
+    color: var(--quiz-accent-secondary, #ec4899);
+    animation: quiz-blank-reveal 0.7s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes quiz-blank-pulse {
+    0%,
+    100% {
+        opacity: 0.35;
+        transform: scaleX(0.7);
+    }
+    50% {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+}
+
+@keyframes quiz-blank-reveal {
+    from {
+        opacity: 0;
+        transform: translateY(0.4em) scale(0.6);
+        filter: blur(6px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+        filter: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .quiz-blank--open,
+    .quiz-blank--revealed {
+        animation: none;
+    }
+}
+
 .quiz-question-copy {
+    white-space: pre-line;
     margin: 0;
     font-size: clamp(1.25rem, 4.5vw, 2rem);
     font-weight: 760;
@@ -604,6 +662,7 @@ button.quiz-choice:hover:not(:disabled) {
 }
 
 .quiz-display-question__copy {
+    white-space: pre-line;
     max-width: 78rem;
     margin-inline: auto;
     font-size: clamp(2rem, 4.8vw, 5rem);
