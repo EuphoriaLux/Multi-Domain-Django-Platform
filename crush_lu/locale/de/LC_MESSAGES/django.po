@@ -47430,7 +47430,6 @@ msgstr ""
 msgid "Appointment"
 msgstr "Termin"
 
-
 msgid "The call could not connect. Check your connection and try again."
 msgstr ""
 "Der Anruf konnte nicht verbunden werden. Prüfen Sie Ihre Verbindung und "
@@ -47472,3 +47471,21 @@ msgid ""
 msgstr ""
 "Verwenden Sie die Fragen zum Kennenlernen während des Videoanrufs. Halten "
 "Sie Ihre Beobachtungen unten in den nur für Coaches sichtbaren Notizen fest."
+
+msgid "A request is waiting for your answer"
+msgstr "Eine Anfrage wartet auf deine Antwort"
+
+msgid "A Crush Connect member chose you and their request closes soon. Take a look and decide."
+msgstr "Ein Crush-Connect-Mitglied hat dich ausgewählt, und die Anfrage läuft bald ab. Schau es dir an und entscheide."
+
+msgid "%(name)s chose you and the request closes soon. Take a look and decide."
+msgstr "%(name)s hat dich ausgewählt, und die Anfrage läuft bald ab. Schau es dir an und entscheide."
+
+msgid "%(name)s is waiting for your answer"
+msgstr "%(name)s wartet auf deine Antwort"
+
+msgid "<strong>%(name)s</strong> chose you after their Connect Week, and you have not answered yet."
+msgstr "<strong>%(name)s</strong> hat dich nach der Connect-Woche ausgewählt, und du hast noch nicht geantwortet."
+
+msgid "The request closes soon"
+msgstr "Die Anfrage läuft bald ab"

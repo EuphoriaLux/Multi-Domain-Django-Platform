@@ -124,6 +124,35 @@ class EventRecapsEndpointTests(_EndpointContract, TestCase):
     url = RECAPS_URL
     command = "send_event_recaps"
 
+    def test_valid_post_runs_command(self):
+        # Two passes: the recaps, then the Connect Week request reminder.
+        with mock.patch("crush_lu.api_admin_events.call_command") as mock_call:
+            resp = self.client.post(self.url, HTTP_AUTHORIZATION=f"Bearer {API_KEY}")
+        self.assertEqual(resp.status_code, 202)
+        self.assertEqual(
+            [call.args[0] for call in mock_call.call_args_list],
+            ["send_event_recaps", "send_connect_request_reminders"],
+        )
+
+    def test_unauthorized_post_runs_neither_pass(self):
+        with mock.patch("crush_lu.api_admin_events.call_command") as mock_call:
+            resp = self.client.post(self.url, HTTP_AUTHORIZATION="Bearer not-the-key")
+        self.assertEqual(resp.status_code, 401)
+        mock_call.assert_not_called()
+
+    def test_a_failing_reminder_pass_keeps_the_recaps_answer(self):
+        def second_pass_fails(command, *args, **kwargs):
+            if command == "send_connect_request_reminders":
+                raise RuntimeError("reminder pass exploded")
+
+        with mock.patch(
+            "crush_lu.api_admin_events.call_command", side_effect=second_pass_fails
+        ), self.assertLogs("crush_lu.api_admin_events", level="ERROR") as logs:
+            resp = self.client.post(self.url, HTTP_AUTHORIZATION=f"Bearer {API_KEY}")
+
+        self.assertEqual(resp.status_code, 202)
+        self.assertIn("connect_request_reminders", "\n".join(logs.output))
+
 
 @override_settings(**CRUSH_URLS)
 class EventFeedbackEndpointTests(_EndpointContract, TestCase):
