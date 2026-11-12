@@ -196,6 +196,19 @@ class MemberContextData:
             user=self.user, status__in=("confirmed", "attended")
         ).exists()
 
+    @cached_property
+    def connect_onboarded(self):
+        """Finished Crush Connect onboarding and not excluded by a coach.
+
+        Mirrors ``CrushConnectMembership.is_onboarded`` as one existence
+        query, for pages that never load the membership.
+        """
+        from crush_lu.models.crush_connect import CrushConnectMembership
+
+        return CrushConnectMembership.objects.filter(
+            user=self.user, onboarded_at__isnull=False, excluded_by_coach=False
+        ).exists()
+
 
 def member_context_data(request):
     """Bind lazy reads to this request's current account, never a global cache."""
