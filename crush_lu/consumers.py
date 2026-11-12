@@ -1100,14 +1100,18 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
         from crush_lu.models.quiz import QuizEvent
 
         try:
-            quiz = QuizEvent.objects.only("created_by_id", "event_id").get(
-                id=self.quiz_id
-            )
+            quiz = QuizEvent.objects.select_related("event").get(id=self.quiz_id)
         except QuizEvent.DoesNotExist:
             self._is_host_cache = False
             return False
 
         if quiz.created_by_id == user.id:
+            self._is_host_cache = True
+            return True
+        # Staging rehearsal event only: any active coach may host.
+        from crush_lu.services.quiz_rehearsal import is_rehearsal_host
+
+        if is_rehearsal_host(quiz, user):
             self._is_host_cache = True
             return True
         # Only coaches explicitly assigned to this event can host —
