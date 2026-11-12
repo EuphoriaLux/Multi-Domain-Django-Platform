@@ -161,3 +161,80 @@ def test_create_rehearsal_command_is_idempotent(staging):
         == 6
     )
     assert QuizTableMembership.objects.filter(table__quiz=quiz).count() == 6
+
+
+# --- Any coach can host the permanent rehearsal event -----------------------
+
+
+def _make_coach(username):
+    from crush_lu.models import CrushCoach
+
+    user = User.objects.create_user(username, f"{username}@test.com", "x")
+    _quiz_tests._grant_consent(user)
+    CrushCoach.objects.create(user=user, is_active=True)
+    return user
+
+
+def test_any_coach_can_host_rehearsal_but_not_real_events(
+    quiz_event, coach_user, staging
+):
+    from crush_lu.api_quiz import _is_quiz_host
+
+    other_coach = _make_coach("otherrehearsalcoach")
+
+    # A normal quiz: an unassigned coach is NOT a host.
+    assert not _is_quiz_host(quiz_event, other_coach)
+
+    # The rehearsal quiz: any active coach is.
+    quiz_event.event.title = "Quiz Night REHEARSAL"
+    quiz_event.event.save(update_fields=["title"])
+    assert _is_quiz_host(quiz_event, other_coach)
+
+    # Non-coaches never are.
+    plain = User.objects.create_user("plainuser", "plain@test.com", "x")
+    assert not _is_quiz_host(quiz_event, plain)
+
+
+def test_rehearsal_host_rule_off_on_production(quiz_event, monkeypatch):
+    from crush_lu.api_quiz import _is_quiz_host
+
+    monkeypatch.setenv("DJANGO_ENV", "production")
+    monkeypatch.setattr("django.conf.settings.DEBUG", False)
+    other_coach = _make_coach("prodcoach")
+    quiz_event.event.title = "Quiz Night REHEARSAL"
+    quiz_event.event.save(update_fields=["title"])
+    assert not _is_quiz_host(quiz_event, other_coach)
+
+
+def test_coach_entry_creates_reuses_and_opens_host_panel(staging):
+    coach = _make_coach("entrycoach")
+    client = Client()
+    client.force_login(coach)
+
+    first = client.get("/en/coach/quiz-rehearsal/")
+    assert first.status_code == 302
+    assert first["Location"].endswith("/quiz/coach/")
+
+    second = client.get("/en/coach/quiz-rehearsal/")
+    assert second["Location"] == first["Location"]
+
+    from crush_lu.models.events import MeetupEvent
+
+    assert MeetupEvent.objects.filter(title="Quiz Night REHEARSAL").count() == 1
+    # The host panel itself opens for this coach, who was never assigned by hand.
+    panel = client.get(first["Location"])
+    assert panel.status_code == 200
+    # A second coach can open the same panel.
+    second_coach = _make_coach("secondentrycoach")
+    client2 = Client()
+    client2.force_login(second_coach)
+    assert client2.get(first["Location"]).status_code == 200
+
+
+def test_coach_entry_404_off_staging(monkeypatch):
+    monkeypatch.setenv("DJANGO_ENV", "production")
+    monkeypatch.setattr("django.conf.settings.DEBUG", False)
+    coach = _make_coach("prodentrycoach")
+    client = Client()
+    client.force_login(coach)
+    assert client.get("/en/coach/quiz-rehearsal/").status_code == 404
