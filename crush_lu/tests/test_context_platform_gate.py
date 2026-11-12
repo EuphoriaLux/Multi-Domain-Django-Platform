@@ -105,6 +105,26 @@ class ContextPlatformGateTests(TestCase):
                 self.assertTrue(context["prompt_install_eligible"])
                 self.assertFalse(context["prompt_push_eligible"])
 
+    def test_push_prompt_reaches_an_onboarded_connect_member(self):
+        """A Connect request gives its recipient 24 hours; a member who joined
+        Connect without ever booking an event must still be asked for push."""
+        from django.utils import timezone
+
+        from crush_lu.models.crush_connect import CrushConnectMembership
+
+        membership = CrushConnectMembership.objects.create(user=self.user)
+        # Started but not finished: still not asked.
+        self.assertFalse(crush_user_context(self._request())["prompt_push_eligible"])
+
+        membership.onboarded_at = timezone.now()
+        membership.save(update_fields=["onboarded_at"])
+        self.assertTrue(crush_user_context(self._request())["prompt_push_eligible"])
+
+        # Removed from Connect by a coach: no Connect reason to ask any more.
+        membership.excluded_by_coach = True
+        membership.save(update_fields=["excluded_by_coach"])
+        self.assertFalse(crush_user_context(self._request())["prompt_push_eligible"])
+
     def test_crush_admin_routes_keep_existing_context(self):
         for path in ("/admin/", "/crush-admin/"):
             with self.subTest(path=path):

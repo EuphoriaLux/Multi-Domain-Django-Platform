@@ -274,8 +274,15 @@ def crush_user_context(request):
         # Prompt gating (UX Wave 4 · WP13a, decision I): the push prompt only
         # after a first successful booking, the install card only after that
         # or profile approval. The prompts store adds "never on a first visit".
+        #
+        # Widened 2026-11-12 (Tom): a member who finished Connect onboarding
+        # is asked too. A Connect request gives its recipient 24 hours, and
+        # over the 30 days to 2026-11-12 a push reached only about 20 of 77
+        # recipients; someone who joined Connect without ever booking an
+        # event was never shown the prompt. Checked only when there is no
+        # booking, so members who booked cost no extra query.
         has_booked = member_data.has_booked
-        context["prompt_push_eligible"] = has_booked
+        context["prompt_push_eligible"] = has_booked or member_data.connect_onboarded
         context["prompt_install_eligible"] = has_booked or bool(
             profile and profile.is_approved
         )
