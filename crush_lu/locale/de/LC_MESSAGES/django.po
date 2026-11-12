@@ -47429,3 +47429,46 @@ msgstr ""
 
 msgid "Appointment"
 msgstr "Termin"
+
+
+msgid "The call could not connect. Check your connection and try again."
+msgstr ""
+"Der Anruf konnte nicht verbunden werden. Prüfen Sie Ihre Verbindung und "
+"versuchen Sie es erneut."
+
+msgid ""
+"Camera or microphone access was refused. Allow both in your phone’s app "
+"settings, then try again."
+msgstr ""
+"Der Zugriff auf Kamera oder Mikrofon wurde verweigert. Erlauben Sie beides "
+"in den App-Einstellungen Ihres Handys und versuchen Sie es erneut."
+
+msgid ""
+"Video calling is unavailable on this device. Try an updated browser or app."
+msgstr ""
+"Videoanrufe sind auf diesem Gerät nicht verfügbar. Versuchen Sie es mit "
+"einem aktuellen Browser oder einer aktuellen App."
+
+msgid ""
+"If video still does not start, update Crush.lu or open this page in your "
+"phone’s browser:"
+msgstr ""
+"Falls das Video weiterhin nicht startet, aktualisieren Sie Crush.lu oder "
+"öffnen Sie diese Seite im Browser Ihres Handys:"
+
+msgid ""
+"Video calls are not available right now. Arrange another video attempt with "
+"your coach."
+msgstr ""
+"Videoanrufe sind derzeit nicht verfügbar. Vereinbaren Sie mit Ihrem Coach "
+"einen neuen Videoanruf."
+
+msgid "Screening questions"
+msgstr "Fragen zum Kennenlernen"
+
+msgid ""
+"Use the screening questions during the video call. Keep your observations in"
+" the coach-only notes below."
+msgstr ""
+"Verwenden Sie die Fragen zum Kennenlernen während des Videoanrufs. Halten "
+"Sie Ihre Beobachtungen unten in den nur für Coaches sichtbaren Notizen fest."

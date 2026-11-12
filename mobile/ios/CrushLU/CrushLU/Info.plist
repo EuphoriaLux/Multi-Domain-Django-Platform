@@ -28,7 +28,9 @@
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>Crush.lu uses the camera to scan QR codes: coaches check guests in at events, and Crush Cache teams scan station codes to unlock clues.</string>
+	<string>Crush.lu uses the camera for live video verification with your coach, to check guests in at events, and to scan QR codes at Crush Cache stations.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Crush.lu uses the microphone so you and your coach can hear each other during a live video verification call. Calls are not recorded.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Crush.lu uses your location during Crush Cache hunts to guide your team to stations and unlock clues.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>

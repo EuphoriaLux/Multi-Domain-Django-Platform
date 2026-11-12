@@ -101,6 +101,7 @@ function makeVideoCall() {
                 ended: data.labelEnded,
                 failed: data.labelFailed,
                 denied: data.labelDenied,
+                unsupported: data.labelUnsupported,
                 replaced: data.labelReplaced,
                 mute: data.labelMute,
                 unmute: data.labelUnmute,
@@ -136,8 +137,11 @@ function makeVideoCall() {
             return ACTIVE.includes(this.status);
         },
         get statusClass() {
-            const problem = this.status === "failed" || this.status === "denied";
+            const problem = this.status === "failed" || this.hasMediaError;
             return problem ? "rounded-lg bg-red-700/90 px-3 py-2" : "";
+        },
+        get hasMediaError() {
+            return this.status === "denied" || this.status === "unsupported";
         },
         get showSwitchCamera() {
             return this.inCall && this.canSwitchCamera;
@@ -165,6 +169,14 @@ function makeVideoCall() {
 
         async start() {
             const attempt = ++call.attempt;
+            if (
+                !navigator.mediaDevices ||
+                typeof navigator.mediaDevices.getUserMedia !== "function" ||
+                typeof RTCPeerConnection !== "function"
+            ) {
+                this.status = "unsupported";
+                return;
+            }
             this.status = "starting";
             // Created inside the Start tap, before any await: iOS Safari only
             // runs an AudioContext that a user gesture created or resumed.
