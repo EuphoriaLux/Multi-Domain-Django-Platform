@@ -153,7 +153,10 @@ class Command(BaseCommand):
             if dry_run:
                 transaction.set_rollback(True)
 
-        if echo_records is not None and len(echo_records) >= echo_pages * 100:
+        if (
+            echo_records is not None
+            and len(echo_records) >= echo_pages * echo_lu.LIST_PAGE_SIZE
+        ):
             self.stdout.write(
                 self.style.WARNING(
                     f"echo.lu registry read stopped at the {echo_pages}-page cap "
