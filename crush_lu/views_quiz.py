@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
 from django.http import Http404, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -19,7 +19,12 @@ from crush_lu.models.quiz import (
     QuizTable,
     QuizTableMembership,
 )
-from crush_lu.services.quiz_rehearsal import rehearsal_enabled
+from crush_lu.decorators import coach_required
+from crush_lu.services.quiz_rehearsal import (
+    ensure_rehearsal_quiz,
+    is_rehearsal_host,
+    rehearsal_enabled,
+)
 from crush_lu.throttling import QuizPinRateThrottle, ratelimit_view
 
 logger = logging.getLogger(__name__)
@@ -296,6 +301,19 @@ def quiz_live_view(request, event_id):
     return render(request, "crush_lu/quiz_live.html", context)
 
 
+@coach_required
+def quiz_rehearsal_entry(request):
+    """Staging only: open the permanent rehearsal quiz, creating it on first use.
+
+    Any active coach can land here, be seated as a guest, and host. 404 off
+    staging so the page looks absent on production.
+    """
+    if not rehearsal_enabled():
+        raise Http404
+    event, _quiz = ensure_rehearsal_quiz(request.user, coach_users=[request.user])
+    return redirect("crush_lu:quiz_coach", event_id=event.pk)
+
+
 @login_required
 def quiz_coach_view(request, event_id):
     """Host control panel for the live quiz."""
@@ -313,7 +331,8 @@ def quiz_coach_view(request, event_id):
             is_active=True,
             assigned_events=quiz.event_id,
         ).exists()
-        if not is_assigned_coach:
+        # Staging rehearsal event only: any active coach may host.
+        if not is_assigned_coach and not is_rehearsal_host(quiz, request.user):
             raise Http404
 
     rounds = quiz.rounds.prefetch_related("questions").order_by("sort_order")

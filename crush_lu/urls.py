@@ -804,6 +804,12 @@ urlpatterns = [
         views_quiz.quiz_coach_view,
         name="quiz_coach",
     ),
+    # Staging only (404 elsewhere): permanent rehearsal quiz for coach training
+    path(
+        "coach/quiz-rehearsal/",
+        views_quiz.quiz_rehearsal_entry,
+        name="quiz_rehearsal",
+    ),
     # Crush Connect Event Lobby — live "I'd like to meet you" photo grid
     # (spec 2026-07-17). APIs are called from event-lobby.js via {% url %}
     # data attributes, so they can live inside the i18n-prefixed namespace.
