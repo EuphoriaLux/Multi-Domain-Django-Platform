@@ -29300,3 +29300,31 @@ msgid ""
 msgstr ""
 "Use the screening questions during the video call. Keep your observations in"
 " the coach-only notes below."
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Move to Table {n}!"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Stay at your table!"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Please move to the next table."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round: you move to Table {n}"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round: you stay at your table"
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "The next round starts soon."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Wait for the host’s signal before you move."
+msgstr ""

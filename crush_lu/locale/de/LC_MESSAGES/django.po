@@ -47505,3 +47505,31 @@ msgstr "Wieder öffnen bestätigen?"
 #: crush_lu/templates/crush_lu/quiz_coach.html
 msgid "Revealing in {n}s"
 msgstr "Auflösung in {n} s"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Move to Table {n}!"
+msgstr "Geh zu Tisch {n}!"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Stay at your table!"
+msgstr "Bleib an deinem Tisch!"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Please move to the next table."
+msgstr "Bitte geh zum nächsten Tisch."
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round: you move to Table {n}"
+msgstr "Nächste Runde: Du wechselst zu Tisch {n}"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Next round: you stay at your table"
+msgstr "Nächste Runde: Du bleibst an deinem Tisch"
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "The next round starts soon."
+msgstr "Die nächste Runde beginnt gleich."
+
+#: crush_lu/templates/crush_lu/quiz_live.html
+msgid "Wait for the host’s signal before you move."
+msgstr "Warte auf das Signal des Moderators, bevor du wechselst."

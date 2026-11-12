@@ -433,6 +433,8 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
             "pause_quiz",
             "end_quiz",
             "score_table",
+            "hold_score",
+            "cancel_hold",
             "rotate",
             "show_leaderboard",
             "dissolve_table",
@@ -480,6 +482,12 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
 
         elif action == "score_table":
             await self.handle_score_table(content)
+
+        elif action == "hold_score":
+            await self.handle_score_hold(content, active=True)
+
+        elif action == "cancel_hold":
+            await self.handle_score_hold(content, active=False)
 
         elif action == "rotate":
             await self.handle_rotate()
@@ -569,6 +577,8 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 q_data["total_tables"] = state.get("total_tables", 0)
                 q_data["scored_count"] = state.get("scored_count", 0)
                 q_data["scored_tables"] = state.get("scored_tables", {})
+                # Between two rounds, players stay on the break screen.
+                q_data["round_complete"] = state.get("round_complete", False)
                 await self.channel_layer.group_send(
                     self.quiz_group,
                     {"type": "quiz.question", "data": q_data},
@@ -715,6 +725,36 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 self.quiz_group,
                 {"type": "quiz.leaderboard", "data": leaderboard},
             )
+
+    async def handle_score_hold(self, content, active):
+        """Tell the other host screens that a last score is being held.
+
+        The host who scores the last table waits a few seconds before the
+        reveal, with an Undo. That wait lives in their browser, so the other
+        hosts would see nothing, and could score the same table meanwhile.
+        This relays the hold (or its Undo) to the host group only. Nothing is
+        stored and nothing is scored here.
+        """
+        table_id = content.get("table_id")
+        question_id = content.get("question_id")
+        if not isinstance(table_id, int) or not isinstance(question_id, int):
+            return
+        if isinstance(table_id, bool) or isinstance(question_id, bool):
+            return
+        host_group = getattr(self, "host_group", None)
+        if not host_group:
+            return
+        data = {"table_id": table_id, "question_id": question_id, "active": active}
+        if active:
+            seconds = content.get("seconds")
+            if not isinstance(seconds, int) or isinstance(seconds, bool):
+                seconds = 3
+            data["seconds"] = max(1, min(seconds, 10))
+            data["is_correct"] = bool(content.get("is_correct", False))
+        await self.channel_layer.group_send(
+            host_group,
+            {"type": "quiz.score_hold", "data": data, "sender": self.channel_name},
+        )
 
     async def handle_rotate(self):
         # Server-side defense-in-depth: even though the UI only exposes
@@ -926,6 +966,12 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
 
     async def quiz_table_scored(self, event):
         await self.send_json({"type": "quiz.table_scored", "data": event["data"]})
+
+    async def quiz_score_hold(self, event):
+        # The host who holds the score already shows it.
+        if event.get("sender") == self.channel_name:
+            return
+        await self.send_json({"type": "quiz.score_hold", "data": event["data"]})
 
     async def quiz_reveal_scores(self, event):
         await self.send_json({"type": "quiz.reveal_scores", "data": event["data"]})
@@ -1249,6 +1295,16 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
                 for s in scored_qs:
                     scored_tables[str(s.table_id)] = "scored"
             data["scored_tables"] = scored_tables
+
+            # Nothing stores "round complete": the index stays on the round's
+            # last question. Derive it, so a player who reloads between two
+            # rounds sees where they sit next, not that question again.
+            data["round_complete"] = (
+                quiz.event.event_type == "quiz_night"
+                and all_scored
+                and quiz.current_question_index >= total - 1
+                and any(r["status"] == "upcoming" for r in data["rounds"])
+            )
 
         return data
 
