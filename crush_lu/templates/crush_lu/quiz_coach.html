@@ -355,6 +355,19 @@
                 <span x-show="isNotConfirmingReset">{% trans "Reset Quiz (clears scores)" %}</span>
                 <span x-show="isConfirmingReset">{% trans "Confirm — wipe scores and reset?" %}</span>
             </button>
+
+            {% if rehearsal_enabled %}
+            {# Staging/local only: rehearsal tools. Reset works from ANY state and re-seats guests. #}
+            <button x-on:click="rehearsalReset"
+                    class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl bg-amber-600 py-3 text-xs font-medium text-white shadow transition-all active:scale-95">
+                <span x-show="isNotConfirmingRehearsalReset">Rehearsal: reset and re-seat</span>
+                <span x-show="isConfirmingRehearsalReset">Confirm — wipe everything?</span>
+            </button>
+            <button x-on:click="rehearsalAddGuests"
+                    class="quiz-action flex w-full flex-col items-center justify-center gap-1 rounded-xl bg-amber-600 py-3 text-xs font-medium text-white shadow transition-all active:scale-95">
+                <span>Rehearsal: add 8 test guests</span>
+            </button>
+            {% endif %}
             </div>
         </aside>
 
