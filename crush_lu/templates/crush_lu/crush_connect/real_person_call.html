@@ -47,14 +47,11 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
     </section>
 
     {% if video_call.available %}
-    {# Inside the apps the partial has no Start button (it points to the browser), so the instruction would contradict it. #}
-    {% if not is_native_app %}
     <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "When your coach has been in touch and you are ready, press Start video and allow your camera and microphone. Your coach joins the same call." %}</p>
-    {% endif %}
     {% include "crush_lu/partials/video_call.html" %}
     {% else %}
     <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-4 text-sm text-gray-700 dark:text-gray-200" role="status">
-        {% trans "Video calls are not available right now, so your coach will phone you instead." %}
+        {% if is_admission %}{% trans "Video calls are not available right now. Arrange another video attempt with your coach." %}{% else %}{% trans "Video calls are not available right now, so your coach will phone you instead." %}{% endif %}
     </div>
     {% endif %}
 </div>

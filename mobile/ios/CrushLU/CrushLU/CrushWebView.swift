@@ -567,15 +567,19 @@ struct CrushWebView: UIViewRepresentable {
             type: WKMediaCaptureType,
             decisionHandler: @escaping (WKPermissionDecision) -> Void
         ) {
-            // Only the QR scanners need capture (coach check-in, Crush Cache
-            // stations), and only our own pages may ask. Granting here skips
-            // WebKit's redundant in-page prompt; iOS still shows the system alert
-            // on first use (NSCameraUsageDescription).
-            guard type == .camera, isInternalHost(origin.host) else {
+            // QR scanners use the camera; coach video calls also need audio.
+            // Only our HTTPS pages may ask. iOS still shows the system alerts
+            // on first use, using the camera and microphone purpose strings.
+            guard isTrustedNativeOrigin(origin) else {
                 decisionHandler(.deny)
                 return
             }
-            decisionHandler(.grant)
+            switch type {
+            case .camera, .microphone, .cameraAndMicrophone:
+                decisionHandler(.grant)
+            @unknown default:
+                decisionHandler(.deny)
+            }
         }
 
         @available(iOS 15.0, *)
