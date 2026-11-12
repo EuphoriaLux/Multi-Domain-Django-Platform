@@ -1125,6 +1125,138 @@ class PartnerClaimAPITests(ThrottleIsolatedTestCase):
         self.assertIn("name", dup.data)
         self.assertIn("Wesley Coach", str(dup.data["name"]))
 
+    def test_partner_edit_from_a_stale_read_keeps_a_claim_committed_meanwhile(self):
+        from hub.serializers_partners import LocationSerializer
+
+        # PartnerDetailView reads without a row lock: model a PATCH whose read
+        # happened before the claim committed (SQLite ignores locks anyway).
+        stale = Location.objects.get(pk=self.venue.pk)
+        claimed = self.client.post(
+            f"/hub/locations/{self.venue.pk}/claim", format="json"
+        )
+        self.assertEqual(claimed.status_code, 200, claimed.data)
+
+        serializer = LocationSerializer(
+            stale, data={"notes": "Called the owner"}, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        self.venue.refresh_from_db()
+        self.assertEqual(self.venue.notes, "Called the owner")
+        self.assertEqual(self.venue.claimed_by, self.coach_a)
+        self.assertIsNotNone(self.venue.claimed_at)
+        self.assertEqual(self.venue.account_manager, "Wesley Coach")
+
+
+class LuxembourgVenueMatchingTests(TestCase):
+    """Import matching must never fold two distinct premises into one row."""
+
+    @staticmethod
+    def _osm(osm_id, name, **tags):
+        from hub.venue_import import parse_osm_element
+
+        return parse_osm_element(
+            {
+                "type": "node",
+                "id": osm_id,
+                "tags": {"name": name, "amenity": "restaurant", **tags},
+            }
+        )
+
+    def test_known_but_different_postcodes_stay_two_venues(self):
+        from hub.venue_import import upsert_venue_record
+
+        manual = make_partner(
+            name="Brasserie du Centre",
+            city="Luxembourg",
+            address_postcode="1111",
+        )
+        action, created = upsert_venue_record(
+            self._osm(
+                11,
+                "Brasserie du Centre",
+                **{"addr:postcode": "2222", "addr:city": "Luxembourg"},
+            )
+        )
+        self.assertEqual(action, "created")
+        self.assertNotEqual(created.pk, manual.pk)
+        manual.refresh_from_db()
+        self.assertEqual(manual.external_id, "")
+
+    def test_city_fallback_still_matches_when_one_postcode_is_missing(self):
+        from hub.venue_import import upsert_venue_record
+
+        manual = make_partner(name="Brasserie du Centre", city="Luxembourg")
+        action, matched = upsert_venue_record(
+            self._osm(
+                12,
+                "Brasserie du Centre",
+                **{"addr:postcode": "2222", "addr:city": "Luxembourg"},
+            )
+        )
+        self.assertEqual(action, "updated")
+        self.assertEqual(matched.pk, manual.pk)
+        manual.refresh_from_db()
+        self.assertEqual(manual.external_id, "osm:node:12")
+
+    def test_two_osm_outlets_without_address_tags_stay_two_venues(self):
+        from hub.venue_import import upsert_venue_record
+
+        # No addr:* tags: both resolve to city "Luxembourg" with no postcode.
+        _, first = upsert_venue_record(self._osm(21, "Café de la Gare"))
+        action, second = upsert_venue_record(self._osm(22, "Café de la Gare"))
+        self.assertEqual(action, "created")
+        self.assertNotEqual(first.pk, second.pk)
+        # Re-running the same element is still idempotent.
+        action, again = upsert_venue_record(self._osm(22, "Café de la Gare"))
+        self.assertEqual(action, "skipped")
+        self.assertEqual(again.pk, second.pk)
+
+    def test_live_echo_scan_never_repoints_an_existing_venue_mapping(self):
+        from io import StringIO
+        from unittest.mock import patch
+
+        from django.core.management import call_command
+
+        from crush_lu.models.echo_lu import EchoVenue
+
+        EchoVenue.objects.create(
+            key="scott's pub|1238", venue_id="echo-scotts-123", title="Scott's Pub"
+        )
+        duplicate = {
+            "id": "echo-other-999",
+            "title": "Scott's Pub",
+            "location": {"address": {"postcode": "1238", "town": "Luxembourg"}},
+        }
+        fake_client = type("FakeClient", (), {"api_key": "test-key"})()
+        out = StringIO()
+        with (
+            patch(
+                "crush_lu.services.echo_lu.EchoLuClient", return_value=fake_client
+            ),
+            patch(
+                "crush_lu.services.echo_lu.iter_venue_records",
+                return_value=iter([duplicate]),
+            ),
+        ):
+            call_command(
+                "import_luxembourg_venues",
+                skip_osm=True,
+                with_echo_lu=True,
+                stdout=out,
+            )
+
+        mapping = EchoVenue.objects.get(key="scott's pub|1238")
+        self.assertEqual(mapping.venue_id, "echo-scotts-123")
+        self.assertFalse(
+            Location.objects.filter(external_id="echo:echo-other-999").exists()
+        )
+        self.assertEqual(
+            Location.objects.filter(external_id="echo:echo-scotts-123").count(), 1
+        )
+        self.assertIn("kept echo-scotts-123, ignored echo-other-999", out.getvalue())
+
 
 class LuxembourgVenueImportTests(TestCase):
     def test_osm_and_echo_lu_import_creates_prospects_and_preserves_claims(self):
@@ -1140,7 +1272,7 @@ class LuxembourgVenueImportTests(TestCase):
             is_staff=True,
         )
         EchoVenue.objects.create(
-            key="scott s pub|1660",
+            key="scott's pub|1238",
             venue_id="echo-scotts-123",
             title="Scott's Pub",
         )

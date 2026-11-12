@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 import requests
 from django.db import transaction
+from django.db.models import Q
 
 from crush_lu.models.echo_lu import EchoVenue
 from crush_lu.services import echo_lu
@@ -491,15 +492,27 @@ def _find_existing_location(parsed: dict) -> Location | None:
     postcode = (parsed.get("address_postcode") or "").strip()
     city = (parsed.get("city") or parsed.get("address_town") or "").strip()
 
+    named = Location.objects.filter(name__iexact=name)
+    if ext_source and ext_id:
+        # A row already holding a *different* id from the same source is a
+        # different venue in that source (the id match above would have caught
+        # the same one). Without this, same-name outlets with no address tags,
+        # which all fall back to city "Luxembourg", would merge into one row.
+        named = named.exclude(Q(external_source=ext_source) & ~Q(external_id=""))
+
     if name and postcode:
-        match = Location.objects.filter(
-            name__iexact=name, address_postcode=postcode
-        ).first()
+        match = named.filter(address_postcode=postcode).first()
         if match is not None:
             return match
 
     if name and city:
-        match = Location.objects.filter(name__iexact=name, city__iexact=city).first()
+        # Same name in the same town is only the same venue when a postcode is
+        # missing on at least one side: two known, different postcodes are two
+        # premises (spec §3.3), and merging them would hide one from coaches.
+        candidates = named.filter(city__iexact=city)
+        if postcode:
+            candidates = candidates.filter(address_postcode="")
+        match = candidates.first()
         if match is not None:
             return match
 

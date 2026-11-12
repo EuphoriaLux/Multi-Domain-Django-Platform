@@ -466,7 +466,10 @@ class LocationSerializer(serializers.ModelSerializer):
         contacts = validated_data.pop("contacts", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save()
+        # Write only the edited columns. The instance was read without a lock,
+        # so a full save would write back a stale claimed_by / claimed_at and
+        # erase a claim that PartnerClaimView committed in the meantime.
+        instance.save(update_fields=[*validated_data, "updated_at"])
         if contacts is not None:
             self._sync_contacts(instance, contacts)
         return instance

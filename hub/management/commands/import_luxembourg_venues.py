@@ -68,7 +68,13 @@ class Command(BaseCommand):
         with_echo_lu = bool(options.get("with_echo_lu"))
         echo_pages = int(options.get("echo_pages") or 20)
 
-        totals = {"created": 0, "updated": 0, "skipped": 0, "ignored": 0}
+        totals = {
+            "created": 0,
+            "updated": 0,
+            "skipped": 0,
+            "ignored": 0,
+            "conflicts": 0,
+        }
 
         if not skip_osm:
             if osm_file:
@@ -114,17 +120,36 @@ class Command(BaseCommand):
                         totals["ignored"] += 1
                         continue
                     venue_id = echo_lu.extract_experience_id(record)
-                    echo_obj = None
-                    if venue_id and not dry_run:
+                    if venue_id:
                         key = echo_lu.venue_key(
                             parsed["name"],
                             normalize_postcode(parsed["address_postcode"]),
                         )
-                        echo_obj, _ = EchoVenue.objects.update_or_create(
-                            key=key,
-                            defaults={"venue_id": str(venue_id), "title": parsed["name"]},
-                        )
-                        parsed["echo_venue"] = echo_obj
+                        # The event sync resolves venue ids through these rows
+                        # (echo_lu._linked_venue_id), so a directory scan must
+                        # never repoint an existing mapping. A second registry
+                        # id for the same key is reported for review and its
+                        # record skipped, so it cannot become a duplicate venue.
+                        if dry_run:
+                            mapped = EchoVenue.objects.filter(key=key).first()
+                        else:
+                            mapped, _ = EchoVenue.objects.get_or_create(
+                                key=key,
+                                defaults={
+                                    "venue_id": str(venue_id),
+                                    "title": parsed["name"],
+                                },
+                            )
+                        if mapped is not None and mapped.venue_id != str(venue_id):
+                            totals["conflicts"] += 1
+                            self.stdout.write(
+                                self.style.WARNING(
+                                    f"echo.lu id conflict for '{key}': kept "
+                                    f"{mapped.venue_id}, ignored {venue_id}."
+                                )
+                            )
+                            continue
+                        parsed["echo_venue"] = mapped
                     action, _ = upsert_venue_record(parsed, dry_run=dry_run)
                     totals[action] += 1
             else:
@@ -140,6 +165,7 @@ class Command(BaseCommand):
                 f"{prefix}Done: {totals['created']} created, "
                 f"{totals['updated']} updated, "
                 f"{totals['skipped']} unchanged, "
-                f"{totals['ignored']} ignored."
+                f"{totals['ignored']} ignored, "
+                f"{totals['conflicts']} echo.lu id conflict(s) left for review."
             )
         )
