@@ -1508,7 +1508,12 @@ document.addEventListener("alpine:init", function () {
                             }
                         }
                     }
-                    if (data.question) {
+                    if (data.round_complete) {
+                        // Reload or reconnect between two rounds. The server
+                        // still holds the round's last question, but it is
+                        // over: show the banner and Rotate, not that question.
+                        this._enterRoundComplete();
+                    } else if (data.question) {
                         this.currentQuestion = data.question;
                         this.roundComplete = false;
                         // Restore scoring state for reconnecting coach
@@ -1541,6 +1546,11 @@ document.addEventListener("alpine:init", function () {
                         this._renderTableLeaderboard();
                         this._updateTableScores();
                     }
+                } else if (type === "quiz.question" && data.round_complete) {
+                    // Resume between two rounds re-sends the finished round's
+                    // last question: stay on the round-complete banner.
+                    this.status = "active";
+                    this._enterRoundComplete();
                 } else if (type === "quiz.question") {
                     this.currentQuestion = data;
                     this.questionIdx = data.index || 0;
@@ -1571,11 +1581,8 @@ document.addEventListener("alpine:init", function () {
                         this._cancelHold();
                     }
                     if (data.status === "round_complete") {
-                        this.currentQuestion = null;
-                        this.roundComplete = true;
                         this.isLastRound = !!data.is_last_round;
-                        // Mark current round as done in guided flow
-                        this._markCurrentRoundDone();
+                        this._enterRoundComplete();
                     } else if (data.status) {
                         this.status = data.status;
                     }
@@ -2474,6 +2481,15 @@ document.addEventListener("alpine:init", function () {
             },
 
             // --- Guided flow: round status tracking ---
+
+            // The round is over and the tables have not rotated yet.
+            _enterRoundComplete: function () {
+                this._cancelHold();
+                this.currentQuestion = null;
+                this.roundComplete = true;
+                // Mark current round as done in guided flow
+                this._markCurrentRoundDone();
+            },
 
             _markCurrentRoundDone: function () {
                 for (var i = 0; i < this.rounds.length; i++) {

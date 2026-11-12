@@ -143,6 +143,17 @@ class RoundBreakCopyTests(SimpleTestCase):
         self.assertNotIn('"Next: Table "', player)
         self.assertIn("this._i18n.nextRoundMove", player)
 
+    def test_host_page_restores_round_complete_from_state(self):
+        js = QUIZ_JS.read_text(encoding="utf-8")
+        host = js[js.index('Alpine.data("quizHost"') :]
+        state = host[host.index('type === "quiz.state"') :]
+        state = state[: state.index('type === "quiz.question"')]
+        # Checked before `data.question`: the payload carries both.
+        self.assertLess(
+            state.index("data.round_complete"), state.index("data.question)")
+        )
+        self.assertIn("_enterRoundComplete()", state)
+
     def test_round_end_no_longer_shows_the_start_screen(self):
         js = QUIZ_JS.read_text(encoding="utf-8")
         handler = js[js.index('data.status === "round_complete"') :][:200]
