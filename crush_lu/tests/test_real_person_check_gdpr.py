@@ -91,6 +91,7 @@ def test_a_member_without_checks_gets_an_empty_section(rf, member):
         "passed_checks": [],
         "declined_checks": [],
         "open_checks": [],
+        "contact_answers": [],
         "badge": None,
     }
 
@@ -206,6 +207,11 @@ def test_the_export_registry_covers_every_field_and_status(rf, settings, coach, 
     )
     open_member = make_member("rpc_gdpr_open")
     claim_check(coach, profile_of(open_member).pk)
+    ConnectRealPersonCheck.objects.filter(profile__user=open_member).update(
+        contact_preference="sms",
+        contact_availability=["weekday_evening"],
+        contact_answered_at=now,
+    )
 
     block = _export(rf, member)["real_person_check"]
     open_block = _export(rf, open_member)["real_person_check"]
@@ -214,6 +220,7 @@ def test_the_export_registry_covers_every_field_and_status(rf, settings, coach, 
         for row in block["passed_checks"]
         + block["declined_checks"]
         + open_block["open_checks"]
+        + open_block["contact_answers"]
         for key in row
     }
     exported_badge_keys = set(block["badge"])

@@ -355,6 +355,12 @@ urlpatterns = [
     ),
     # Where a member joins their coach's in-app video call (real-person
     # check). 404 for everyone but that member, while the check is live.
+    # Where a claimed member says how and when their coach may reach them.
+    path(
+        "crush-connect/real-person-check/<int:check_id>/contact/",
+        views_real_person_call.crush_connect_real_person_contact,
+        name="crush_connect_real_person_contact",
+    ),
     path(
         "crush-connect/real-person-call/<int:check_id>/",
         views_real_person_call.crush_connect_real_person_call,

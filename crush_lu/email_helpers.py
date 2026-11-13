@@ -2302,6 +2302,67 @@ def send_connect_week_request_notification(recipient, weekly_request, request=No
     )
 
 
+def send_real_person_contact_request(check, request=None):
+    """
+    Ask a member a coach has just claimed how and when the coach may reach them.
+
+    A "profile_updates" email, so the member's category switch, master
+    unsubscribe and ban are all honoured. Sent from the claim's on_commit
+    callback (services.real_person_contact), which records whether it went.
+
+    Args:
+        check: ConnectRealPersonCheck with ``profile__user`` and ``coach__user``
+        request: Optional Django request; None builds crush.lu URLs.
+
+    Returns:
+        int: Number of emails sent (0 when the member's settings refuse it)
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    from .services.real_person_check import real_person_badge_visible
+
+    recipient = check.profile.user
+    if not recipient.email or not can_send_email(recipient, "profile_updates"):
+        logger.info("Skipping real-person contact request email for check %s", check.pk)
+        return 0
+
+    lang = get_user_preferred_language(user=recipient, request=request, default="en")
+    coach_name = check.coach.user.first_name
+    context = get_email_context_with_unsubscribe(
+        recipient,
+        request,
+        first_name=recipient.first_name,
+        coach_name=coach_name,
+        is_admission=check.purpose == "connect_week",
+        badge_visible=real_person_badge_visible(),
+        contact_url=get_user_language_url(
+            recipient,
+            "crush_lu:crush_connect_real_person_contact",
+            request,
+            kwargs={"check_id": check.pk},
+        ),
+    )
+    with translation.override(lang):
+        subject = _("%(coach)s, your Crush coach, would like a short call") % {
+            "coach": coach_name
+        }
+        html_message = render_to_string(
+            "crush_lu/emails/real_person_contact_request.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[recipient.email],
+        request=request,
+        domain=None if request is not None else "crush.lu",
+        fail_silently=False,
+    )
+
+
 def send_connect_week_request_reminder(recipient, weekly_request, request=None):
     """
     Email the recipient once that a Connect Week request is still open.

@@ -765,6 +765,14 @@ CONNECT_REAL_PERSON_CHECK_ENABLED = _env_bool(
 CONNECT_REAL_PERSON_BADGE_VISIBLE = _env_bool(
     "CONNECT_REAL_PERSON_BADGE_VISIBLE", default=False
 )
+# After a claim, ask the member by email and in-app notice how and when the
+# coach may reach them (crush_lu/services/real_person_contact.py). Off by
+# default: production already has the tooling on, so merging must not start
+# mailing members. Only effective while the tooling flag is on. Pin it
+# slot-sticky before setting it on one slot (slotConfigNames).
+CONNECT_REAL_PERSON_CONTACT_REQUEST_ENABLED = _env_bool(
+    "CONNECT_REAL_PERSON_CONTACT_REQUEST_ENABLED", default=False
+)
 
 # January video admission: separate from optional badge visibility. Pin both
 # slot-sticky before a pilot. Existing checks remain badge-only; public access

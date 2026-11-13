@@ -1,0 +1,41 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your Crush coach would like a short call" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Your Crush coach would like a short call" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with first_name=first_name %}Hi {{ first_name }}!{% endblocktrans %}</h2>
+
+{% if is_admission %}
+<p>{% blocktrans with name=coach_name %}<strong>{{ name }}</strong> is the Crush coach for the video verification you requested.{% endblocktrans %}</p>
+{% else %}
+<p>{% blocktrans with name=coach_name %}<strong>{{ name }}</strong>, a Crush coach, would like a short call with you to confirm that you are a real person. We do this for Crush Connect members no coach has met at an event yet.{% endblocktrans %}</p>
+{% endif %}
+
+<p>{% blocktrans with name=coach_name %}Tell {{ name }} how you would like to be contacted first (phone call, SMS or WhatsApp) and when you are usually free. They will then agree a time with you.{% endblocktrans %}</p>
+
+<p style="text-align: center;">
+    <a href="{{ contact_url }}" class="button">{% trans "Choose how to be reached" %}</a>
+</p>
+
+<div class="info-box">
+    {% if is_admission %}
+    <strong>{% trans "What the call is for" %}</strong>
+    <p style="margin-bottom: 0;">{% trans "A coach video approval completes human verification for Connect Week. Nothing is recorded." %}</p>
+    {% else %}
+    <strong>{% trans "It is optional" %}</strong>
+    <p style="margin-bottom: 0;">{% if badge_visible %}{% trans "You can ignore this email and nothing changes. If the call goes well, your Connect card gets a badge that tells other members a coach confirmed you are a real person. Nothing is recorded." %}{% else %}{% trans "You can ignore this email and nothing changes. If the call goes well, your Connect card gets a badge as soon as badges are shown to other members. Nothing is recorded." %}{% endif %}</p>
+    {% endif %}
+</div>
+
+<p>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}
+
+{% block footer_message %}
+{% trans "You're receiving this because a Crush coach would like to contact you about your Crush Connect profile." %}<br>
+{% endblock %}
