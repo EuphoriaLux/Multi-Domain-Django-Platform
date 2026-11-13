@@ -28,6 +28,7 @@ from .models import Location, LocationContact
 logger = logging.getLogger(__name__)
 
 DEFAULT_IMPORTED_CAPACITY = 40
+ESTIMATED_CAPACITY_TAG = "capacite-estimee"
 
 OVERPASS_ENDPOINTS = (
     "https://overpass-api.de/api/interpreter",
@@ -545,18 +546,25 @@ def _find_existing_location(parsed: dict) -> Location | None:
 
 @transaction.atomic
 def upsert_venue_record(
-    parsed: dict, dry_run: bool = False
+    parsed: dict, dry_run: bool = False, create: bool = True
 ) -> tuple[str, Location | None]:
     """Idempotently insert or backfill a ``hub.Location`` in ``Prospect``.
 
     Never overwrites ``partnership_stage``, ``claimed_by``, ``account_manager``,
     or coach notes on an existing row.
+
+    ``create=False`` only enriches a venue that already exists and reports
+    ``"not_imported"`` otherwise. The live echo.lu scan uses it: that registry
+    holds every kind of place (schools, halls, bare street addresses), so a
+    record nobody matched must not become a venue coaches are asked to claim.
     """
     existing = _find_existing_location(parsed)
     phone = (parsed.get("contact_phone") or "").strip()
     email = (parsed.get("contact_email") or "").strip()
 
     if existing is None:
+        if not create:
+            return "not_imported", None
         if dry_run:
             return "created", None
         location = Location.objects.create(
@@ -614,6 +622,10 @@ def upsert_venue_record(
         "echo_venue",
     )
     for field in backfill_Attrs:
+        # The source id says who created the row. An enrich-only pass created
+        # nothing, so it must not stamp its own id on somebody else's venue.
+        if not create and field in ("external_source", "external_id"):
+            continue
         new_val = parsed.get(field)
         cur_val = getattr(existing, field, None)
         if new_val not in (None, "") and cur_val in (None, ""):
@@ -623,6 +635,10 @@ def upsert_venue_record(
     # Merge new tags without removing existing ones.
     existing_tags = list(existing.tags or [])
     for tag in parsed.get("tags") or []:
+        # The capacity of an existing row is never touched here, so the source
+        # saying *its* figure is an estimate says nothing about this row's.
+        if tag == ESTIMATED_CAPACITY_TAG:
+            continue
         if tag and tag not in existing_tags:
             existing_tags.append(tag)
             if "tags" not in changed_fields:
