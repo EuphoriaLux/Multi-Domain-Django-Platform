@@ -47644,3 +47644,12 @@ msgstr "La manche suivante commence bientôt."
 #: crush_lu/templates/crush_lu/quiz_live.html
 msgid "Wait for the host’s signal before you move."
 msgstr "Attendez le signal de l’animateur avant de vous déplacer."
+
+msgid "Steps"
+msgstr "Étapes"
+
+msgid ""
+"The video call opens on this page 15 minutes before the saved appointment."
+msgstr ""
+"L'appel vidéo s'ouvre sur cette page 15 minutes avant le rendez-vous "
+"enregistré."

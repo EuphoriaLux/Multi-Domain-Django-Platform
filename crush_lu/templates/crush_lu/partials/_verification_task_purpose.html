@@ -1,7 +1,8 @@
 {% load i18n %}
-<section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5" aria-labelledby="verification-purpose-heading">
+{# embedded=True: no card of its own, for a page header that already is one. #}
+<section class="{% if embedded %}mt-4 border-t border-gray-100 dark:border-gray-700 pt-4{% else %}bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-5{% endif %}" aria-labelledby="verification-purpose-heading">
     <h3 id="verification-purpose-heading" class="card-title">{% include "crush_lu/partials/_verification_task_label.html" %}</h3>
-    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+    <p class="text-sm text-muted-fg mt-2{% if embedded %} mb-0{% endif %}">
         {% if kind == 'badge' %}
             {% trans "Confirm a real person by video or voice to add a badge. This decision does not grant Connect Week access." %}
         {% elif kind == 'video' %}

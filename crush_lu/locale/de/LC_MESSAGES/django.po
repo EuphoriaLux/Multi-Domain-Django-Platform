@@ -47533,3 +47533,12 @@ msgstr "Die nächste Runde beginnt gleich."
 #: crush_lu/templates/crush_lu/quiz_live.html
 msgid "Wait for the host’s signal before you move."
 msgstr "Warte auf das Signal des Moderators, bevor du wechselst."
+
+msgid "Steps"
+msgstr "Schritte"
+
+msgid ""
+"The video call opens on this page 15 minutes before the saved appointment."
+msgstr ""
+"Der Videoanruf öffnet sich auf dieser Seite 15 Minuten vor dem gespeicherten"
+" Termin."
