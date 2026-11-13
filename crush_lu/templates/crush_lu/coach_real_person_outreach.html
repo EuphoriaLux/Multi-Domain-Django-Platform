@@ -35,6 +35,23 @@ blank whenever a guard fails or the number is not verified.
         </p>
         {% endif %}
 
+        {# What the member answered about being reached (services.real_person_contact); absent while that switch is off. #}
+        {% if contact and is_live and not links_blocked %}
+        <div class="mb-3 rounded-xl border border-crush-purple/30 bg-crush-light dark:bg-gray-900/40 p-3 text-sm" data-contact-answer>
+            {% if contact.answered_at %}
+            <p class="font-semibold text-gray-900 dark:text-gray-100 mb-1">{% blocktrans with name=member_label method=contact.preference_label %}{{ name }} prefers: {{ method }}{% endblocktrans %}</p>
+            <p class="text-gray-700 dark:text-gray-200 mb-0">{% if contact.windows %}{% trans "Usually free:" %} {{ contact.windows|join:", " }}{% else %}{% trans "No usual times given." %}{% endif %}</p>
+            <p class="text-xs text-muted-fg mt-1 mb-0">{% blocktrans with d=contact.answered_at|timesince:now %}Answered {{ d }} ago.{% endblocktrans %}</p>
+            {% elif contact.notice == 'email' %}
+            <p class="font-semibold text-gray-900 dark:text-gray-100 mb-1">{% blocktrans with name=member_label d=contact.requested_at|timesince:now %}{{ name }} was asked by email {{ d }} ago how to be reached.{% endblocktrans %}</p>
+            <p class="text-gray-700 dark:text-gray-200 mb-0">{% trans "No answer yet. If nothing arrives within 48 hours, send the SMS below." %}</p>
+            {% else %}
+            <p class="font-semibold text-gray-900 dark:text-gray-100 mb-1">{% blocktrans with name=member_label %}No email reached {{ name }}.{% endblocktrans %}</p>
+            <p class="text-gray-700 dark:text-gray-200 mb-0">{% trans "They only have an in-app notice, so contact them directly with the SMS below." %}</p>
+            {% endif %}
+        </div>
+        {% endif %}
+
         {% if links_blocked %}
         <div class="alert alert-warning mb-3" role="alert">
             {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
@@ -56,17 +73,17 @@ blank whenever a guard fails or the number is not verified.
         </p>
         {# WhatsApp only for members who opted in to it (spec D11): no whatsapp_url, no link. #}
         <div class="grid grid-cols-1 {% if whatsapp_url %}sm:grid-cols-3{% else %}sm:grid-cols-2{% endif %} gap-2 mb-1">
-            <a href="{{ sms_href }}" class="btn-crush-solid btn-block inline-flex items-center justify-center gap-2">
+            <a href="{{ sms_href }}" class="{% if contact.preference == 'call' or contact.preference == 'whatsapp' and whatsapp_url %}btn-crush-outline{% else %}btn-crush-solid{% endif %} btn-block inline-flex items-center justify-center gap-2">
                 {% include "shared/icons/chat-bubble-left-ellipsis.html" with class="w-4 h-4" %}
                 {% trans "Open SMS app" %}
             </a>
             {% if whatsapp_url %}
-            <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn-crush-outline btn-block inline-flex items-center justify-center gap-2">
+            <a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="{% if contact.preference == 'whatsapp' %}btn-crush-solid{% else %}btn-crush-outline{% endif %} btn-block inline-flex items-center justify-center gap-2">
                 {% include "shared/icons/whatsapp.html" with class="w-4 h-4" %}
                 {% trans "Open WhatsApp" %}
             </a>
             {% endif %}
-            <a href="{{ tel_href }}" class="btn-crush-outline btn-block inline-flex items-center justify-center gap-2">
+            <a href="{{ tel_href }}" class="{% if contact.preference == 'call' %}btn-crush-solid{% else %}btn-crush-outline{% endif %} btn-block inline-flex items-center justify-center gap-2">
                 {% include "shared/icons/phone.html" with class="w-4 h-4" %}
                 {% trans "Call" %}
             </a>

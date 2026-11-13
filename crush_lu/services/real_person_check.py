@@ -811,6 +811,11 @@ def claim_check(coach, profile_id, *, now=None):
                 )
         except IntegrityError:
             raise RealPersonCheckError("taken", 409) from None
+        # Only this path creates a claim; the idempotent return above must not
+        # ask the member again.
+        from crush_lu.services.real_person_contact import queue_contact_request
+
+        queue_contact_request(check.pk)
     logger.info("Real-person check %s claimed by coach %s", check.pk, coach.pk)
     return check
 

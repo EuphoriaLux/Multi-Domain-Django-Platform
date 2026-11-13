@@ -47542,3 +47542,202 @@ msgid ""
 msgstr ""
 "Der Videoanruf öffnet sich auf dieser Seite 15 Minuten vor dem gespeicherten"
 " Termin."
+
+msgid "Phone call"
+msgstr "Anruf"
+
+msgid "SMS first"
+msgstr "Zuerst per SMS"
+
+msgid "WhatsApp first"
+msgstr "Zuerst per WhatsApp"
+
+msgid "Weekday mornings"
+msgstr "Werktags vormittags"
+
+msgid "Weekday lunchtime"
+msgstr "Werktags mittags"
+
+msgid "Weekday evenings"
+msgstr "Werktags abends"
+
+msgid "Weekend mornings"
+msgstr "Am Wochenende vormittags"
+
+msgid "Weekend afternoons"
+msgstr "Am Wochenende nachmittags"
+
+msgid "Weekend evenings"
+msgstr "Am Wochenende abends"
+
+msgid "%(coach)s, a Crush coach, would like a short call"
+msgstr "%(coach)s, ein Crush Coach, möchte kurz mit dir telefonieren"
+
+msgid "Tell them how and when to reach you."
+msgstr "Sag, wie und wann du am besten erreichbar bist."
+
+msgid "A member answered your contact request"
+msgstr "Ein Mitglied hat auf deine Kontaktanfrage geantwortet"
+
+msgid "Open the check to see how and when to reach them."
+msgstr "Öffne die Prüfung, um zu sehen, wie und wann du die Person erreichst."
+
+msgid "%(coach)s, your Crush coach, would like a short call"
+msgstr "%(coach)s, dein Crush Coach, möchte kurz mit dir telefonieren"
+
+msgid "Your Crush coach would like a short call"
+msgstr "Dein Crush Coach möchte kurz mit dir telefonieren"
+
+msgid ""
+"<strong>%(name)s</strong> is the Crush coach for the video verification you "
+"requested."
+msgstr ""
+"<strong>%(name)s</strong> ist der Crush Coach für die Videoverifizierung, "
+"die du angefragt hast."
+
+msgid ""
+"<strong>%(name)s</strong>, a Crush coach, would like a short call with you "
+"to confirm that you are a real person. We do this for Crush Connect members "
+"no coach has met at an event yet."
+msgstr ""
+"<strong>%(name)s</strong>, ein Crush Coach, möchte kurz mit dir "
+"telefonieren, um zu bestätigen, dass du eine echte Person bist. Das machen "
+"wir bei Crush-Connect-Mitgliedern, die noch kein Coach bei einem Event "
+"getroffen hat."
+
+msgid ""
+"Tell %(name)s how you would like to be contacted first (phone call, SMS or "
+"WhatsApp) and when you are usually free. They will then agree a time with "
+"you."
+msgstr ""
+"Sag %(name)s, wie du zuerst kontaktiert werden möchtest (Anruf, SMS oder "
+"WhatsApp) und wann du meistens Zeit hast. Danach vereinbart ihr gemeinsam "
+"einen Termin."
+
+msgid "Choose how to be reached"
+msgstr "Kontaktweg wählen"
+
+msgid "What the call is for"
+msgstr "Wozu der Anruf dient"
+
+msgid ""
+"A coach video approval completes human verification for Connect Week. "
+"Nothing is recorded."
+msgstr ""
+"Die Videofreigabe durch einen Coach schließt die persönliche Verifizierung "
+"für die Connect Week ab. Es wird nichts aufgezeichnet."
+
+msgid "It is optional"
+msgstr "Es ist freiwillig"
+
+msgid ""
+"You can ignore this email and nothing changes. If the call goes well, your "
+"Connect card gets a badge that tells other members a coach confirmed you are"
+" a real person. Nothing is recorded."
+msgstr ""
+"Du kannst diese E-Mail ignorieren, dann ändert sich nichts. Wenn der Anruf "
+"gut läuft, bekommt deine Connect-Karte ein Abzeichen, das anderen "
+"Mitgliedern zeigt, dass ein Coach dich als echte Person bestätigt hat. Es "
+"wird nichts aufgezeichnet."
+
+msgid ""
+"You can ignore this email and nothing changes. If the call goes well, your "
+"Connect card gets a badge as soon as badges are shown to other members. "
+"Nothing is recorded."
+msgstr ""
+"Du kannst diese E-Mail ignorieren, dann ändert sich nichts. Wenn der Anruf "
+"gut läuft, bekommt deine Connect-Karte ein Abzeichen, sobald Abzeichen für "
+"andere Mitglieder sichtbar sind. Es wird nichts aufgezeichnet."
+
+msgid ""
+"You're receiving this because a Crush coach would like to contact you about "
+"your Crush Connect profile."
+msgstr ""
+"Du erhältst diese E-Mail, weil ein Crush Coach dich wegen deines Crush-"
+"Connect-Profils kontaktieren möchte."
+
+msgid "How can your coach reach you?"
+msgstr "Wie kann dein Coach dich erreichen?"
+
+msgid "How can %(name)s reach you?"
+msgstr "Wie kann %(name)s dich erreichen?"
+
+msgid ""
+"%(name)s is the Crush coach for your video verification. Tell them how to "
+"contact you and when you are usually free, and they will agree a time with "
+"you."
+msgstr ""
+"%(name)s ist der Crush Coach für deine Videoverifizierung. Sag, wie du "
+"kontaktiert werden möchtest und wann du meistens Zeit hast, dann vereinbart "
+"ihr einen Termin."
+
+msgid ""
+"%(name)s, a Crush coach, would like a short call to confirm that you are a "
+"real person. It is optional. If you would like it, tell them how to contact "
+"you and when you are usually free."
+msgstr ""
+"%(name)s, ein Crush Coach, möchte kurz mit dir telefonieren, um zu "
+"bestätigen, dass du eine echte Person bist. Das ist freiwillig. Wenn du "
+"möchtest, sag, wie du kontaktiert werden möchtest und wann du meistens Zeit "
+"hast."
+
+msgid "Saved. %(name)s can see your answer. You can change it below."
+msgstr ""
+"Gespeichert. %(name)s kann deine Antwort sehen. Du kannst sie unten ändern."
+
+msgid "Choose how you would like to be contacted first."
+msgstr "Wähle, wie du zuerst kontaktiert werden möchtest."
+
+msgid "Contact me first by"
+msgstr "Kontaktiere mich zuerst per"
+
+msgid "I am usually free"
+msgstr "Ich habe meistens Zeit"
+
+msgid "Tick any that fit. This is a rough guide, not a booking."
+msgstr "Wähle alles, was passt. Das ist nur eine grobe Angabe, keine Buchung."
+
+msgid "Update my answer"
+msgstr "Antwort aktualisieren"
+
+msgid "Send to my coach"
+msgstr "An meinen Coach senden"
+
+msgid ""
+"Your coach contacts you on the phone number in your profile. Only your coach"
+" sees this answer."
+msgstr ""
+"Dein Coach kontaktiert dich unter der Telefonnummer in deinem Profil. Nur "
+"dein Coach sieht diese Antwort."
+
+msgid "%(name)s prefers: %(method)s"
+msgstr "%(name)s bevorzugt: %(method)s"
+
+msgid "Usually free:"
+msgstr "Meistens Zeit:"
+
+msgid "No usual times given."
+msgstr "Keine üblichen Zeiten angegeben."
+
+msgid "Answered %(d)s ago."
+msgstr "Vor %(d)s beantwortet."
+
+msgid "%(name)s was asked by email %(d)s ago how to be reached."
+msgstr ""
+"%(name)s wurde vor %(d)s per E-Mail gefragt, wie die Kontaktaufnahme "
+"erfolgen soll."
+
+msgid "No answer yet. If nothing arrives within 48 hours, send the SMS below."
+msgstr ""
+"Noch keine Antwort. Wenn innerhalb von 48 Stunden nichts kommt, schick die "
+"SMS unten."
+
+msgid "No email reached %(name)s."
+msgstr "%(name)s hat keine E-Mail erhalten."
+
+msgid ""
+"They only have an in-app notice, so contact them directly with the SMS "
+"below."
+msgstr ""
+"Es gibt nur eine Mitteilung in der App, kontaktiere die Person also direkt "
+"mit der SMS unten."

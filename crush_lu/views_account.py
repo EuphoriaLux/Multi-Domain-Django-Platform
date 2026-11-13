@@ -699,6 +699,8 @@ ACCOUNT_EXPORT_REAL_PERSON_CHECK_EXCLUDED = {
         "admission_granted_at": "internal entitlement decision; passed call date is exported",
         "admission_invalidated_at": "internal validity/moderation decision",
         "requested_at": "request queue bookkeeping",
+        "contact_requested_at": "when staff asked for contact details; bookkeeping",
+        "contact_notice": "delivery bookkeeping of that request",
     },
     "badge_fields": {
         "profile": "the account block already exports the account",
@@ -3362,6 +3364,17 @@ def _export_member_activity(user):
         "open_checks": [
             {"claimed_at": _iso_or_none(check.claimed_at)}
             for check in checks.filter(status="open").order_by("claimed_at", "pk")
+        ],
+        # What the member told a coach about being reached (their own answer).
+        "contact_answers": [
+            {
+                "contact_preference": display(check, "contact_preference"),
+                "contact_availability": list(check.contact_availability or []),
+                "contact_answered_at": _iso_or_none(check.contact_answered_at),
+            }
+            for check in checks.filter(contact_answered_at__isnull=False).order_by(
+                "contact_answered_at", "pk"
+            )
         ],
         "badge": (
             {

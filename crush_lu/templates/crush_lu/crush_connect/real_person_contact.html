@@ -1,0 +1,69 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "How can your coach reach you?" %} - Crush.lu{% endblock %}
+{% block mobile_page_title %}{% trans "Your coach" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+{% comment %}
+A claimed member tells their coach how to reach them first and roughly when
+(views_real_person_call.crush_connect_real_person_contact). A plain form post:
+native radios and checkboxes, no Alpine. The coach still arranges the time.
+Context: check, coach_name, is_admission, answered, error, preferences and
+windows (key, label, selected).
+Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
+{% endcomment %}
+<div class="max-w-2xl mx-auto px-4 py-4 lg:py-6 pb-24 lg:pb-10">
+    <header class="mb-4">
+        <h1 class="text-2xl mb-1">{% blocktrans with name=coach_name %}How can {{ name }} reach you?{% endblocktrans %}</h1>
+        <p class="text-sm text-muted-fg mb-0">
+            {% if is_admission %}{% blocktrans with name=coach_name %}{{ name }} is the Crush coach for your video verification. Tell them how to contact you and when you are usually free, and they will agree a time with you.{% endblocktrans %}{% else %}{% blocktrans with name=coach_name %}{{ name }}, a Crush coach, would like a short call to confirm that you are a real person. It is optional. If you would like it, tell them how to contact you and when you are usually free.{% endblocktrans %}{% endif %}
+        </p>
+    </header>
+
+    {% if answered %}
+    <div class="alert alert-success mb-4" role="status">
+        {% include "shared/icons/check-circle.html" with class="w-5 h-5" %}
+        <span class="text-sm">{% blocktrans with name=coach_name %}Saved. {{ name }} can see your answer. You can change it below.{% endblocktrans %}</span>
+    </div>
+    {% endif %}
+    {% if error %}
+    <div class="alert alert-danger mb-4" role="alert">
+        {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
+        <span class="text-sm">{% trans "Choose how you would like to be contacted first." %}</span>
+    </div>
+    {% endif %}
+
+    <form method="post" class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5">
+        {% csrf_token %}
+        <fieldset class="m-0 mb-5 border-0 p-0">
+            <legend class="card-title mb-2">{% trans "Contact me first by" %}</legend>
+            <div class="space-y-2">
+                {% for key, label, selected in preferences %}
+                <label class="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 cursor-pointer has-[:checked]:border-crush-purple has-[:checked]:bg-crush-light dark:has-[:checked]:bg-gray-900/40">
+                    <input type="radio" name="preference" value="{{ key }}" required {% if selected %}checked{% endif %} class="h-5 w-5 border-gray-300 dark:border-gray-600 text-crush-purple focus:ring-crush-purple">
+                    <span class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <fieldset class="m-0 mb-5 border-0 p-0">
+            <legend class="card-title mb-1">{% trans "I am usually free" %}</legend>
+            <p class="text-xs text-muted-fg mb-2">{% trans "Tick any that fit. This is a rough guide, not a booking." %}</p>
+            <div class="grid gap-2 sm:grid-cols-2">
+                {% for key, label, selected in windows %}
+                <label class="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 p-3 cursor-pointer has-[:checked]:border-crush-purple has-[:checked]:bg-crush-light dark:has-[:checked]:bg-gray-900/40">
+                    <input type="checkbox" name="windows" value="{{ key }}" {% if selected %}checked{% endif %} class="h-5 w-5 rounded border-gray-300 dark:border-gray-600 text-crush-purple focus:ring-crush-purple">
+                    <span class="text-sm text-gray-900 dark:text-gray-100">{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
+        <button type="submit" class="btn-crush-solid btn-block">{% if answered %}{% trans "Update my answer" %}{% else %}{% trans "Send to my coach" %}{% endif %}</button>
+        <p class="text-xs text-muted-fg mt-3 mb-0">{% trans "Your coach contacts you on the phone number in your profile. Only your coach sees this answer." %}</p>
+    </form>
+</div>
+{% endblock %}

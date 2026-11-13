@@ -412,7 +412,12 @@ class Command(BaseCommand):
                 _last_touched=Coalesce("decided_at", "lease_expires_at", "claimed_at")
             )
             .filter(_last_touched__lt=cutoff)
-            .filter(~Q(notes="") | ~Q(checklist={}))
+            .filter(
+                ~Q(notes="")
+                | ~Q(checklist={})
+                | Q(contact_preference__isnull=False)
+                | Q(contact_availability__isnull=False)
+            )
         )
         if not apply_changes:
             self.stdout.write(
@@ -428,7 +433,13 @@ class Command(BaseCommand):
                 break
             # Re-apply the filter to the write: a row refreshed since selection
             # must survive.
-            blanked += stale_qs.filter(pk__in=pks).update(notes="", checklist={})
+            # The member's contact answer goes with the coach's notes.
+            blanked += stale_qs.filter(pk__in=pks).update(
+                notes="",
+                checklist={},
+                contact_preference=None,
+                contact_availability=None,
+            )
             if time.monotonic() >= deadline:
                 self.stdout.write(
                     f"  Real-person check notes older than {notes_days}d: "

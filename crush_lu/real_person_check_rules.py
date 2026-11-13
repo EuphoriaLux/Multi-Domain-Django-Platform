@@ -45,3 +45,27 @@ CLAIM_TTL = timedelta(hours=72)
 MAX_OPEN_CLAIMS_PER_COACH = 10
 DECLINE_COOLDOWN = timedelta(days=90)
 NOTES_MAX_LENGTH = 1000
+
+# Contact details a member may give after a coach claims them: how they want
+# to be reached first and roughly when. Asked once per member per
+# CONTACT_REQUEST_COOLDOWN however many coaches claim them, and an answer is
+# carried onto a later claim for CONTACT_ANSWER_TTL.
+CONTACT_CALL = "call"
+CONTACT_SMS = "sms"
+CONTACT_WHATSAPP = "whatsapp"
+CONTACT_PREFERENCES = (CONTACT_CALL, CONTACT_SMS, CONTACT_WHATSAPP)
+CONTACT_WINDOWS = (
+    "weekday_morning",
+    "weekday_lunch",
+    "weekday_evening",
+    "weekend_morning",
+    "weekend_afternoon",
+    "weekend_evening",
+)
+CONTACT_REQUEST_COOLDOWN = timedelta(days=14)
+CONTACT_ANSWER_TTL = timedelta(days=30)
+# What the claim managed to send: an email, only the in-app notice (emails
+# switched off), or nothing (the send failed).
+CONTACT_NOTICE_EMAIL = "email"
+CONTACT_NOTICE_BELL = "bell"
+CONTACT_NOTICE_FAILED = "failed"

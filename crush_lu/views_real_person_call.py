@@ -24,7 +24,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
 """
 
 from django.http import Http404
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.views.decorators.cache import never_cache
 
 from azureproject.csp_middleware import allow_microphone
@@ -81,3 +81,69 @@ def crush_connect_real_person_call(request, check_id):
     if context["video_call"]["available"]:
         allow_microphone(response)
     return response
+
+
+@crush_login_required
+@never_cache
+def crush_connect_real_person_contact(request, check_id):
+    """Where a claimed member says how and when their coach may reach them.
+
+    Only the check's own member, only while a coach holds a live claim, only
+    with the contact-request switch on. Everyone else gets a 404; the member
+    of a check that is no longer open gets the same "not open" page as the
+    call link.
+    """
+    from crush_lu.real_person_check_rules import CONTACT_PREFERENCES, CONTACT_WINDOWS
+    from crush_lu.services.real_person_check import RealPersonCheckError
+    from crush_lu.services.real_person_contact import (
+        CONTACT_PREFERENCE_LABELS,
+        CONTACT_WINDOW_LABELS,
+        contact_request_enabled,
+        member_contact_check,
+        save_contact_details,
+    )
+
+    if check_id > _MAX_CHECK_ID or not contact_request_enabled():
+        raise Http404
+    check = member_contact_check(request.user, check_id)
+    if check is None:
+        return _not_open(request, check_id)
+    error = ""
+    chosen = check.contact_preference or ""
+    windows = list(check.contact_availability or [])
+    if request.method == "POST":
+        chosen = request.POST.get("preference", "")
+        windows = request.POST.getlist("windows")
+        try:
+            save_contact_details(
+                request.user, check.pk, preference=chosen, windows=windows
+            )
+        except RealPersonCheckError as exc:
+            if exc.code == "invalid_contact_preference":
+                error = "preference"
+            else:
+                return _not_open(request, check_id)
+        else:
+            return redirect(
+                "crush_lu:crush_connect_real_person_contact", check_id=check.pk
+            )
+    return render(
+        request,
+        "crush_lu/crush_connect/real_person_contact.html",
+        {
+            "check": check,
+            "coach_name": check.coach.user.first_name,
+            "is_admission": check.purpose == "connect_week",
+            "answered": bool(check.contact_answered_at) and not error,
+            "error": error,
+            "preferences": [
+                (key, CONTACT_PREFERENCE_LABELS[key], key == chosen)
+                for key in CONTACT_PREFERENCES
+            ],
+            "windows": [
+                (key, CONTACT_WINDOW_LABELS[key], key in windows)
+                for key in CONTACT_WINDOWS
+            ],
+        },
+        status=400 if error else 200,
+    )

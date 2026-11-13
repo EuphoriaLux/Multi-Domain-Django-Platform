@@ -24,6 +24,9 @@ from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 from crush_lu.real_person_check_rules import (
+    CONTACT_NOTICE_BELL,
+    CONTACT_NOTICE_EMAIL,
+    CONTACT_NOTICE_FAILED,
     MEDIUMS,
     MEDIUM_VIDEO,
     PURPOSE_BADGE_ONLY,
@@ -152,6 +155,51 @@ class ConnectRealPersonCheck(models.Model):
         related_name="revoked_real_person_checks",
     )
     revoke_reason = models.CharField(max_length=255, blank=True)
+
+    # Contact details the member may give after a claim (how to reach them
+    # first, and roughly when). Every column is nullable with no default, the
+    # text ones included: an older serving release can keep inserting checks
+    # after the migration, and SQLite adds them with ALTER TABLE instead of
+    # rebuilding the table, which the profile trigger from 0292 forbids. Read
+    # them with ``or ""``.
+    CONTACT_PREFERENCE_CHOICES = [
+        ("call", _("Phone call")),
+        ("sms", _("SMS first")),
+        ("whatsapp", _("WhatsApp first")),
+    ]
+    contact_requested_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_("When the member was last asked for their contact details."),
+    )
+    contact_notice = models.CharField(
+        max_length=8,
+        null=True,
+        blank=True,
+        editable=False,
+        choices=[
+            (CONTACT_NOTICE_EMAIL, _("Email sent")),
+            (CONTACT_NOTICE_BELL, _("In-app notice only")),
+            (CONTACT_NOTICE_FAILED, _("Not sent")),
+        ],
+        help_text=_("What the request actually reached the member with."),
+    )
+    contact_preference = models.CharField(
+        max_length=8,
+        null=True,
+        blank=True,
+        editable=False,
+        choices=CONTACT_PREFERENCE_CHOICES,
+        help_text=_("How the member asked to be contacted first."),
+    )
+    contact_availability = models.JSONField(
+        null=True,
+        blank=True,
+        editable=False,
+        help_text=_("Rough time windows the member ticked (a list of keys)."),
+    )
+    contact_answered_at = models.DateTimeField(null=True, blank=True, editable=False)
 
     class Meta:
         ordering = ["-claimed_at", "-pk"]

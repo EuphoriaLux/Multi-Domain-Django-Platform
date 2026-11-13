@@ -84,6 +84,12 @@ from crush_lu.services.real_person_check import (
     real_person_check_enabled,
     release_check,
 )
+from crush_lu.services.real_person_contact import (
+    CONTACT_PREFERENCE_LABELS,
+    contact_request_enabled,
+    whatsapp_chosen_for,
+    window_labels,
+)
 from crush_lu.services.video_call import video_call_context, video_calls_available
 from crush_lu.services.whatsapp import can_send_whatsapp
 from crush_lu.views_coach import _outreach_links
@@ -362,13 +368,22 @@ def whatsapp_link_allowed(profile):
 
 
 def _outreach_context(
-    coach, profile, *, blocked, video_available=True, call_url="", admission=False
+    coach,
+    profile,
+    *,
+    blocked,
+    video_available=True,
+    call_url="",
+    admission=False,
+    whatsapp_chosen=False,
 ):
     """``tel:`` / ``sms:`` / ``wa.me`` links, or none while a guard fails.
 
     Links exist only for a verified phone number, and never while any guard
     fails: a banned or blocked member must not be one tap away. The WhatsApp
-    link also needs the member's WhatsApp opt-in (``whatsapp_link_allowed``).
+    link also needs the member's WhatsApp opt-in (``whatsapp_link_allowed``),
+    or their own "WhatsApp first" answer for this check (``whatsapp_chosen``),
+    which still needs a number that can receive WhatsApp.
     ``call_url`` (the member's in-app call page) goes into the text of both.
     """
     empty = {"tel_href": "", "sms_href": "", "whatsapp_url": "", "phone_display": ""}
@@ -390,9 +405,34 @@ def _outreach_context(
             f"sms:{dial}?body={links['sms_template_encoded']}" if dial else ""
         ),
         "whatsapp_url": (
-            links["whatsapp_url"] if whatsapp_link_allowed(profile) else ""
+            links["whatsapp_url"]
+            if whatsapp_link_allowed(profile)
+            or (whatsapp_chosen and can_send_whatsapp(profile))
+            else ""
         ),
         "phone_display": phone,
+    }
+
+
+def _contact_context(check):
+    """What the member was asked and answered about being reached, or None.
+
+    None while the contact-request switch is off or nothing was ever asked, so
+    the page then looks exactly as it did before the feature.
+    """
+    if not contact_request_enabled() or not (
+        check.contact_requested_at or check.contact_answered_at
+    ):
+        return None
+    return {
+        "answered_at": check.contact_answered_at,
+        "requested_at": check.contact_requested_at,
+        "notice": check.contact_notice or "",
+        "preference": check.contact_preference or "",
+        "preference_label": CONTACT_PREFERENCE_LABELS.get(
+            check.contact_preference or "", ""
+        ),
+        "windows": window_labels(check.contact_availability),
     }
 
 
@@ -485,8 +525,10 @@ def _check_context(request, check, *, now=None, **extra):
             video_available=context["video_available"],
             call_url=call_url,
             admission=admission,
+            whatsapp_chosen=whatsapp_chosen_for(check),
         )
     )
+    context["contact"] = _contact_context(check)
     if call_possible:
         # ``video_call`` (a call can take place) is not ``video_available``
         # (a video *badge* can be granted): a coach may video-call a member

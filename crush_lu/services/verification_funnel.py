@@ -204,6 +204,9 @@ def claim_video_request(coach, check_id):
         check.claimed_at = now
         check.lease_expires_at = now + CLAIM_TTL
         check.save(update_fields=["coach", "claimed_at", "lease_expires_at"])
+        from crush_lu.services.real_person_contact import queue_contact_request
+
+        queue_contact_request(check.pk)
         return check
 
 

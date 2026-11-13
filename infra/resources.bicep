@@ -533,6 +533,9 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // Pin with: az webapp config appsettings set ... --slot-settings CONNECT_REAL_PERSON_CHECK_ENABLED=False CONNECT_REAL_PERSON_BADGE_VISIBLE=False
       'CONNECT_REAL_PERSON_CHECK_ENABLED'
       'CONNECT_REAL_PERSON_BADGE_VISIBLE'
+      // Emails members after a coach claims them. Staging's True must never
+      // swap into production, where the coach tooling is already on.
+      'CONNECT_REAL_PERSON_CONTACT_REQUEST_ENABLED'
       // January Connect Week admission. Staging's pilot/policy must not swap
       // into production. Defaults are off/False; no existing badge is a grant.
       'CONNECT_VIDEO_VERIFICATION_MODE'
