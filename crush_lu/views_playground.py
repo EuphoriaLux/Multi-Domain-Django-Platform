@@ -73,8 +73,8 @@ def _error_text(code):
     ) % {"code": code}
 
 
-@require_GET
 @playground_view
+@require_GET
 def coach_playground(request):
     from crush_lu.services.playground_mail import recent_mail
     from crush_lu.services.quiz_rehearsal import rehearsal_enabled
@@ -97,8 +97,8 @@ def coach_playground(request):
     return render(request, "crush_lu/coach_playground.html", context)
 
 
-@require_POST
 @playground_view
+@require_POST
 def coach_playground_scenario(request):
     key = request.POST.get("preset", practice.DEFAULT_PRESET)
     gender = request.POST.get("gender", "")
@@ -114,8 +114,8 @@ def coach_playground_scenario(request):
     return redirect("crush_lu:coach_playground")
 
 
-@require_POST
 @playground_view
+@require_POST
 def coach_playground_switch(request):
     link = practice.live_practice_link(request.user)
     if link is None or not link.user.is_active:
@@ -139,13 +139,18 @@ def coach_playground_switch(request):
     return redirect("crush_lu:dashboard")
 
 
-@require_POST
 def playground_back_to_coach(request):
     """From the practice member back to the coach who switched into it."""
+    from django.http import HttpResponseNotAllowed
+
     from crush_lu.models import CrushCoach, PlaygroundAccount
 
+    # The gate comes before the method check: production answers 404 to any
+    # method, as if the page did not exist.
     if not playground_enabled():
         raise Http404
+    if request.method != "POST":
+        return HttpResponseNotAllowed(["POST"])
     marker = practice.switch_marker(request)
     owner_id = marker.get("coach") if marker else None
     valid = (

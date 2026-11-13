@@ -557,6 +557,7 @@ ACCOUNT_ERASURE_PURGE = (
     # and the practice members they own. Without the link nobody can switch
     # into a practice member again.
     ("PlaygroundAccount", ("user", "owner")),
+    ("PlaygroundMail", ("recipient",)),
     # Blocks (both directions) and "we met" records shared with another
     # member: decided 2026-10-15, they go with the account. Encounters that
     # carry a removal request are kept (moderation record; see the purge loop).

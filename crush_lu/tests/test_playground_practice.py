@@ -310,9 +310,13 @@ class TestGate:
         "method,path",
         [
             ("get", PLAYGROUND),
+            ("post", PLAYGROUND),
             ("post", SCENARIO),
+            ("get", SCENARIO),
             ("post", SWITCH),
+            ("get", SWITCH),
             ("post", BACK),
+            ("get", BACK),
         ],
     )
     def test_pages_404_in_production(self, production, coach, method, path):
