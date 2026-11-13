@@ -377,10 +377,9 @@ class PlaygroundSSOFreshnessMiddleware:
 
         if not sso.consumer_enabled():
             return None
-        # Sessions are per host and the sign-in routes live in the crush.lu
-        # URLconf only (test.crush.lu); other platforms are left alone.
-        if getattr(request, "urlconf", None) != "azureproject.urls_crush":
-            return None
+        # Every host, not only test.crush.lu: other platforms mount the coach
+        # pages too (vinsdelux includes crush_lu.urls), and a session cookie
+        # can be replayed on any host of this app.
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:
             return None
@@ -399,11 +398,17 @@ class PlaygroundSSOFreshnessMiddleware:
 
         from django.contrib.auth import logout
         from django.shortcuts import redirect
-        from django.urls import reverse
+        from django.urls import NoReverseMatch, reverse
 
         logger.info("Coach playground: staging coach %s must sign in again", user.pk)
         logout(request)
-        start = reverse("coach_playground_sso_start", urlconf="azureproject.urls_crush")
+        try:
+            # The sign-in route exists only in the crush.lu URLconf.
+            start = reverse(
+                "coach_playground_sso_start", urlconf=getattr(request, "urlconf", None)
+            )
+        except NoReverseMatch:
+            return redirect("/")
         if request.method == "GET":
             return redirect(f"{start}?next={quote(request.get_full_path(), safe='')}")
         return redirect(start)
