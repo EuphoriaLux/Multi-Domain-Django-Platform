@@ -1,0 +1,11 @@
+{% load i18n %}
+{# The start route exists only in the crush.lu URLconf; other domains reuse this template. #}
+{% url 'coach_playground_sso_start' as playground_sso_start_url %}
+{% if playground_sso_enabled and playground_sso_start_url %}
+{# test.crush.lu only: coaches sign in with their real crush.lu account. #}
+<div class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-100">
+    <p class="text-sm font-semibold">{% trans "Crush coach? Use your crush.lu account here." %}</p>
+    <p class="mt-1 text-xs">{% trans "You sign in on crush.lu and come straight back to test.crush.lu with your coach account." %}</p>
+    <a href="{{ playground_sso_start_url }}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}" class="btn-crush-solid btn-block mt-3">{% trans "Sign in with crush.lu" %}</a>
+</div>
+{% endif %}

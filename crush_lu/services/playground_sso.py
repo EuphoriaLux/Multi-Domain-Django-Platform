@@ -463,10 +463,12 @@ def _match_by_email(User, EmailAddress, email):
         raise SSOError("ambiguous_account", 409)
     if verified_user_ids:
         return User.objects.get(pk=verified_user_ids.pop())
-    matches = list(User.objects.filter(email__iexact=email)[:2])
-    if len(matches) > 1:
-        raise SSOError("ambiguous_account", 409)
-    return matches[0] if matches else None
+    # An account that only *claims* this email (staging signup creates it
+    # before the address is confirmed) is never adopted: whoever registered it
+    # chose its password, and linking it would hand them coach access.
+    if User.objects.filter(email__iexact=email).exists():
+        raise SSOError("unverified_account", 409)
+    return None
 
 
 def _create_coach_user(User, production_account_id, email):

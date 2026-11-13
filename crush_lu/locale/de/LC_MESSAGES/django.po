@@ -48310,3 +48310,7 @@ msgstr "Bereit für die Event-Lobby"
 #: crush_lu/services/playground_practice.py
 msgid "Connect Week ready and registered for your practice mixer. Scan the ticket, fill the room, then open the Lobby on the phone."
 msgstr "Bereit für Connect Week und für deinen Übungs-Mixer angemeldet. Scanne das Ticket, fülle den Raum und öffne dann die Lobby auf dem Handy."
+
+#: crush_lu/views_playground_sso.py
+msgid "A test.crush.lu account with your email exists but its email was never confirmed, so it cannot be linked. Ask Tom to remove it."
+msgstr "Auf test.crush.lu gibt es ein Konto mit deiner E-Mail-Adresse, deren Bestätigung nie abgeschlossen wurde. Es kann daher nicht verknüpft werden. Bitte Tom, es zu entfernen."

@@ -58,6 +58,10 @@ ERROR_MESSAGES = {
     "ambiguous_account": _(
         "Several test.crush.lu accounts use your email. Ask Tom to merge them."
     ),
+    "unverified_account": _(
+        "A test.crush.lu account with your email exists but its email was never "
+        "confirmed, so it cannot be linked. Ask Tom to remove it."
+    ),
     "account_inactive": _(
         "Your test.crush.lu account is deactivated. Ask Tom to reactivate it."
     ),

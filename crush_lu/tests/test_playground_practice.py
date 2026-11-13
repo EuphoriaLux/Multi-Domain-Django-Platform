@@ -301,14 +301,29 @@ class TestStartAgain:
         report.refresh_from_db()
         assert report.status == "dismissed"
 
-    def test_lock_order_is_practice_row_first(self):
+    def test_lock_order_starts_with_the_owner_row(self):
         # SQLite ignores select_for_update, so assert the order structurally:
-        # nothing else locks PlaygroundAccount, and retire locks it before the
-        # funnel locks profile -> check.
-        source = inspect.getsource(practice.retire_practice_member)
-        assert source.index("select_for_update") < source.index(
+        # the coach's user row (stable from the first build) is locked before
+        # the practice row is looked up, and both before the funnel locks
+        # profile -> check.
+        build = inspect.getsource(practice.apply_preset)
+        assert build.index("lock_owner(coach.user)") < build.index(
+            "retire_practice_member(coach.user)"
+        )
+        retire = inspect.getsource(practice.retire_practice_member)
+        assert retire.index("lock_owner(coach_user)") < retire.index(
+            "select_for_update"
+        )
+        assert retire.index("select_for_update") < retire.index(
             "cancel_verification(old)"
         )
+
+    def test_owner_lock_is_taken_on_the_first_build_too(self, coach):
+        with mock.patch.object(
+            practice, "lock_owner", wraps=practice.lock_owner
+        ) as lock:
+            practice.apply_preset(coach, "luxid_ready")
+        assert lock.call_args_list[0].args == (coach.user,)
 
 
 class TestGate:
