@@ -48207,3 +48207,216 @@ msgstr "Membre Premium qui t'est attribué"
 #: crush_lu/services/playground_practice.py
 msgid "LuxID-verified with an active Premium membership and you as their coach. Other coaches cannot verify them."
 msgstr "Vérifié avec LuxID, avec un abonnement Premium actif et toi comme coach. Les autres coachs ne peuvent pas le vérifier."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Practise Connect Week"
+msgstr "S'entraîner à Connect Week"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "The test members (the cast) are not set up on this server yet. Ask Tom to run seed_playground_cast."
+msgstr "Les membres de test (la distribution) ne sont pas encore installés sur ce serveur. Demande à Tom de lancer seed_playground_cast."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Create a practice member first. \"Connect Week ready\" is the quickest start."
+msgstr "Crée d'abord un membre d'entraînement. « Prêt pour Connect Week » est le départ le plus rapide."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Test members never act on their own: pick one and tell them what to do."
+msgstr "Les membres de test n'agissent jamais seuls : choisis-en un et dis-lui quoi faire."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Test member"
+msgstr "Membre de test"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "no LuxID"
+msgstr "sans LuxID"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Sends me a request"
+msgstr "M'envoie une demande"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Accepts my request"
+msgstr "Accepte ma demande"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Declines my request"
+msgstr "Refuse ma demande"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Replies in the chat"
+msgstr "Répond dans le chat"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Lets the request expire"
+msgstr "Laisse la demande expirer"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Next day"
+msgstr "Jour suivant"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Jump to review day"
+msgstr "Aller au jour du bilan"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Reset my Connect history"
+msgstr "Réinitialiser mon historique Connect"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "\"Next day\" and \"Jump to review day\" move your practice member's own Connect Week. Open Connect Week once on the phone first."
+msgstr "« Jour suivant » et « Aller au jour du bilan » font avancer la Connect Week de ton membre d'entraînement. Ouvre d'abord Connect Week une fois sur le téléphone."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Practise an event"
+msgstr "S'entraîner à un événement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Phone (member): open Events, find your practice mixer and register."
+msgstr "Téléphone (membre) : ouvre Événements, trouve ton mixer d'entraînement et inscris-toi."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Laptop (coach): open the door page and scan the ticket on the phone."
+msgstr "Ordinateur (coach) : ouvre la page d'accueil à l'entrée et scanne le billet sur le téléphone."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Fill the room with test members, then try the Event Lobby on the phone."
+msgstr "Remplis la salle de membres de test, puis essaie l'Event Lobby sur le téléphone."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "End the mixer to see the recap and My Crush. Sam has no LuxID, so choosing him leads to My Crush."
+msgstr "Termine le mixer pour voir le récapitulatif et My Crush. Sam n'a pas de LuxID : le choisir mène à My Crush."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Mixer page"
+msgstr "Page du mixer"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Door page"
+msgstr "Page d'accueil à l'entrée"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Fill the room"
+msgstr "Remplir la salle"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "End the mixer now"
+msgstr "Terminer le mixer maintenant"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Fresh mixer"
+msgstr "Nouveau mixer"
+
+#: crush_lu/views_playground.py
+#, python-format
+msgid "%(name)s sent your practice member a request. Open Connect Week on the phone."
+msgstr "%(name)s a envoyé une demande à ton membre d'entraînement. Ouvre Connect Week sur le téléphone."
+
+#: crush_lu/views_playground.py
+#, python-format
+msgid "%(name)s accepted. A chat is open on the phone."
+msgstr "%(name)s a accepté. Un chat est ouvert sur le téléphone."
+
+#: crush_lu/views_playground.py
+#, python-format
+msgid "%(name)s declined. The member is never told; the request just ends."
+msgstr "%(name)s a refusé. Le membre n'en est jamais informé : la demande se termine simplement."
+
+#: crush_lu/views_playground.py
+#, python-format
+msgid "%(name)s replied in the chat."
+msgstr "%(name)s a répondu dans le chat."
+
+#: crush_lu/views_playground.py
+msgid "The request expired."
+msgstr "La demande a expiré."
+
+#: crush_lu/views_playground.py
+msgid "Your practice member's Connect Week moved one day on."
+msgstr "La Connect Week de ton membre d'entraînement a avancé d'un jour."
+
+#: crush_lu/views_playground.py
+msgid "Your practice member's Connect Week is at review day."
+msgstr "La Connect Week de ton membre d'entraînement est au jour du bilan."
+
+#: crush_lu/views_playground.py
+msgid "Your practice member's Connect history is cleared."
+msgstr "L'historique Connect de ton membre d'entraînement est effacé."
+
+#: crush_lu/views_playground.py
+#, python-format
+msgid "%(count)s test members are in the room."
+msgstr "%(count)s membres de test sont dans la salle."
+
+#: crush_lu/views_playground.py
+msgid "The mixer has ended: the recap and My Crush are open."
+msgstr "Le mixer est terminé : le récapitulatif et My Crush sont ouverts."
+
+#: crush_lu/views_playground.py
+msgid "A fresh mixer is ready."
+msgstr "Un nouveau mixer est prêt."
+
+#: crush_lu/views_playground.py
+msgid "That test member already met your practice member. Reset the Connect history first."
+msgstr "Ce membre de test a déjà rencontré ton membre d'entraînement. Réinitialise d'abord l'historique Connect."
+
+#: crush_lu/views_playground.py
+msgid "Your practice member is not ready for Connect yet. Start from \"Connect Week ready\"."
+msgstr "Ton membre d'entraînement n'est pas encore prêt pour Connect. Commence par « Prêt pour Connect Week »."
+
+#: crush_lu/views_playground.py
+msgid "There is no pending request between them."
+msgstr "Il n'y a pas de demande en attente entre eux."
+
+#: crush_lu/views_playground.py
+msgid "They have no chat yet: accept a request first."
+msgstr "Ils n'ont pas encore de chat : accepte d'abord une demande."
+
+#: crush_lu/views_playground.py
+msgid "Your practice member has no Connect Week running. Open Connect Week on the phone first."
+msgstr "Ton membre d'entraînement n'a pas de Connect Week en cours. Ouvre d'abord Connect Week sur le téléphone."
+
+#: crush_lu/views_playground.py
+msgid "The test members are not set up on this server yet."
+msgstr "Les membres de test ne sont pas encore installés sur ce serveur."
+
+#: crush_lu/services/playground_practice.py
+msgid "Event route, no LuxID"
+msgstr "Voie événement, sans LuxID"
+
+#: crush_lu/services/playground_practice.py
+msgid "Verified by you at your practice mixer, without LuxID. The event route opens Connect Week; the Event Lobby still needs LuxID."
+msgstr "Vérifié par toi à ton mixer d'entraînement, sans LuxID. La voie événement ouvre Connect Week ; l'Event Lobby demande toujours LuxID."
+
+#: crush_lu/services/playground_practice.py
+msgid "Connect Week ready"
+msgstr "Prêt pour Connect Week"
+
+#: crush_lu/services/playground_practice.py
+msgid "Video-verified and Connect onboarding done. On the phone, open Connect Week; use the test member buttons below to play the other side."
+msgstr "Vérifié en vidéo et onboarding Connect terminé. Sur le téléphone, ouvre Connect Week ; joue l'autre côté avec les boutons des membres de test ci-dessous."
+
+#: crush_lu/services/playground_practice.py
+msgid "Connect onboarding still to do"
+msgstr "Onboarding Connect encore à faire"
+
+#: crush_lu/services/playground_practice.py
+msgid "Video-verified, but Connect setup not started. Walk through the onboarding on the phone like a new member."
+msgstr "Vérifié en vidéo, mais Connect pas encore configuré. Parcours l'onboarding sur le téléphone comme un nouveau membre."
+
+#: crush_lu/services/playground_practice.py
+msgid "First-time guest with a ticket"
+msgstr "Premier invité avec un billet"
+
+#: crush_lu/services/playground_practice.py
+msgid "Profile submitted, not verified, no LuxID, registered for your practice mixer. Scan the ticket at the door: the scan verifies them."
+msgstr "Profil envoyé, non vérifié, sans LuxID, inscrit à ton mixer d'entraînement. Scanne le billet à l'entrée : le scan le vérifie."
+
+#: crush_lu/services/playground_practice.py
+msgid "Event Lobby ready"
+msgstr "Prêt pour l'Event Lobby"
+
+#: crush_lu/services/playground_practice.py
+msgid "Connect Week ready and registered for your practice mixer. Scan the ticket, fill the room, then open the Lobby on the phone."
+msgstr "Prêt pour Connect Week et inscrit à ton mixer d'entraînement. Scanne le billet, remplis la salle, puis ouvre le Lobby sur le téléphone."
