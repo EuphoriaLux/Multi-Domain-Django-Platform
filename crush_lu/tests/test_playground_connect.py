@@ -83,6 +83,19 @@ def seeded(coach):
     return coach
 
 
+def _second_coach():
+    user = User.objects.create_user(
+        username="ben_coach",
+        email="ben_coach@crush.lu",
+        password="pw-12345678",
+        first_name="Ben",
+    )
+    UserDataConsent.objects.update_or_create(
+        user=user, defaults={"crushlu_consent_given": True}
+    )
+    return CrushCoach.objects.create(user=user, is_active=True, bio="coach")
+
+
 def _lea():
     return cast.cast_member("lea")
 
@@ -236,6 +249,19 @@ class TestConnect:
         )
         assert not ConnectWeekSession.objects.filter(user=ready_member).exists()
 
+    def test_retired_member_leaves_the_pool(self, seeded):
+        old = practice.apply_preset(seeded, "connect_ready")
+        other = practice.apply_preset(_second_coach(), "connect_ready")
+        assert old.pk in set(
+            get_cycle_eligible_pool(other).values_list("pk", flat=True)
+        )
+        practice.apply_preset(seeded, "connect_ready")
+        old.refresh_from_db()
+        assert not is_catalogue_eligible(old)
+        assert old.pk not in set(
+            get_cycle_eligible_pool(other).values_list("pk", flat=True)
+        )
+
     def test_buttons_refuse_off_staging(self, ready_member, monkeypatch):
         monkeypatch.delenv("DJANGO_ENV")
         from django.core.exceptions import PermissionDenied
@@ -264,13 +290,22 @@ class TestMixer:
         assert not event.coaches.exists()
 
     def test_member_registers_on_the_real_page(self, seeded):
-        member = practice.apply_preset(seeded, "event_ticket_pending")
+        member = practice.apply_preset(seeded, "luxid_ready")
         event = mixer.ensure_practice_mixer(seeded.user)
+        assert not EventRegistration.objects.filter(event=event, user=member).exists()
         client = Client(HTTP_HOST=HOST)
         client.force_login(member)
-        response = client.post(f"/en/events/{event.pk}/register/", {})
-        assert response.status_code in (200, 302)
-        assert EventRegistration.objects.filter(event=event, user=member).exists()
+        client.post(f"/en/events/{event.pk}/register/", {})
+        registration = EventRegistration.objects.get(event=event, user=member)
+        assert registration.status == "confirmed"
+        assert client.get(f"/en/events/{event.pk}/ticket/").status_code == 200
+
+    def test_door_page_loads_for_a_coach_not_on_the_event(self, seeded):
+        event = mixer.ensure_practice_mixer(seeded.user)
+        assert not event.coaches.filter(pk=seeded.pk).exists()
+        response = Client(HTTP_HOST=HOST)
+        response.force_login(seeded.user)
+        assert response.get(f"/en/coach/events/{event.pk}/checkin/").status_code == 200
 
     def test_door_scan_verifies_a_first_time_guest(self, seeded):
         member = practice.apply_preset(seeded, "event_ticket_pending")
