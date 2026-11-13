@@ -58,7 +58,9 @@ def staging(monkeypatch, configured):
     return configured
 
 
-def _make_user(email, *, coach=False, superuser=False, active=True):
+def _make_user(
+    email, *, coach=False, superuser=False, active=True, verified_email=True
+):
     user = User.objects.create_user(
         username=email,
         email=email,
@@ -71,6 +73,10 @@ def _make_user(email, *, coach=False, superuser=False, active=True):
     UserDataConsent.objects.update_or_create(
         user=user, defaults={"crushlu_consent_given": True}
     )
+    if verified_email:
+        EmailAddress.objects.update_or_create(
+            user=user, email=email, defaults={"verified": True, "primary": True}
+        )
     if coach:
         CrushCoach.objects.create(user=user, is_active=True)
     return user
@@ -232,6 +238,13 @@ class TestExchange:
         assert "c@crush.lu" not in caplog.text
         assert _exchange(client, code).status_code == 401
 
+    def test_unverified_email_is_not_vouched_for(self, production):
+        coach = _make_user("c@crush.lu", coach=True, verified_email=False)
+        client = Client(HTTP_HOST="crush.lu")
+        claims = _exchange(client, _issue(client, coach)).json()
+        assert claims["role"] == "coach"
+        assert claims["email_verified"] is False
+
     def test_superuser_role(self, production):
         admin = _make_user("boss@crush.lu", superuser=True)
         client = Client(HTTP_HOST="crush.lu")
@@ -369,9 +382,6 @@ class TestCallback:
 
     def test_existing_account_keeps_password_and_superuser(self, staging):
         existing = _make_user("ana@crush.lu", superuser=True)
-        EmailAddress.objects.create(
-            user=existing, email="ana@crush.lu", verified=True, primary=True
-        )
         client = Client(HTTP_HOST="test.crush.lu")
         state = _start(client)
         response, _ = self._callback(client, state, _claims(state))
@@ -382,6 +392,30 @@ class TestCallback:
         assert (
             PlaygroundAccount.objects.get(user=existing).production_account_id == 9001
         )
+
+    def test_unverified_email_claim_is_refused(self, staging):
+        _make_user("ana@crush.lu", superuser=True)
+        client = Client(HTTP_HOST="test.crush.lu")
+        state = _start(client)
+        response, _ = self._callback(
+            client, state, _claims(state, email_verified=False)
+        )
+        assert response.status_code == 400
+        assert "_auth_user_id" not in client.session
+
+    def test_first_landing_asks_for_consent_once(self, staging):
+        # A new staging account has no Crush.lu consent yet: the coach
+        # confirms it once, like any member. No redirect loop.
+        client = Client(HTTP_HOST="test.crush.lu")
+        state = _start(client)
+        with mock.patch("requests.post") as post:
+            post.return_value = _fake_response(200, _claims(state))
+            response = client.get(
+                CALLBACK, {"code": "k" * 43, "state": state}, follow=True
+            )
+        assert response.status_code == 200
+        assert len(response.redirect_chain) <= 3
+        assert response.request["PATH_INFO"] == "/en/consent/confirm/"
 
     def test_inactive_account_is_refused(self, staging):
         _make_user("ana@crush.lu", active=False)
@@ -394,8 +428,8 @@ class TestCallback:
     def test_ambiguous_email_is_refused(self, staging):
         # auth_user.email is unique, so ambiguity can only come from allauth
         # address rows that point two accounts at the same email.
-        first = _make_user("first@crush.lu")
-        second = _make_user("second@crush.lu")
+        first = _make_user("first@crush.lu", verified_email=False)
+        second = _make_user("second@crush.lu", verified_email=False)
         EmailAddress.objects.create(user=first, email="ana@crush.lu", verified=True)
         try:
             EmailAddress.objects.create(
