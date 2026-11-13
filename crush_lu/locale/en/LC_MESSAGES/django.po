@@ -29328,3 +29328,11 @@ msgstr ""
 #: crush_lu/templates/crush_lu/quiz_live.html
 msgid "Wait for the host’s signal before you move."
 msgstr ""
+
+msgid "Steps"
+msgstr "Steps"
+
+msgid ""
+"The video call opens on this page 15 minutes before the saved appointment."
+msgstr ""
+"The video call opens on this page 15 minutes before the saved appointment."

@@ -15,8 +15,8 @@ Context: video_call (from video_call_context), coach_name (may be empty).
 The view returns allow_microphone(response) when the call is on the page.
 Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
 {% endcomment %}
-<div class="max-w-2xl mx-auto px-4 py-6 pb-24 lg:pb-10">
-    <a href="{% url 'crush_lu:crush_connect_hub' %}" class="inline-flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-crush-purple mb-4">
+<div class="max-w-2xl mx-auto px-4 py-4 lg:py-6 pb-24 lg:pb-10">
+    <a href="{% url 'crush_lu:crush_connect_hub' %}" class="hidden lg:inline-flex items-center gap-1 text-sm text-muted-fg hover:text-crush-purple mb-4">{# the mobile top bar already has Back #}
         {% include "shared/icons/arrow-left.html" with class="w-4 h-4" %}
         {% trans "Back to Crush Connect" %}
     </a>
@@ -25,12 +25,12 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
         <h1 class="text-2xl mb-1">
             {% if coach_name %}{% blocktrans with name=coach_name %}A short video call with {{ name }}{% endblocktrans %}{% else %}{% trans "A short video call with your coach" %}{% endif %}
         </h1>
-        <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "A Crush coach would like to meet you on video for about 5 minutes, to confirm that you are a real person." %}</p>
+        <p class="text-sm text-muted-fg mb-0">{% trans "A Crush coach would like to meet you on video for about 5 minutes, to confirm that you are a real person." %}</p>
     </header>
 
-    <section class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 shadow-crush-sm p-4 mb-4" aria-labelledby="rpc-call-facts-heading">
+    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 mb-4" aria-labelledby="rpc-call-facts-heading">
         <h2 id="rpc-call-facts-heading" class="card-title">{% trans "Before you join" %}</h2>
-        <ul class="list-disc ml-5 mb-0 space-y-1 text-sm text-gray-700 dark:text-gray-200">
+        <ul class="list-disc ml-5 mt-2 mb-0 space-y-1 text-sm text-gray-700 dark:text-gray-200">
             {% if is_admission %}
             <li>{% trans "A coach video approval completes human verification for Connect Week. You can also choose verification at an event." %}</li>
             {% else %}<li>{% trans "It is optional. You can say no, and nothing else changes." %}</li>{% endif %}
@@ -47,10 +47,12 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
     </section>
 
     {% if video_call.available %}
-    <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "When your coach has been in touch and you are ready, press Start video and allow your camera and microphone. Your coach joins the same call." %}</p>
-    {% include "crush_lu/partials/video_call.html" %}
+    <p class="text-sm text-muted-fg mb-3">{% trans "When your coach has been in touch and you are ready, press Start video and allow your camera and microphone. Your coach joins the same call." %}</p>
+    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-3 sm:p-5" aria-label="{% trans 'Video call' %}">
+        {% include "crush_lu/partials/video_call.html" with controls_first=True %}
+    </section>
     {% else %}
-    <div class="rounded-2xl ring-1 ring-gray-200 dark:ring-slate-700 bg-white dark:bg-slate-800 p-4 text-sm text-gray-700 dark:text-gray-200" role="status">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5 text-sm text-gray-700 dark:text-gray-200" role="status">
         {% if is_admission %}{% trans "Video calls are not available right now. Arrange another video attempt with your coach." %}{% else %}{% trans "Video calls are not available right now, so your coach will phone you instead." %}{% endif %}
     </div>
     {% endif %}

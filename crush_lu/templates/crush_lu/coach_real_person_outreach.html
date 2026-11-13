@@ -10,7 +10,7 @@ hard-coded, unlike the screening-call partial this is modelled on.
 Links open on the coach's own phone; nothing is sent from the server. They are
 blank whenever a guard fails or the number is not verified.
 {% endcomment %}
-<div id="rpc-outreach" class="mb-6">
+<div id="rpc-outreach" class="mb-4 scroll-mt-24">
     {% for message in log_errors %}
     <div class="alert alert-danger mb-3" role="alert">
         {% include "shared/icons/exclamation-triangle.html" with class="w-5 h-5" %}
@@ -24,10 +24,13 @@ blank whenever a guard fails or the number is not verified.
     </div>
     {% endif %}
 
-    <section class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
-        <h3 class="text-lg font-semibold dark:text-white mb-1">{% trans "Reach out" %}</h3>
+    <section class="bg-white dark:bg-gray-800 rounded-2xl shadow-crush-sm p-5">
+        <div class="flex items-center gap-3 mb-2">
+            <span aria-hidden="true" class="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-crush-purple-dark text-xs font-bold text-white [counter-increment:rpc-step] before:content-[counter(rpc-step)]"></span>
+            <h3 class="card-title mb-0">{% trans "Reach out" %}</h3>
+        </div>
         {% if is_live %}
-        <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
+        <p class="text-xs text-muted-fg mb-3">
             {% blocktrans with d=check.lease_expires_at|timeuntil:now %}Your claim ends in {{ d }}. Logging a contact attempt renews it.{% endblocktrans %}
         </p>
         {% endif %}
@@ -47,7 +50,7 @@ blank whenever a guard fails or the number is not verified.
         {% elif not tel_href %}
         <p class="text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "This member has no verified phone number, so there is nothing to call or text." %}</p>
         {% else %}
-        <p class="text-sm mb-3 flex items-center gap-2">
+        <p class="mb-3 flex items-center gap-2 rounded-xl bg-crush-light dark:bg-gray-900/40 px-3 py-2 text-sm">
             {% include "shared/icons/phone.html" with class="w-5 h-5 text-crush-purple" %}
             <span class="font-mono text-gray-900 dark:text-gray-100">{{ phone_display }}</span>
         </p>
@@ -95,14 +98,14 @@ blank whenever a guard fails or the number is not verified.
                     <input type="hidden" name="result" value="failed">
                     <div>
                         <label for="rpc-failure-reason" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{% trans "What happened?" %}</label>
-                        <select id="rpc-failure-reason" name="failure_reason" required class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+                        <select id="rpc-failure-reason" name="failure_reason" required class="form-select w-full">
                             <option value="">{% trans "Choose a reason" %}</option>
                             {% for code, label in failure_reasons %}<option value="{{ code }}">{{ label }}</option>{% endfor %}
                         </select>
                     </div>
                     <div>
                         <label for="rpc-attempt-notes" class="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">{% trans "Notes (optional)" %}</label>
-                        <textarea id="rpc-attempt-notes" name="notes" rows="2" maxlength="{{ notes_max }}" class="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"></textarea>
+                        <textarea id="rpc-attempt-notes" name="notes" rows="2" maxlength="{{ notes_max }}" class="input-crush w-full"></textarea>
                     </div>
                     <button type="submit" class="btn-crush-outline btn-block">{% trans "Log failed attempt" %}</button>
                 </form>

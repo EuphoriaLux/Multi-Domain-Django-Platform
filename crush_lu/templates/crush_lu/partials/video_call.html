@@ -9,7 +9,8 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
 {% endcomment %}
 {% if video_call.available %}
 {{ video_call.config|json_script:"video-call-config" }}
-<div x-data="videoCall"
+{# controls_first=True puts Start / Mute / Hang up above the picture, so a phone shows Start without scrolling. #}
+<div x-data="videoCall" class="flex flex-col"
      data-config-id="video-call-config"
      data-ice-url="{% url 'crush_lu:video_call_ice_servers' video_call.kind video_call.object_id %}"
      data-label-idle="{% trans 'Not started' %}"
@@ -29,7 +30,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
      data-label-camera-on="{% trans 'Camera on' %}"
      data-label-meter-mine="{% trans 'Your microphone' %}"
      data-label-meter-mine-muted="{% trans 'Your microphone (muted)' %}">
-    <div class="relative overflow-hidden rounded-2xl bg-gray-900 {% if compact_video %}aspect-video{% else %}aspect-[3/4] sm:aspect-video{% endif %}">
+    <div class="relative overflow-hidden rounded-2xl bg-gray-900 {% if compact_video %}aspect-video{% else %}aspect-square sm:aspect-video{% endif %}">
         <video x-ref="remote" autoplay playsinline class="h-full w-full object-cover"></video>
         <video x-ref="local" autoplay playsinline muted
                class="absolute bottom-3 right-3 w-24 sm:w-36 rounded-xl border-2 border-white/70 object-cover"></video>
@@ -61,7 +62,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md (D12)
         </div>
         <p class="mt-2 mb-0 text-xs text-gray-500 dark:text-gray-400">{% trans "If their bar moves but you hear nothing, turn up your device's volume." %}</p>
     </div>
-    <div class="mt-4 flex flex-wrap justify-center gap-2">
+    <div class="{% if controls_first %}order-first mb-3{% else %}mt-4{% endif %} flex flex-wrap justify-center gap-2">
         <button type="button" class="btn-crush-solid" x-show="canStart" @click="start">{% trans "Start video" %}</button>
         <button type="button" class="btn-crush-outline btn-sm" x-show="inCall" @click="toggleMicrophone" x-text="microphoneLabel"></button>
         <button type="button" class="btn-crush-outline btn-sm" x-show="inCall" @click="toggleCamera" x-text="cameraLabel"></button>
