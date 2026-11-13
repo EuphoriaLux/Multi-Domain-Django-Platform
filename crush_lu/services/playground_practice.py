@@ -26,7 +26,7 @@ from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -359,6 +359,10 @@ def apply_preset(coach, key, *, gender=None):
                 check = _STEPS[step](coach, user, check)
     except RealPersonCheckError as exc:
         raise PlaygroundError(exc.code) from exc
+    except IntegrityError as exc:
+        # Two presses at once: the one-live-practice-member constraint lets
+        # only one build through (PostgreSQL; SQLite serialises writes).
+        raise PlaygroundError("try_again") from exc
     logger.info(
         "Coach playground: practice member %s built for coach %s (%s)",
         user.pk,
