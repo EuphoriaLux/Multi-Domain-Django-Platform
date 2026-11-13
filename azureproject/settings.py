@@ -374,6 +374,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
     "django_htmx.middleware.HtmxMiddleware",  # HTMX request detection
+    "crush_lu.middleware.PracticeModeGuardMiddleware",  # Coach playground: no-op off staging
 ]
 
 MIDDLEWARE.append("arborist.middleware.LeadAttributionMiddleware")

@@ -279,3 +279,66 @@ class UserActivityMiddleware:
             pass
 
         return False
+
+
+class PracticeModeGuardMiddleware:
+    """Coach playground: switch off risky account actions for practice members.
+
+    A practice member (test.crush.lu only) must not change its email or
+    password, delete or merge itself, verify a phone number (that would send
+    a real SMS and store a dialable number) or link LuxID. Does nothing off
+    staging or for anyone else.
+    Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    """
+
+    BLOCKED_URL_NAMES = frozenset(
+        {
+            "account_email",
+            "account_change_password",
+            "account_set_password",
+            "socialaccount_connections",
+            "luxid_login",
+            "luxid_callback",
+            "set_password",
+            "delete_account",
+            "delete_crushlu_profile",
+            "merge_accounts_confirm",
+            "onboarding_phone",
+            "api_phone_mark_verified",
+            "api_phone_whatsapp_send",
+            "api_phone_whatsapp_verify",
+        }
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        from crush_lu.services.staging_playground import playground_enabled
+
+        if not playground_enabled():
+            return None
+        match = getattr(request, "resolver_match", None)
+        if match is None or match.url_name not in self.BLOCKED_URL_NAMES:
+            return None
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return None
+        from crush_lu.services.playground_practice import practice_link_for
+
+        if practice_link_for(user) is None:
+            return None
+        from django.contrib import messages
+        from django.http import JsonResponse
+        from django.shortcuts import redirect
+        from django.utils.translation import gettext as _
+
+        if match.url_name.startswith("api_"):
+            return JsonResponse({"error": "practice_member"}, status=403)
+        messages.info(
+            request, _("This is a practice member, so that action is switched off.")
+        )
+        return redirect("crush_lu:dashboard")

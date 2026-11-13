@@ -6621,10 +6621,26 @@ def coach_verification_channel(request):
     else:
         channel.sort(key=lambda s: s.submitted_at)
 
+    # Coach playground (staging only): label practice members, hide other
+    # coaches' unless asked. Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    from crush_lu.services.staging_playground import playground_enabled
+
+    playground_channel = playground_enabled()
+    show_all_practice = False
+    if playground_channel:
+        from crush_lu.services.playground_practice import annotate_practice_items
+
+        show_all_practice = request.GET.get("practice") == "all"
+        channel = annotate_practice_items(
+            channel, coach.user, show_all=show_all_practice
+        )
+
     assigned = assigned_channel_items(coach)
 
     context = {
         "coach": coach,
+        "playground_channel": playground_channel,
+        "playground_show_all_practice": show_all_practice,
         "channel": channel,
         "channel_count": len(channel),
         "my_pending": len(assigned),

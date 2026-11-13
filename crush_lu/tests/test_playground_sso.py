@@ -338,7 +338,7 @@ class TestCallback:
         state = _start(client)
         response, post = self._callback(client, state, _claims(state))
         assert response.status_code == 302
-        assert response["Location"] == "/en/coach/dashboard/"
+        assert response["Location"] == "/en/coach/playground/"
 
         kwargs = post.call_args.kwargs
         assert kwargs["timeout"] == sso.EXCHANGE_TIMEOUT
@@ -498,7 +498,7 @@ class TestCallback:
         client = Client(HTTP_HOST="test.crush.lu")
         state = _start(client, next_url)
         response, _ = self._callback(client, state, _claims(state))
-        assert response["Location"] == "/en/coach/dashboard/"
+        assert response["Location"] == "/en/coach/playground/"
 
     def test_relative_next_is_kept(self, staging):
         client = Client(HTTP_HOST="test.crush.lu")

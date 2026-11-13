@@ -177,7 +177,7 @@ def _safe_next(request, candidate):
         )
     ):
         return candidate
-    return reverse("crush_lu:coach_dashboard")
+    return reverse("crush_lu:coach_playground")
 
 
 @require_GET

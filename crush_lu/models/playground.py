@@ -68,3 +68,32 @@ class PlaygroundAccount(models.Model):
 
     def __str__(self):
         return f"{self.get_kind_display()} #{self.user_id}"
+
+
+class PlaygroundMail(models.Model):
+    """An email a practice or cast member would have received (staging only).
+
+    ``send_domain_email`` diverts mail for playground accounts here instead of
+    sending it, so a coach can read what a member gets. Nothing leaves the
+    server. Kept short: the newest 50 per member, at most 14 days.
+    """
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="playground_mails",
+    )
+    to_address = models.CharField(max_length=254)
+    from_address = models.CharField(max_length=254, blank=True)
+    subject = models.CharField(max_length=255, blank=True)
+    body_text = models.TextField(blank=True)
+    body_html = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-pk"]
+        verbose_name = "Playground mail"
+        verbose_name_plural = "Playground mails"
+
+    def __str__(self):
+        return f"{self.subject} → #{self.recipient_id}"
