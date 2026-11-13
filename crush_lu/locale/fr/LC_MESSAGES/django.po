@@ -47851,3 +47851,71 @@ msgid ""
 msgstr ""
 "Il n'y a qu'une notification dans l'application : contacte cette personne "
 "directement avec le SMS ci-dessous."
+
+#: crush_lu/views_playground_sso.py
+msgid "This sign-in link has already been used or was started in another browser. Start again from the login page."
+msgstr "Ce lien de connexion a déjà servi ou a été ouvert dans un autre navigateur. Recommence depuis la page de connexion."
+
+#: crush_lu/views_playground_sso.py
+msgid "The sign-in took too long. Please start again."
+msgstr "La connexion a pris trop de temps. Recommence, s'il te plaît."
+
+#: crush_lu/views_playground_sso.py
+msgid "The sign-in link expired. Please start again."
+msgstr "Le lien de connexion a expiré. Recommence, s'il te plaît."
+
+#: crush_lu/views_playground_sso.py
+msgid "crush.lu did not answer. Please try again in a minute."
+msgstr "crush.lu n'a pas répondu. Réessaie dans une minute."
+
+#: crush_lu/views_playground_sso.py
+msgid "crush.lu did not send a usable account. Ask Tom to check your crush.lu account email."
+msgstr "crush.lu n'a pas envoyé de compte utilisable. Demande à Tom de vérifier l'adresse e-mail de ton compte crush.lu."
+
+#: crush_lu/views_playground_sso.py
+msgid "Your crush.lu account is not an active coach account, so it cannot use the coach playground on test.crush.lu."
+msgstr "Ton compte crush.lu n'est pas un compte coach actif : il ne peut donc pas utiliser l'espace d'entraînement des coachs sur test.crush.lu."
+
+#: crush_lu/views_playground_sso.py
+msgid "Several test.crush.lu accounts use your email. Ask Tom to merge them."
+msgstr "Plusieurs comptes test.crush.lu utilisent ton adresse e-mail. Demande à Tom de les fusionner."
+
+#: crush_lu/views_playground_sso.py
+msgid "Your test.crush.lu account is deactivated. Ask Tom to reactivate it."
+msgstr "Ton compte test.crush.lu est désactivé. Demande à Tom de le réactiver."
+
+#: crush_lu/views_playground_sso.py
+msgid "Your email belongs to a practice or test account on test.crush.lu. Ask Tom to check it."
+msgstr "Ton adresse e-mail appartient à un compte d'entraînement ou de test sur test.crush.lu. Demande à Tom de vérifier."
+
+#: crush_lu/views_playground_sso.py
+msgid "Your test.crush.lu account is linked to a different crush.lu account. Ask Tom to check it."
+msgstr "Ton compte test.crush.lu est lié à un autre compte crush.lu. Demande à Tom de vérifier."
+
+#: crush_lu/views_playground_sso.py
+msgid "Another test.crush.lu account already uses your crush.lu email. Ask Tom to check it."
+msgstr "Un autre compte test.crush.lu utilise déjà ton adresse e-mail crush.lu. Demande à Tom de vérifier."
+
+#: crush_lu/views_playground_sso.py
+msgid "Something went wrong at the same moment. Please try again."
+msgstr "Un problème est survenu au même moment. Réessaie, s'il te plaît."
+
+#: crush_lu/templates/crush_lu/playground/sso_error.html
+msgid "Sign-in did not work"
+msgstr "La connexion n'a pas fonctionné"
+
+#: crush_lu/templates/crush_lu/playground/sso_error.html
+msgid "Back to the login page"
+msgstr "Retour à la page de connexion"
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Crush coach? Use your crush.lu account here."
+msgstr "Coach Crush ? Utilise ici ton compte crush.lu."
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "You sign in on crush.lu and come straight back to test.crush.lu with your coach account."
+msgstr "Tu te connectes sur crush.lu et tu reviens directement sur test.crush.lu avec ton compte coach."
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Sign in with crush.lu"
+msgstr "Se connecter avec crush.lu"

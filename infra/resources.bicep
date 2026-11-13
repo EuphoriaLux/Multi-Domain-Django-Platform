@@ -552,6 +552,12 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // connection; unpinned, a swap would carry that into production.
       // Pin with: az webapp config appsettings set ... --slot-settings VIDEO_CALL_ICE_TRANSPORT_POLICY=relay
       'VIDEO_CALL_ICE_TRANSPORT_POLICY'
+      // Coach playground sign-in (crush_lu/services/playground_sso.py): the
+      // same value on both slots, pinned so it never moves on a swap and is
+      // never confused with SECRET_KEY. Absent means the feature is off.
+      // Set production first, then staging (the staging button points at
+      // production). Pin with: az webapp config appsettings set ... --slot-settings COACH_PLAYGROUND_SSO_SECRET=<value>
+      'COACH_PLAYGROUND_SSO_SECRET'
       'ECHO_LU_API_KEY'
       'SECRET_SYNC_TOKEN'
       'HEALTH_CHECK_SECRET_TOKEN'

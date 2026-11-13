@@ -414,6 +414,7 @@ TEMPLATES = [
                 "crush_lu.context_processors.assets_dev_mode",  # readable JS/CSS sources under DEBUG (not tied to INTERNAL_IPS)
                 "crush_lu.context_processors.firebase_config",  # Firebase config for phone verification
                 "crush_lu.context_processors.site_config_context",  # WhatsApp button & site config
+                "crush_lu.context_processors.playground_context",  # Coach playground (staging only; {} elsewhere)
                 "azureproject.content_images_context.content_images_context",  # Content images (Azure Blob)
                 "azureproject.analytics_context.analytics_ids",  # Domain-specific GA4/FB Pixel IDs
                 "azureproject.context_processors.admin_navigation",  # Global admin panel navigation
@@ -1386,6 +1387,24 @@ if DEBUG:
         ("http", "localhost:3000", "/auth/callback"),
         ("http", "127.0.0.1:3000", "/auth/callback"),
     }
+
+# Coach playground: "Sign in with crush.lu" on test.crush.lu
+# (crush_lu/services/playground_sso.py). The secret is shared by the two slots
+# only for this exchange: never SECRET_KEY. Slot-sticky, same value on both
+# slots, at least 32 characters, or the feature stays off. Its return URL set
+# is deliberately separate from SPA_CALLBACK_ALLOWED_RETURN_URLS so hub codes
+# and playground codes can never be swapped.
+# Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+COACH_PLAYGROUND_SSO_SECRET = os.getenv("COACH_PLAYGROUND_SSO_SECRET", "")
+COACH_PLAYGROUND_SSO_ISSUER = os.getenv(
+    "COACH_PLAYGROUND_SSO_ISSUER", "https://crush.lu"
+)
+COACH_PLAYGROUND_SSO_CALLBACK_URL = (
+    "https://test.crush.lu/coach-playground/sso/callback/"
+)
+COACH_PLAYGROUND_SSO_RETURN_URLS = {
+    ("https", "test.crush.lu", "/coach-playground/sso/callback/"),
+}
 
 
 ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
