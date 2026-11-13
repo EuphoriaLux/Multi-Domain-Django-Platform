@@ -241,6 +241,16 @@ class TestScenarios:
         )
         assert human_verification_method(member) == "video"
 
+    def test_double_press_is_a_friendly_error(self, coach):
+        from django.db import IntegrityError
+
+        with mock.patch.object(
+            practice, "_build_base", side_effect=IntegrityError("unique")
+        ):
+            with pytest.raises(practice.PlaygroundError) as excinfo:
+                practice.apply_preset(coach, "luxid_ready")
+        assert excinfo.value.code == "try_again"
+
     def test_unknown_scenario(self, coach):
         with pytest.raises(practice.PlaygroundError):
             practice.apply_preset(coach, "nope")

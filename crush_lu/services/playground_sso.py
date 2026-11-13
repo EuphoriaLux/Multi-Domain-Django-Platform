@@ -229,10 +229,19 @@ def redeem_code(code, verifier):
         "iat": int(time.time()),
     }
     if role != ROLE_NONE:
+        from allauth.account.models import EmailAddress
+
+        # Staging matches existing accounts by this email, so it is only
+        # vouched for when crush.lu itself has it verified.
+        email_verified = bool(user.email) and (
+            EmailAddress.objects.filter(
+                user=user, email__iexact=user.email, verified=True
+            ).exists()
+        )
         claims.update(
             {
                 "email": user.email,
-                "email_verified": True,
+                "email_verified": email_verified,
                 "given_name": user.first_name,
                 "family_name": user.last_name,
             }
