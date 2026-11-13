@@ -417,6 +417,18 @@ class TestCallback:
         assert len(response.redirect_chain) <= 3
         assert response.request["PATH_INFO"] == "/en/consent/confirm/"
 
+    def test_unverified_staging_account_is_not_adopted(self, staging):
+        # Someone registered on staging with the coach's email but never
+        # confirmed it: linking would let them keep their own password.
+        squatter = _make_user("ana@crush.lu", verified_email=False)
+        client = Client(HTTP_HOST="test.crush.lu")
+        state = _start(client)
+        response, _ = self._callback(client, state, _claims(state))
+        assert response.status_code == 409
+        assert "_auth_user_id" not in client.session
+        assert not CrushCoach.objects.filter(user=squatter).exists()
+        assert not EmailAddress.objects.filter(user=squatter, verified=True).exists()
+
     def test_inactive_account_is_refused(self, staging):
         _make_user("ana@crush.lu", active=False)
         client = Client(HTTP_HOST="test.crush.lu")
@@ -591,3 +603,84 @@ def test_round_trip_through_the_real_issuer(monkeypatch, configured):
     link = PlaygroundAccount.objects.get(production_account_id=prod_coach.pk)
     assert link.user_id == prod_coach.pk
     assert int(staging_client.session["_auth_user_id"]) == prod_coach.pk
+
+
+class TestFreshness:
+    def _linked_coach(self):
+        coach = _make_user("linked@crush.lu", coach=True)
+        PlaygroundAccount.objects.create(
+            user=coach, kind="coach", production_account_id=4242
+        )
+        return coach
+
+    def _client(self, user, signed_in_at=None):
+        import time
+
+        client = Client(HTTP_HOST="test.crush.lu")
+        client.force_login(user)
+        if signed_in_at is not None:
+            session = client.session
+            session[sso.SIGNED_IN_AT_SESSION_KEY] = int(time.time()) - signed_in_at
+            session.save()
+        return client
+
+    def test_linked_coach_without_a_crush_lu_sign_in_is_sent_back(self, staging):
+        client = self._client(self._linked_coach())
+        response = client.get("/en/coach/dashboard/")
+        assert response.status_code == 302
+        assert response["Location"] == (
+            "/coach-playground/sso/start/?next=%2Fen%2Fcoach%2Fdashboard%2F"
+        )
+        assert "_auth_user_id" not in client.session
+
+    def test_stale_sign_in_is_sent_back(self, staging):
+        client = self._client(
+            self._linked_coach(), signed_in_at=sso.FRESHNESS_SECONDS + 60
+        )
+        response = client.get("/en/coach/dashboard/")
+        assert response["Location"].startswith("/coach-playground/sso/start/")
+        assert "_auth_user_id" not in client.session
+
+    def test_fresh_sign_in_passes(self, staging):
+        client = self._client(self._linked_coach(), signed_in_at=60)
+        response = client.get("/en/coach/dashboard/")
+        assert not response.get("Location", "").startswith("/coach-playground/")
+        assert "_auth_user_id" in client.session
+
+    def test_unlinked_accounts_are_left_alone(self, staging):
+        client = self._client(_make_user("plain@crush.lu", coach=True))
+        response = client.get("/en/coach/dashboard/")
+        assert not response.get("Location", "").startswith("/coach-playground/")
+        assert "_auth_user_id" in client.session
+
+    def test_nothing_happens_without_sso(self, monkeypatch, settings):
+        monkeypatch.setenv("DJANGO_ENV", "staging")
+        settings.COACH_PLAYGROUND_SSO_SECRET = ""
+        client = self._client(self._linked_coach())
+        response = client.get("/en/coach/dashboard/")
+        assert not response.get("Location", "").startswith("/coach-playground/")
+        assert "_auth_user_id" in client.session
+
+
+@pytest.mark.parametrize(
+    "urlconf,shown",
+    [("azureproject.urls_crush", True), ("azureproject.urls_vinsdelux", False)],
+)
+def test_sign_in_block_needs_the_crush_urlconf(staging, urlconf, shown):
+    # vinsdelux mounts crush_lu.urls (and so the shared login page) but not
+    # the crush.lu-only sign-in route: the block must render nothing there,
+    # never raise NoReverseMatch.
+    from django.template.loader import render_to_string
+    from django.test import RequestFactory
+    from django.urls import set_urlconf
+
+    request = RequestFactory().get("/crush/login/")
+    set_urlconf(urlconf)
+    try:
+        html = render_to_string(
+            "crush_lu/playground/_sso_login_block.html",
+            {"playground_sso_enabled": True, "request": request},
+        )
+    finally:
+        set_urlconf(None)
+    assert (START in html) is shown
