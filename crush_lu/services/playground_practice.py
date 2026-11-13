@@ -208,6 +208,24 @@ def is_practice_user_id(user_id):
 # ---------------------------------------------------------------------------
 
 
+def lock_owner(coach_user):
+    """Lock the coach's user row for the rest of the transaction.
+
+    The stable row that serialises every change to a coach's practice member:
+    the practice row itself does not exist before the first build and is
+    replaced on "start again", so it cannot be the lock. Lock order:
+    owner user -> practice ``PlaygroundAccount`` -> member profile -> check.
+    ``no_key`` (FOR NO KEY UPDATE) still conflicts with itself but not with
+    the KEY SHARE that foreign-key inserts take on this user row.
+    """
+    list(
+        get_user_model()
+        .objects.select_for_update(no_key=True)
+        .filter(pk=coach_user.pk)
+        .values_list("pk", flat=True)
+    )
+
+
 def retire_practice_member(coach_user):
     """Retire the coach's live practice member, if any. Returns the old user.
 
@@ -229,8 +247,7 @@ def retire_practice_member(coach_user):
     require_playground()
     now = timezone.now()
     with transaction.atomic():
-        # Only this function and apply_preset lock the owner's practice row,
-        # always first, so it serialises two "start again" presses.
+        lock_owner(coach_user)
         link = (
             PlaygroundAccount.objects.select_for_update()
             .filter(
@@ -287,6 +304,10 @@ def apply_preset(coach, key, *, gender=None):
     gender = gender if gender in GENDERS else GENDERS[0]
     try:
         with transaction.atomic():
+            # First lock, before anything is looked up or retired: the coach's
+            # own user row exists from the very first build, so two presses
+            # (first creation or "start again") run one after the other.
+            lock_owner(coach.user)
             retire_practice_member(coach.user)
             user = _build_base(coach, preset, gender)
             check = None
