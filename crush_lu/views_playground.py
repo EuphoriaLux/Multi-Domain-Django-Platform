@@ -30,6 +30,9 @@ logger = logging.getLogger(__name__)
 MODEL_BACKEND = "django.contrib.auth.backends.ModelBackend"
 
 ERROR_MESSAGES = {
+    "try_again": gettext_lazy(
+        "Something went wrong at the same moment. Please try again."
+    ),
     "video_admission_closed": gettext_lazy(
         "Video verification requests are switched off on this server."
     ),
