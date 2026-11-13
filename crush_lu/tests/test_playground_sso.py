@@ -653,6 +653,17 @@ class TestFreshness:
         assert not response.get("Location", "").startswith("/coach-playground/")
         assert "_auth_user_id" in client.session
 
+    def test_other_hosts_mounting_coach_pages_are_covered(self, staging):
+        # vinsdelux mounts crush_lu.urls, coach pages included; a replayed
+        # session cookie there must not skip the crush.lu recheck.
+        coach = self._linked_coach()
+        client = Client(HTTP_HOST="test.vinsdelux.com")
+        client.force_login(coach)
+        response = client.get("/crush/coach/dashboard/")
+        assert response.status_code == 302
+        assert response["Location"] == "/"
+        assert "_auth_user_id" not in client.session
+
     def test_nothing_happens_without_sso(self, monkeypatch, settings):
         monkeypatch.setenv("DJANGO_ENV", "staging")
         settings.COACH_PLAYGROUND_SSO_SECRET = ""
