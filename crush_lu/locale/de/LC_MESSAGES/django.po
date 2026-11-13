@@ -48097,3 +48097,7 @@ msgstr "Premium-Mitglied, dir zugeteilt"
 #: crush_lu/services/playground_practice.py
 msgid "LuxID-verified with an active Premium membership and you as their coach. Other coaches cannot verify them."
 msgstr "Mit LuxID verifiziert, mit aktiver Premium-Mitgliedschaft und dir als Coach. Andere Coaches können es nicht verifizieren."
+
+#: crush_lu/views_playground_sso.py
+msgid "A test.crush.lu account with your email exists but its email was never confirmed, so it cannot be linked. Ask Tom to remove it."
+msgstr "Auf test.crush.lu gibt es ein Konto mit deiner E-Mail-Adresse, deren Bestätigung nie abgeschlossen wurde. Es kann daher nicht verknüpft werden. Bitte Tom, es zu entfernen."
