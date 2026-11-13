@@ -80,6 +80,84 @@ def _score_all(quiz, question, tables, correct=True):
         )
 
 
+class TestScoreHoldRelay:
+    """The held last score is shown on every host screen, not only one."""
+
+    def _host(self, quiz):
+        consumer = _consumer(quiz)
+        consumer.host_group = f"quiz_{quiz.id}_host"
+        consumer.channel_name = "host-a"
+        consumer.send_json = AsyncMock()
+        return consumer
+
+    def test_hold_goes_to_the_host_group_only(self):
+        quiz = type("Q", (), {"id": 7})()
+        consumer = self._host(quiz)
+
+        async_to_sync(consumer.handle_score_hold)(
+            {"table_id": 3, "question_id": 9, "is_correct": True, "seconds": 99},
+            active=True,
+        )
+
+        group, message = consumer.channel_layer.group_send.await_args.args
+        assert group == "quiz_7_host"
+        assert message["type"] == "quiz.score_hold"
+        assert message["sender"] == "host-a"
+        assert message["data"] == {
+            "table_id": 3,
+            "question_id": 9,
+            "active": True,
+            "seconds": 10,
+            "is_correct": True,
+        }
+
+    def test_undo_is_relayed(self):
+        quiz = type("Q", (), {"id": 7})()
+        consumer = self._host(quiz)
+
+        async_to_sync(consumer.handle_score_hold)(
+            {"table_id": 3, "question_id": 9}, active=False
+        )
+
+        message = consumer.channel_layer.group_send.await_args.args[1]
+        assert message["data"] == {"table_id": 3, "question_id": 9, "active": False}
+
+    def test_bad_ids_and_non_hosts_send_nothing(self):
+        quiz = type("Q", (), {"id": 7})()
+        consumer = self._host(quiz)
+        async_to_sync(consumer.handle_score_hold)(
+            {"table_id": "3", "question_id": 9}, active=True
+        )
+        consumer.host_group = None
+        async_to_sync(consumer.handle_score_hold)(
+            {"table_id": 3, "question_id": 9}, active=True
+        )
+        consumer.channel_layer.group_send.assert_not_awaited()
+
+    def test_the_holding_host_does_not_get_its_own_hold_back(self):
+        quiz = type("Q", (), {"id": 7})()
+        consumer = self._host(quiz)
+        event = {"data": {"table_id": 3}, "sender": "host-a"}
+
+        async_to_sync(consumer.quiz_score_hold)(event)
+        consumer.send_json.assert_not_awaited()
+
+        event["sender"] = "host-b"
+        async_to_sync(consumer.quiz_score_hold)(event)
+        consumer.send_json.assert_awaited_once_with(
+            {"type": "quiz.score_hold", "data": {"table_id": 3}}
+        )
+
+    def test_hold_actions_are_host_only(self):
+        import inspect
+
+        source = inspect.getsource(QuizConsumer.receive_json)
+        host_actions = source[source.index("host_actions = {") :]
+        host_actions = host_actions[: host_actions.index("}")]
+        assert '"hold_score"' in host_actions
+        assert '"cancel_hold"' in host_actions
+
+
 @pytest.mark.django_db
 class TestNextQuestionGuards:
     def test_next_refused_while_paused_does_not_end_the_quiz(self, running):
