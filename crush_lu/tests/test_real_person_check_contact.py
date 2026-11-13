@@ -245,3 +245,23 @@ class CoachSeesTheAnswerTests(ContactRequestTestCase):
         save_contact_details(self.member, check.pk, preference="whatsapp", windows=[])
         CrushProfile.objects.filter(user=self.member).update(not_on_whatsapp=True)
         self.assertNotIn("wa.me", self.page(check))
+
+
+@ON
+class RetentionTests(ContactRequestTestCase):
+    def test_an_old_answer_is_blanked_with_the_coach_notes(self):
+        from django.core.management import call_command
+
+        check = self.claim_committed()
+        save_contact_details(
+            self.member, check.pk, preference="sms", windows=["weekday_lunch"]
+        )
+        release_check(self.coach, check.pk)
+        old = timezone.now() - timedelta(days=400)
+        ConnectRealPersonCheck.objects.filter(pk=check.pk).update(
+            claimed_at=old, lease_expires_at=old, decided_at=old
+        )
+        call_command("gdpr_retention_cleanup", "--apply", verbosity=0)
+        check.refresh_from_db()
+        self.assertIsNone(check.contact_preference)
+        self.assertIsNone(check.contact_availability)
