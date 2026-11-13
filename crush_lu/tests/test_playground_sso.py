@@ -353,7 +353,7 @@ class TestCallback:
         assert CrushCoach.objects.get(user=user).is_active
         assert EmailAddress.objects.get(user=user).verified
         link = PlaygroundAccount.objects.get(user=user)
-        assert (link.kind, link.prod_user_id) == ("coach", 9001)
+        assert (link.kind, link.production_account_id) == ("coach", 9001)
         assert int(client.session["_auth_user_id"]) == user.pk
         assert sso.SIGNED_IN_AT_SESSION_KEY in client.session
 
@@ -379,7 +379,9 @@ class TestCallback:
         existing.refresh_from_db()
         assert existing.check_password("pw-12345678")
         assert existing.is_superuser
-        assert PlaygroundAccount.objects.get(user=existing).prod_user_id == 9001
+        assert (
+            PlaygroundAccount.objects.get(user=existing).production_account_id == 9001
+        )
 
     def test_inactive_account_is_refused(self, staging):
         _make_user("ana@crush.lu", active=False)
@@ -552,6 +554,6 @@ def test_round_trip_through_the_real_issuer(monkeypatch, configured):
         response = staging_client.get(CALLBACK, {"code": code, "state": state})
     assert response.status_code == 302
     # Same database in tests: the existing account is matched, linked, signed in.
-    link = PlaygroundAccount.objects.get(prod_user_id=prod_coach.pk)
+    link = PlaygroundAccount.objects.get(production_account_id=prod_coach.pk)
     assert link.user_id == prod_coach.pk
     assert int(staging_client.session["_auth_user_id"]) == prod_coach.pk

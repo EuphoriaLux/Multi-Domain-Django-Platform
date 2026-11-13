@@ -553,6 +553,10 @@ ACCOUNT_ERASURE_PURGE = (
     ("JourneyProgress", ("user",)),
     ("AdventProgress", ("user",)),
     ("QRCodeToken", ("user",)),
+    # Coach playground links (test.crush.lu only): the coach's crush.lu link
+    # and the practice members they own. Without the link nobody can switch
+    # into a practice member again.
+    ("PlaygroundAccount", ("user", "owner")),
     # Blocks (both directions) and "we met" records shared with another
     # member: decided 2026-10-15, they go with the account. Encounters that
     # carry a removal request are kept (moderation record; see the purge loop).

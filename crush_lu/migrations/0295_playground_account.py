@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 (
-                    "prod_user_id",
+                    "production_account_id",
                     models.PositiveBigIntegerField(
                         blank=True,
                         help_text="The crush.lu (production) user id of a signed-in coach.",

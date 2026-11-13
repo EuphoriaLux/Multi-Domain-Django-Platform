@@ -353,12 +353,13 @@ def provision_coach(claims, expected_state):
     sub = claims.get("sub")
     if not isinstance(sub, str) or not SUB_RE.match(sub):
         raise SSOError("bad_claims")
-    prod_user_id = int(sub)
+    production_account_id = int(sub)
     role = claims.get("role")
 
     link = (
         PlaygroundAccount.objects.filter(
-            kind=PlaygroundAccount.KIND_COACH, prod_user_id=prod_user_id
+            kind=PlaygroundAccount.KIND_COACH,
+            production_account_id=production_account_id,
         )
         .select_related("user")
         .first()
@@ -395,11 +396,11 @@ def provision_coach(claims, expected_state):
             else:
                 user = _match_by_email(User, EmailAddress, email)
                 if user is None:
-                    user = _create_coach_user(User, prod_user_id, email)
+                    user = _create_coach_user(User, production_account_id, email)
                 else:
                     user = User.objects.select_for_update().get(pk=user.pk)
 
-            refusal = _refusal_for(user, prod_user_id)
+            refusal = _refusal_for(user, production_account_id)
             if refusal:
                 return ProvisionResult(refused=refusal)
 
@@ -428,7 +429,7 @@ def provision_coach(claims, expected_state):
                 user=user,
                 defaults={
                     "kind": PlaygroundAccount.KIND_COACH,
-                    "prod_user_id": prod_user_id,
+                    "production_account_id": production_account_id,
                 },
             )
     except IntegrityError:
@@ -437,7 +438,7 @@ def provision_coach(claims, expected_state):
 
     logger.info(
         "Coach playground: crush.lu user %s signed in as staging user %s",
-        prod_user_id,
+        production_account_id,
         user.pk,
     )
     return ProvisionResult(user=user)
@@ -459,8 +460,8 @@ def _match_by_email(User, EmailAddress, email):
     return matches[0] if matches else None
 
 
-def _create_coach_user(User, prod_user_id, email):
-    base = f"coach_{prod_user_id}"
+def _create_coach_user(User, production_account_id, email):
+    base = f"coach_{production_account_id}"
     username = base
     suffix = 1
     while User.objects.filter(username=username).exists():
@@ -472,7 +473,7 @@ def _create_coach_user(User, prod_user_id, email):
     return user
 
 
-def _refusal_for(user, prod_user_id):
+def _refusal_for(user, production_account_id):
     from crush_lu.models import PlaygroundAccount
 
     if not user.is_active:
@@ -482,7 +483,7 @@ def _refusal_for(user, prod_user_id):
         return ""
     if existing.kind != PlaygroundAccount.KIND_COACH:
         return "playground_account"
-    if existing.prod_user_id not in (None, prod_user_id):
+    if existing.production_account_id not in (None, production_account_id):
         return "linked_elsewhere"
     return ""
 

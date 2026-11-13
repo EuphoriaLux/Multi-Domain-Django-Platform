@@ -44,7 +44,7 @@ class PlaygroundAccount(models.Model):
         related_name="practice_accounts",
         help_text="The coach who plays this practice member.",
     )
-    prod_user_id = models.PositiveBigIntegerField(
+    production_account_id = models.PositiveBigIntegerField(
         null=True,
         blank=True,
         unique=True,
