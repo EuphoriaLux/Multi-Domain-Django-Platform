@@ -13,11 +13,6 @@ on:
         required: true
         default: '3'
         type: string
-      refresh_drops:
-        description: 'Refresh Today Daily Drops for receiver accounts'
-        required: true
-        default: true
-        type: boolean
 
 permissions:
   contents: read
@@ -54,8 +49,11 @@ jobs:
           # through env: and reference as shell variables instead.
           CREATE_MISSING: ${{ github.event.inputs.create_missing }}
           LEAVE_PENDING: ${{ github.event.inputs.leave_pending }}
-          REFRESH_DROPS: ${{ github.event.inputs.refresh_drops }}
         run: |
+          # NOTE: manage.py picks azureproject.settings here (no
+          # WEBSITE_HOSTNAME), which reads only DBHOST for Postgres and
+          # defines no crush_private storage. So this job runs against an
+          # empty SQLite file on the runner and does not reach staging yet.
           echo "🔑 Fetching staging configuration from Azure..."
           SETTINGS_JSON=$(az webapp config appsettings list \
             --name django-app-ajfffwjb5ie3s-app-service \
@@ -67,7 +65,16 @@ jobs:
           export POSTGRESQLCONNSTR_DJANGO=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="POSTGRESQLCONNSTR_DJANGO").value // empty')
           export AZURE_ACCOUNT_NAME=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_ACCOUNT_NAME").value // empty')
           export AZURE_ACCOUNT_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_ACCOUNT_KEY").value // empty')
-          export AZURE_CRUSH_PRIVATE_CONTAINER="crush-lu-private"
+          # Staging photos belong in the staging slot's own private container
+          # (slot-sticky, crush-lu-private-staging), never production's.
+          export AZURE_CRUSH_PRIVATE_CONTAINER=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_CRUSH_PRIVATE_CONTAINER").value // empty')
+          if [ -z "$AZURE_CRUSH_PRIVATE_CONTAINER" ]; then
+            export AZURE_CRUSH_PRIVATE_CONTAINER="crush-lu-private-staging"
+          fi
+          if [ "$AZURE_CRUSH_PRIVATE_CONTAINER" = "crush-lu-private" ]; then
+            echo "::error::Refusing to write staging photos to the production container crush-lu-private."
+            exit 1
+          fi
           export SECRET_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="SECRET_KEY").value // empty')
 
           # GitHub only auto-masks values sourced from the `secrets` context,
@@ -83,26 +90,18 @@ jobs:
             export SECRET_KEY="ci-staging-run-key"
           fi
 
-          REFRESH_FLAG=""
-          if [ "$REFRESH_DROPS" = "true" ]; then
-            REFRESH_FLAG="--refresh-drops"
-          fi
-
           echo "🚀 Running enrich_staging_candidates..."
           python manage.py enrich_staging_candidates \
             --all \
             --create-missing "$CREATE_MISSING" \
-            --leave-pending "$LEAVE_PENDING" \
-            $REFRESH_FLAG
+            --leave-pending "$LEAVE_PENDING"
 
       - name: Post Summary
         env:
           CREATE_MISSING: ${{ github.event.inputs.create_missing }}
           LEAVE_PENDING: ${{ github.event.inputs.leave_pending }}
-          REFRESH_DROPS: ${{ github.event.inputs.refresh_drops }}
         run: |
           echo "## ✅ Staging Candidates Enriched Successfully" >> $GITHUB_STEP_SUMMARY
           echo "- **Target candidates:** $CREATE_MISSING" >> $GITHUB_STEP_SUMMARY
           echo "- **Left pending for coach QA:** $LEAVE_PENDING" >> $GITHUB_STEP_SUMMARY
-          echo "- **Refresh Daily Drops:** $REFRESH_DROPS" >> $GITHUB_STEP_SUMMARY
           echo "- **Test site:** [test.crush.lu](https://test.crush.lu)" >> $GITHUB_STEP_SUMMARY

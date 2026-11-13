@@ -24,9 +24,9 @@ import io
 import logging
 import random
 import secrets
-import requests
 from datetime import date
 
+import requests
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
@@ -428,10 +428,12 @@ class Command(BaseCommand):
             "--password",
             default=None,
             help=(
-                "Password for created/reset accounts. Omit to generate a "
-                "random one per run (printed once at the end) -- a fixed "
-                "default would be a predictable, publicly-visible credential "
-                "for every seeded account on a live-reachable site."
+                "Password for created/reset accounts. Omit to set a random "
+                "one per run that is never printed (this command runs in a "
+                "public GitHub Actions log), so the accounts cannot be signed "
+                "into with a password until someone resets it. A fixed default "
+                "would be a predictable, publicly-visible credential for every "
+                "seeded account on a live-reachable site."
             ),
         )
         parser.add_argument(
@@ -453,7 +455,8 @@ class Command(BaseCommand):
             # A fixed default would be a predictable, publicly-visible
             # credential (this file is in the OSS repo) for every seeded
             # account on a live-reachable site -- generate one per run
-            # instead and print it once, below.
+            # instead. Never print it: the enrich-staging workflow runs this
+            # command and its Actions log is public.
             password = secrets.token_urlsafe(12)
         options["password"] = password
 
@@ -586,7 +589,10 @@ class Command(BaseCommand):
         )
         if password_was_generated and not dry_run:
             self.stdout.write(
-                self.style.WARNING(f"🔑 Generated password for this run: {password}")
+                self.style.WARNING(
+                    "🔑 These accounts got a random password that is not "
+                    "printed. Pass --password to choose one."
+                )
             )
         self.stdout.write("=" * 60)
 
@@ -603,12 +609,12 @@ class Command(BaseCommand):
     ):
         if dry_run:
             self.stdout.write(
-                f"  [DRY-RUN] Would enrich: {user.email} as {persona['first_name']} {persona['last_name']}"
+                f"  [DRY-RUN] Would enrich: {user.username} as {persona['first_name']} {persona['last_name']}"
             )
             return
 
         self.stdout.write(
-            f"  Enriching {user.email} -> {persona['first_name']} {persona['last_name']} (age {persona['age']}, {persona['location']})..."
+            f"  Enriching {user.username} -> {persona['first_name']} {persona['last_name']} (age {persona['age']}, {persona['location']})..."
         )
 
         now = timezone.now()
@@ -689,7 +695,7 @@ class Command(BaseCommand):
                     field.save(f"{user.pk}_photo{idx}.jpg", processed, save=False)
                 except Exception as exc:
                     self.stderr.write(
-                        f"    Warning: photo_{idx} save failed for {user.email}: {exc}"
+                        f"    Warning: photo_{idx} save failed for {user.username}: {exc}"
                     )
 
         profile.save()
@@ -732,7 +738,9 @@ class Command(BaseCommand):
                     },
                 )
         except Exception as exc:
-            logger.warning("Could not set gate questions for %s: %s", user.email, exc)
+            logger.warning(
+                "Could not set gate questions for %s: %s", user.username, exc
+            )
 
         # Waitlist tester status
         CrushConnectWaitlist.objects.update_or_create(
