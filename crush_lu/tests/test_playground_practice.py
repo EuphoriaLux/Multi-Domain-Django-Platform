@@ -305,10 +305,16 @@ class TestStartAgain:
         # the practice row is looked up, and both before the funnel locks
         # profile -> check.
         build = inspect.getsource(practice.apply_preset)
+        assert build.index("lock_calendar(coach.pk)") < build.index(
+            "lock_owner(coach.user)"
+        )
         assert build.index("lock_owner(coach.user)") < build.index(
             "retire_practice_member(coach.user)"
         )
         retire = inspect.getsource(practice.retire_practice_member)
+        assert retire.index("lock_calendar(coach_id)") < retire.index(
+            "lock_owner(coach_user)"
+        )
         assert retire.index("lock_owner(coach_user)") < retire.index(
             "select_for_update"
         )
@@ -501,6 +507,20 @@ class TestGuard:
         response = client.post("/api/phone/mark-verified/")
         assert response.status_code == 403
         assert response.json() == {"error": "practice_member"}
+
+    def test_practice_member_cannot_erase_itself_through_gdpr(self, coach):
+        member = practice.apply_preset(coach, "luxid_ready")
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(member)
+        assert client.get("/en/account/gdpr/").status_code == 200
+        response = client.post(
+            "/en/account/gdpr/",
+            {"deletion_type": "full_account", "confirm_email": member.email},
+        )
+        assert response["Location"] == "/en/dashboard/"
+        member.refresh_from_db()
+        assert member.is_active
+        assert PlaygroundAccount.objects.filter(user=member).exists()
 
     def test_other_members_are_not_guarded(self, coach):
         client = _coach_client(coach)
