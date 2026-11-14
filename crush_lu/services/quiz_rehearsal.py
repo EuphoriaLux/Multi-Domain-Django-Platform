@@ -179,6 +179,13 @@ def add_coaches_as_guests(quiz, users):
 def _attend_and_seat(quiz, user):
     from crush_lu.models.events import EventRegistration
     from crush_lu.services.quiz_rotation import assign_table_on_checkin
+    from crush_lu.services.playground_practice import is_practice_user_id
+
+    # A practice member seated here would become event-verified (the attended
+    # registration assigns the event's coach), which breaks its video-route
+    # scenarios. The coach playground keeps practice members out.
+    if is_practice_user_id(user.pk):
+        return
 
     reg, created = EventRegistration.objects.get_or_create(
         event=quiz.event,

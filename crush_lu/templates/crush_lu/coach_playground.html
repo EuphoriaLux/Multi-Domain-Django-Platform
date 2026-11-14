@@ -98,6 +98,64 @@
     </section>
 
     <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Practise Connect Week" %}</h2>
+        {% if not cast %}
+        <p class="mt-2 text-sm text-amber-800 dark:text-amber-300">{% trans "The test members (the cast) are not set up on this server yet. Ask Tom to run seed_playground_cast." %}</p>
+        {% elif not practice_user %}
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">{% trans "Create a practice member first. \"Connect Week ready\" is the quickest start." %}</p>
+        {% else %}
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{% trans "Test members never act on their own: pick one and tell them what to do." %}</p>
+        <form method="post" action="{% url 'crush_lu:coach_playground_connect' %}" class="mt-3 space-y-3">
+            {% csrf_token %}
+            <div class="flex flex-col">
+                <label for="playground-cast" class="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{% trans "Test member" %}</label>
+                <select id="playground-cast" name="cast" class="rounded-lg border-gray-200 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+                    {% for member in cast %}
+                    <option value="{{ member.playground_account.persona_key }}">{{ member.first_name }}{% if member.playground_account.persona_key == "sam" %} ({% trans "no LuxID" %}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <button type="submit" name="action" value="send" class="btn-crush-outline btn-sm">{% trans "Sends me a request" %}</button>
+                <button type="submit" name="action" value="accept" class="btn-crush-outline btn-sm">{% trans "Accepts my request" %}</button>
+                <button type="submit" name="action" value="decline" class="btn-crush-outline btn-sm">{% trans "Declines my request" %}</button>
+                <button type="submit" name="action" value="reply" class="btn-crush-outline btn-sm">{% trans "Replies in the chat" %}</button>
+                <button type="submit" name="action" value="expire" class="btn-crush-outline btn-sm">{% trans "Lets the request expire" %}</button>
+            </div>
+            <div class="flex flex-wrap gap-2 border-t border-gray-100 pt-3 dark:border-gray-700">
+                <button type="submit" name="action" value="next_day" class="btn-crush-outline btn-sm">{% trans "Next day" %}</button>
+                <button type="submit" name="action" value="review" class="btn-crush-outline btn-sm">{% trans "Jump to review day" %}</button>
+                <button type="submit" name="action" value="reset" class="btn-crush-outline btn-sm">{% trans "Reset my Connect history" %}</button>
+            </div>
+        </form>
+        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{% trans "\"Next day\" and \"Jump to review day\" move your practice member's own Connect Week. Open Connect Week once on the phone first." %}</p>
+        {% endif %}
+    </section>
+
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Practise an event" %}</h2>
+        {% if practice_mixer %}
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ practice_mixer.title }} · {{ practice_mixer.date_time|date:"j M H:i" }}</p>
+        <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
+            <li>{% trans "Phone (member): open Events, find your practice mixer and register." %}</li>
+            <li>{% trans "Laptop (coach): open the door page and scan the ticket on the phone." %}</li>
+            <li>{% trans "Fill the room with test members, then try the Event Lobby on the phone." %}</li>
+            <li>{% trans "End the mixer to see the recap and My Crush. Sam has no LuxID, so choosing him leads to My Crush." %}</li>
+        </ol>
+        <div class="mt-3 flex flex-wrap gap-2">
+            <a href="{% url 'crush_lu:event_detail' practice_mixer.pk %}" class="btn-crush-outline btn-sm">{% trans "Mixer page" %}</a>
+            <a href="{% url 'crush_lu:coach_event_checkin' practice_mixer.pk %}" class="btn-crush-outline btn-sm">{% trans "Door page" %}</a>
+        </div>
+        <form method="post" action="{% url 'crush_lu:coach_playground_mixer' %}" class="mt-3 flex flex-wrap gap-2">
+            {% csrf_token %}
+            <button type="submit" name="action" value="fill" class="btn-crush-outline btn-sm">{% trans "Fill the room" %}</button>
+            <button type="submit" name="action" value="end" class="btn-crush-outline btn-sm">{% trans "End the mixer now" %}</button>
+            <button type="submit" name="action" value="fresh" class="btn-crush-outline btn-sm">{% trans "Fresh mixer" %}</button>
+        </form>
+        {% endif %}
+    </section>
+
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Practice inbox" %}</h2>
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{% trans "Emails your practice member would have received. They are kept here and never sent." %}</p>
         {% if mails %}

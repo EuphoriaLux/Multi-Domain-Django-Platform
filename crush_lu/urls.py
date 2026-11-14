@@ -836,6 +836,16 @@ urlpatterns = [
         name="coach_playground_switch",
     ),
     path(
+        "coach/playground/connect/",
+        views_playground.coach_playground_connect,
+        name="coach_playground_connect",
+    ),
+    path(
+        "coach/playground/mixer/",
+        views_playground.coach_playground_mixer,
+        name="coach_playground_mixer",
+    ),
+    path(
         "playground/back-to-coach/",
         views_playground.playground_back_to_coach,
         name="playground_back_to_coach",

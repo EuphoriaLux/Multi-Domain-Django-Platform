@@ -43,6 +43,25 @@ ERROR_MESSAGES = {
     "appointment_overlap": gettext_lazy(
         "You already have an appointment at that time. Cancel it, then try again."
     ),
+    "excluded": gettext_lazy(
+        "That test member already met your practice member. Reset the Connect "
+        "history first."
+    ),
+    "recipient_unavailable": gettext_lazy(
+        "Your practice member is not ready for Connect yet. Start from "
+        '"Connect Week ready".'
+    ),
+    "requester_unavailable": gettext_lazy(
+        "Your practice member is not ready for Connect yet. Start from "
+        '"Connect Week ready".'
+    ),
+    "no_pending_request": gettext_lazy("There is no pending request between them."),
+    "no_chat": gettext_lazy("They have no chat yet: accept a request first."),
+    "no_connect_week": gettext_lazy(
+        "Your practice member has no Connect Week running. Open Connect Week on "
+        "the phone first."
+    ),
+    "no_cast": gettext_lazy("The test members are not set up on this server yet."),
 }
 
 
@@ -81,9 +100,15 @@ def coach_playground(request):
     from crush_lu.services.playground_mail import recent_mail
     from crush_lu.services.quiz_rehearsal import rehearsal_enabled
 
+    from crush_lu.services import playground_cast as cast
+    from crush_lu.services.playground_events import ensure_practice_mixer
+
     link = practice.live_practice_link(request.user)
     practice_user = link.user if link else None
+    cast.refresh_cast_activity()
     context = {
+        "cast": list(cast.cast_queryset().select_related("playground_account")),
+        "practice_mixer": ensure_practice_mixer(request.user),
         "coach": request.coach,
         "practice_link": link,
         "practice_user": practice_user,
@@ -181,4 +206,97 @@ def playground_back_to_coach(request):
     login(request, owner, backend=MODEL_BACKEND)
     if isinstance(sso_at, (int, float)):
         request.session[sso.SIGNED_IN_AT_SESSION_KEY] = sso_at
+    return redirect("crush_lu:coach_playground")
+
+
+#: Buttons that make a test member act, and buttons that move the member's week.
+CONNECT_ACTIONS = ("send", "accept", "decline", "reply", "expire")
+SESSION_ACTIONS = ("next_day", "review", "reset")
+
+
+@playground_view
+@require_POST
+def coach_playground_connect(request):
+    """A test member does what the coach asks, through the real Connect code."""
+    from crush_lu.services import playground_cast as cast
+
+    action = request.POST.get("action", "")
+    link = practice.live_practice_link(request.user)
+    if link is None:
+        messages.error(request, _("Create your practice member first."))
+        return redirect("crush_lu:coach_playground")
+    member = link.user
+    try:
+        if action in CONNECT_ACTIONS:
+            other = cast.cast_member(request.POST.get("cast", ""))
+            name = other.first_name
+            if action == "send":
+                cast.cast_sends_request(member, other)
+                text = _(
+                    "%(name)s sent your practice member a request. Open Connect "
+                    "Week on the phone."
+                )
+            elif action == "accept":
+                cast.cast_answers_request(member, other, accept=True)
+                text = _("%(name)s accepted. A chat is open on the phone.")
+            elif action == "decline":
+                cast.cast_answers_request(member, other, accept=False)
+                text = _(
+                    "%(name)s declined. The member is never told; the request "
+                    "just ends."
+                )
+            elif action == "reply":
+                cast.cast_replies(member, other)
+                text = _("%(name)s replied in the chat.")
+            else:
+                cast.let_request_expire(member, other)
+                text = _("The request expired.")
+            messages.success(request, text % {"name": name})
+        elif action == "next_day":
+            cast.skip_days(member, 1)
+            messages.success(
+                request, _("Your practice member's Connect Week moved one day on.")
+            )
+        elif action == "review":
+            cast.jump_to_review(member)
+            messages.success(
+                request, _("Your practice member's Connect Week is at review day.")
+            )
+        elif action == "reset":
+            cast.reset_connect_history(member)
+            messages.success(
+                request, _("Your practice member's Connect history is cleared.")
+            )
+        else:
+            raise practice.PlaygroundError("unknown_action")
+    except practice.PlaygroundError as exc:
+        messages.error(request, _error_text(exc.code))
+    return redirect("crush_lu:coach_playground")
+
+
+@playground_view
+@require_POST
+def coach_playground_mixer(request):
+    """Fill the room, end the mixer, or start a fresh one."""
+    from crush_lu.services import playground_events as events
+
+    action = request.POST.get("action", "")
+    try:
+        if action == "fill":
+            count = events.fill_the_room(request.user)
+            messages.success(
+                request, _("%(count)s test members are in the room.") % {"count": count}
+            )
+        elif action == "end":
+            events.end_practice_mixer(request.user)
+            messages.success(
+                request, _("The mixer has ended: the recap and My Crush are open.")
+            )
+        elif action == "fresh":
+            events.fresh_practice_mixer(request.user)
+            messages.success(request, _("A fresh mixer is ready."))
+        else:
+            raise practice.PlaygroundError("unknown_action")
+    except practice.PlaygroundError as exc:
+        messages.error(request, _error_text(exc.code))
     return redirect("crush_lu:coach_playground")
