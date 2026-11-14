@@ -83,6 +83,7 @@ from crush_lu import (
     views_notifications,
     views_payments,
     views_mollie,
+    views_playground_sso,
 )
 from crush_lu.views_campaign_click import campaign_click_redirect
 from crush_lu.wallet import passkit_service, google_callback
@@ -1215,6 +1216,30 @@ urlpatterns = (
         # the SPA exchanges at api.crush.lu/api/token/exchange-code/.
         path(
             "api/auth/spa-callback/", spa_session_callback, name="spa_session_callback"
+        ),
+        # Coach playground: "Sign in with crush.lu" on test.crush.lu. The two
+        # issuer routes answer only on the production slot, the two consumer
+        # routes only on staging; each 404s elsewhere.
+        # Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+        path(
+            "api/auth/coach-playground/authorize/",
+            views_playground_sso.issuer_authorize,
+            name="coach_playground_sso_authorize",
+        ),
+        path(
+            "api/auth/coach-playground/exchange/",
+            views_playground_sso.issuer_exchange,
+            name="coach_playground_sso_exchange",
+        ),
+        path(
+            "coach-playground/sso/start/",
+            views_playground_sso.consumer_start,
+            name="coach_playground_sso_start",
+        ),
+        path(
+            "coach-playground/sso/callback/",
+            views_playground_sso.consumer_callback,
+            name="coach_playground_sso_callback",
         ),
     ]
 )
