@@ -230,9 +230,9 @@ class TestEnrichStagingCandidatesCommand:
         assert "connect2025" not in out1.getvalue()
 
     def test_generated_password_and_emails_never_printed(self, monkeypatch):
-        """The enrich-staging workflow runs this command and the repository's
-        GitHub Actions logs are public: log usernames, never the password or
-        the account email."""
+        """Command output ends up in logs other people can read (CI runs,
+        Kudu consoles): log usernames, never the password or the account
+        email."""
         monkeypatch.setattr("requests.get", _fake_get)
         monkeypatch.setattr(
             enrich_command,

@@ -429,9 +429,9 @@ class Command(BaseCommand):
             default=None,
             help=(
                 "Password for created/reset accounts. Omit to set a random "
-                "one per run that is never printed (this command runs in a "
-                "public GitHub Actions log), so the accounts cannot be signed "
-                "into with a password until someone resets it. A fixed default "
+                "one per run that is never printed (command output ends up in "
+                "CI and Kudu logs), so the accounts cannot be signed into with "
+                "a password until someone resets it. A fixed default "
                 "would be a predictable, publicly-visible credential for every "
                 "seeded account on a live-reachable site."
             ),
@@ -455,8 +455,8 @@ class Command(BaseCommand):
             # A fixed default would be a predictable, publicly-visible
             # credential (this file is in the OSS repo) for every seeded
             # account on a live-reachable site -- generate one per run
-            # instead. Never print it: the enrich-staging workflow runs this
-            # command and its Actions log is public.
+            # instead. Never print it: command output ends up in logs other
+            # people can read (CI runs, Kudu consoles).
             password = secrets.token_urlsafe(12)
         options["password"] = password
 
