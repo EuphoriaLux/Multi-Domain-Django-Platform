@@ -67,14 +67,19 @@ jobs:
           export AZURE_ACCOUNT_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_ACCOUNT_KEY").value // empty')
           # Staging photos belong in the staging slot's own private container
           # (slot-sticky, crush-lu-private-staging), never production's.
+          # Every staging container carries the -staging suffix
+          # (infra/resources.bicep), so refuse anything else.
           export AZURE_CRUSH_PRIVATE_CONTAINER=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="AZURE_CRUSH_PRIVATE_CONTAINER").value // empty')
           if [ -z "$AZURE_CRUSH_PRIVATE_CONTAINER" ]; then
             export AZURE_CRUSH_PRIVATE_CONTAINER="crush-lu-private-staging"
           fi
-          if [ "$AZURE_CRUSH_PRIVATE_CONTAINER" = "crush-lu-private" ]; then
-            echo "::error::Refusing to write staging photos to the production container crush-lu-private."
-            exit 1
-          fi
+          case "$AZURE_CRUSH_PRIVATE_CONTAINER" in
+            *-staging) ;;
+            *)
+              echo "::error::Refusing to write staging photos to $AZURE_CRUSH_PRIVATE_CONTAINER: not a -staging container."
+              exit 1
+              ;;
+          esac
           export SECRET_KEY=$(echo "$SETTINGS_JSON" | jq -r '.[] | select(.name=="SECRET_KEY").value // empty')
 
           # GitHub only auto-masks values sourced from the `secrets` context,
