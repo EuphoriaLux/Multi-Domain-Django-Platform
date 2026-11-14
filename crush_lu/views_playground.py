@@ -9,7 +9,6 @@ production slot looks like it has no such pages.
 import logging
 import time
 from functools import wraps
-from urllib.parse import quote
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model, login
@@ -64,7 +63,7 @@ def playground_view(view):
                 _("Please sign in with crush.lu again to use the playground."),
             )
             start = reverse("coach_playground_sso_start")
-            return redirect(f"{start}?next={quote(request.path, safe='')}")
+            return redirect(sso.sign_in_again_url(request, start))
         return view(request, *args, **kwargs)
 
     return wrapper
