@@ -39,6 +39,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 CODE_CACHE_PREFIX = "spa_auth_code:"
 CODE_TTL_SECONDS = 60
+PLAYGROUND_STAMP_SUFFIX = ":playground_sso_at"
 
 
 def _is_allowed_return_url(url: str) -> bool:
@@ -79,6 +80,16 @@ def spa_session_callback(request):
 
     code = secrets.token_urlsafe(32)
     cache.set(f"{CODE_CACHE_PREFIX}{code}", request.user.pk, timeout=CODE_TTL_SECONDS)
+    # Coach playground (test.crush.lu): carry the crush.lu sign-in time of a
+    # linked staging coach into the tokens, so they stop working with it.
+    from crush_lu.services import playground_sso
+
+    if playground_sso.freshness_applies(request.user):
+        cache.set(
+            f"{CODE_CACHE_PREFIX}{code}{PLAYGROUND_STAMP_SUFFIX}",
+            request.session.get(playground_sso.SIGNED_IN_AT_SESSION_KEY),
+            timeout=CODE_TTL_SECONDS,
+        )
 
     # Merge ?code=... into the return URL's existing query rather than
     # f-string concatenation. f"{return_url}?code=..." breaks if the URL
@@ -137,4 +148,15 @@ class ExchangeCodeView(APIView):
             return Response({"detail": "Hub access requires staff."}, status=403)
 
         refresh = RefreshToken.for_user(user)
+        # Coach playground (test.crush.lu): a linked staging coach's tokens
+        # carry their crush.lu sign-in time; PlaygroundFreshJWTAuthentication
+        # refuses them once it is older than 7 days. Refreshed tokens keep it.
+        from crush_lu.services import playground_sso
+
+        stamp = cache.get(f"{cache_key}{PLAYGROUND_STAMP_SUFFIX}")
+        cache.delete(f"{cache_key}{PLAYGROUND_STAMP_SUFFIX}")
+        if playground_sso.freshness_applies(user):
+            if not playground_sso.timestamp_fresh(stamp):
+                return Response({"detail": "Sign in with crush.lu again."}, status=403)
+            refresh[playground_sso.JWT_CLAIM] = stamp
         return Response({"access": str(refresh.access_token), "refresh": str(refresh)})

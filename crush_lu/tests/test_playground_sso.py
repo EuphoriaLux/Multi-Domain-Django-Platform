@@ -695,3 +695,81 @@ def test_sign_in_block_needs_the_crush_urlconf(staging, urlconf, shown):
     finally:
         set_urlconf(None)
     assert (START in html) is shown
+
+
+class TestHubTokens:
+    """The hub SPA's tokens obey the same 7-day crush.lu recheck."""
+
+    HUB_RETURN = "https://hub.crush.lu/auth/callback"
+
+    def _linked_coach(self):
+        coach = _make_user("hubcoach@crush.lu", coach=True)
+        PlaygroundAccount.objects.create(
+            user=coach, kind="coach", production_account_id=777
+        )
+        return coach
+
+    def _tokens(self, user, signed_in_ago):
+        import time
+
+        client = Client(HTTP_HOST="test.crush.lu")
+        client.force_login(user)
+        session = client.session
+        session[sso.SIGNED_IN_AT_SESSION_KEY] = int(time.time()) - signed_in_ago
+        session.save()
+        bounce = client.get("/api/auth/spa-callback/", {"return": self.HUB_RETURN})
+        assert bounce.status_code == 302, bounce.status_code
+        code = parse_qs(urlparse(bounce["Location"]).query)["code"][0]
+        return Client(HTTP_HOST="test.crush.lu").post(
+            "/api/token/exchange-code/",
+            data=json.dumps({"code": code}),
+            content_type="application/json",
+        )
+
+    def _team(self, access):
+        return Client(HTTP_HOST="test.crush.lu").get(
+            "/hub/team", HTTP_AUTHORIZATION=f"Bearer {access}"
+        )
+
+    def test_fresh_coach_gets_stamped_tokens_that_work(self, staging):
+        response = self._tokens(self._linked_coach(), signed_in_ago=60)
+        assert response.status_code == 200
+        access = response.json()["access"]
+        assert self._team(access).status_code == 200
+
+    def test_stale_stamp_is_refused(self, staging):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        coach = self._linked_coach()
+        refresh = RefreshToken.for_user(coach)
+        refresh[sso.JWT_CLAIM] = 1  # 1970: long past the 7-day window
+        assert self._team(str(refresh.access_token)).status_code == 401
+
+    def test_unstamped_token_of_a_linked_coach_is_refused(self, staging):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        token = RefreshToken.for_user(self._linked_coach()).access_token
+        assert self._team(str(token)).status_code == 401
+
+    def test_unlinked_staff_are_unaffected(self, staging):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        staff = _make_user("plainstaff@crush.lu", coach=True)
+        token = RefreshToken.for_user(staff).access_token
+        assert self._team(str(token)).status_code == 200
+
+    def test_exchange_refused_when_the_crush_lu_sign_in_is_stale(self, staging):
+        # The freshness middleware signs a stale session out before the
+        # bounce; here the stamp is cut short after the bounce instead.
+        coach = self._linked_coach()
+        with mock.patch.object(sso, "timestamp_fresh", side_effect=[True, False]):
+            response = self._tokens(coach, signed_in_ago=60)
+        assert response.status_code == 403
+
+    def test_nothing_changes_without_sso(self, monkeypatch, settings):
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        monkeypatch.setenv("DJANGO_ENV", "staging")
+        settings.COACH_PLAYGROUND_SSO_SECRET = ""
+        token = RefreshToken.for_user(self._linked_coach()).access_token
+        assert self._team(str(token)).status_code == 200
