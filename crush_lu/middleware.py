@@ -281,6 +281,77 @@ class UserActivityMiddleware:
         return False
 
 
+class PracticeModeGuardMiddleware:
+    """Coach playground: switch off risky account actions for practice members.
+
+    A practice member (test.crush.lu only) must not change its email or
+    password, delete or merge itself, verify a phone number (that would send
+    a real SMS and store a dialable number) or link LuxID. Does nothing off
+    staging or for anyone else.
+    Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    """
+
+    BLOCKED_URL_NAMES = frozenset(
+        {
+            "account_email",
+            "account_change_password",
+            "account_set_password",
+            "socialaccount_connections",
+            "luxid_login",
+            "luxid_callback",
+            "set_password",
+            "delete_account",
+            "delete_crushlu_profile",
+            "merge_accounts_confirm",
+            "onboarding_phone",
+            "api_phone_mark_verified",
+            "api_phone_whatsapp_send",
+            "api_phone_whatsapp_verify",
+        }
+    )
+    #: Pages a practice member may look at but not submit (their POST erases
+    #: the account through the GDPR erasure services).
+    BLOCKED_POST_URL_NAMES = frozenset({"gdpr_data_management"})
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self.get_response(request)
+
+    def process_view(self, request, view_func, view_args, view_kwargs):
+        from crush_lu.services.staging_playground import playground_enabled
+
+        if not playground_enabled():
+            return None
+        match = getattr(request, "resolver_match", None)
+        if match is None:
+            return None
+        blocked = match.url_name in self.BLOCKED_URL_NAMES or (
+            request.method == "POST" and match.url_name in self.BLOCKED_POST_URL_NAMES
+        )
+        if not blocked:
+            return None
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return None
+        from crush_lu.services.playground_practice import practice_link_for
+
+        if practice_link_for(user) is None:
+            return None
+        from django.contrib import messages
+        from django.http import JsonResponse
+        from django.shortcuts import redirect
+        from django.utils.translation import gettext as _
+
+        if match.url_name.startswith("api_"):
+            return JsonResponse({"error": "practice_member"}, status=403)
+        messages.info(
+            request, _("This is a practice member, so that action is switched off.")
+        )
+        return redirect("crush_lu:dashboard")
+
+
 class PlaygroundSSOFreshnessMiddleware:
     """Coach playground: re-check crush.lu at least every 7 days (staging only).
 
@@ -331,8 +402,6 @@ class PlaygroundSSOFreshnessMiddleware:
         if sso.signed_in_recently(request.session):
             return None
 
-        from urllib.parse import quote
-
         from django.contrib.auth import logout
         from django.shortcuts import redirect
         from django.urls import NoReverseMatch, reverse
@@ -347,5 +416,5 @@ class PlaygroundSSOFreshnessMiddleware:
         except NoReverseMatch:
             return redirect("/")
         if request.method == "GET":
-            return redirect(f"{start}?next={quote(request.get_full_path(), safe='')}")
+            return redirect(sso.sign_in_again_url(request, start))
         return redirect(start)

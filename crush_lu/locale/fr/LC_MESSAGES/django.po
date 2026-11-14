@@ -47920,6 +47920,294 @@ msgstr "Tu te connectes sur crush.lu et tu reviens directement sur test.crush.lu
 msgid "Sign in with crush.lu"
 msgstr "Se connecter avec crush.lu"
 
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Coach playground"
+msgstr "Espace d'entraînement des coachs"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Play the member side yourself. Nothing here reaches real members: this is the test server."
+msgstr "Joue toi-même le rôle d'un membre. Rien ici n'atteint de vrais membres : c'est le serveur de test."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Pick a starting scenario below. It creates your practice member, an ordinary member account that belongs to you."
+msgstr "Choisis un scénario de départ ci-dessous. Il crée ton membre d'entraînement, un compte membre ordinaire qui t'appartient."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "On your phone, open test.crush.lu, sign in as yourself, open this page and press \"Switch to my practice member\"."
+msgstr "Sur ton téléphone, ouvre test.crush.lu, connecte-toi avec ton compte, ouvre cette page et appuie sur « Passer à mon membre d'entraînement »."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Keep this laptop as the coach. Play both sides, then start again whenever you like."
+msgstr "Sur cet ordinateur, tu restes coach. Joue les deux rôles, puis recommence quand tu veux."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Your practice member"
+msgstr "Ton membre d'entraînement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "New photo waiting for review"
+msgstr "Nouvelle photo en attente de vérification"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Human verification:"
+msgstr "Vérification humaine :"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "video"
+msgstr "vidéo"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "event"
+msgstr "événement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "none yet"
+msgstr "pas encore"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Video request waiting in the channel"
+msgstr "Demande vidéo en attente dans le canal"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+#, python-format
+msgid "Video request claimed by %(name)s"
+msgstr "Demande vidéo prise en charge par %(name)s"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Switch to my practice member"
+msgstr "Passer à mon membre d'entraînement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "This device then becomes the member. Use \"Back to coach\" in the practice bar to return."
+msgstr "Cet appareil devient alors le membre. Utilise « Retour au coach » dans la barre d'entraînement pour revenir."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "You do not have a practice member yet. Pick a scenario to create one."
+msgstr "Tu n'as pas encore de membre d'entraînement. Choisis un scénario pour en créer un."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Start again with a scenario"
+msgstr "Recommencer avec un scénario"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Choose a starting scenario"
+msgstr "Choisis un scénario de départ"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Practice member gender"
+msgstr "Genre du membre d'entraînement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Start again"
+msgstr "Recommencer"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Create my practice member"
+msgstr "Créer mon membre d'entraînement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Starting again retires the current practice member: its requests and appointments are released and its phone session ends."
+msgstr "Recommencer met fin au membre d'entraînement actuel : ses demandes et rendez-vous sont libérés et sa session sur le téléphone se termine."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Practise a video verification"
+msgstr "S'entraîner à une vérification vidéo"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Phone (member): open your verification page and press \"Request a video verification\"."
+msgstr "Téléphone (membre) : ouvre ta page de vérification et appuie sur « Demander une vérification vidéo »."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Laptop (coach): claim the request in the Verification Channel."
+msgstr "Ordinateur (coach) : prends la demande en charge dans le canal de vérification."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Book the call 1 to 15 minutes ahead: the call buttons open 15 minutes before the start."
+msgstr "Planifie l'appel 1 à 15 minutes à l'avance : les boutons d'appel s'ouvrent 15 minutes avant le début."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Start the video on the laptop and join it on the phone. Allow the camera and microphone on both."
+msgstr "Lance la vidéo sur l'ordinateur et rejoins-la sur le téléphone. Autorise la caméra et le micro sur les deux."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Tick the checklist and record your decision. Ending the call alone approves nobody."
+msgstr "Coche la liste de contrôle et enregistre ta décision. Terminer l'appel ne valide personne à lui seul."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Open the Verification Channel"
+msgstr "Ouvrir le canal de vérification"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Other coaches' practice members are hidden in the channel unless you choose to show them, so nobody claims yours by accident."
+msgstr "Les membres d'entraînement des autres coachs sont masqués dans le canal, sauf si tu choisis de les afficher : personne ne prend le tien par erreur."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Practice inbox"
+msgstr "Boîte de réception d'entraînement"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Emails your practice member would have received. They are kept here and never sent."
+msgstr "Les e-mails que ton membre d'entraînement aurait reçus. Ils sont gardés ici et jamais envoyés."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "(no subject)"
+msgstr "(sans objet)"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "No emails yet."
+msgstr "Pas encore d'e-mails."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Quiz Night rehearsal"
+msgstr "Répétition de la soirée quiz"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Practise hosting a quiz with test guests. Reset it any time from the host panel."
+msgstr "Entraîne-toi à animer un quiz avec des invités de test. Réinitialise-le quand tu veux depuis le panneau d'animation."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Open the quiz rehearsal"
+msgstr "Ouvrir la répétition du quiz"
+
+#: crush_lu/templates/crush_lu/includes/practice_banner.html
+#, python-format
+msgid "Practice member of %(name)s"
+msgstr "Membre d'entraînement de %(name)s"
+
+#: crush_lu/templates/crush_lu/includes/practice_banner.html
+msgid "Practice member"
+msgstr "Membre d'entraînement"
+
+#: crush_lu/templates/crush_lu/includes/practice_banner.html
+msgid "nothing here is real"
+msgstr "rien ici n'est réel"
+
+#: crush_lu/templates/crush_lu/includes/practice_banner.html
+msgid "Back to coach"
+msgstr "Retour au coach"
+
+#: crush_lu/templates/crush_lu/coach_dashboard.html
+msgid "play the member side yourself with a practice member (test server only)."
+msgstr "joue toi-même le rôle d'un membre avec un membre d'entraînement (serveur de test uniquement)."
+
+#: crush_lu/templates/crush_lu/coach_verification_channel.html
+msgid "Hide other coaches' practice members"
+msgstr "Masquer les membres d'entraînement des autres coachs"
+
+#: crush_lu/templates/crush_lu/coach_verification_channel.html
+msgid "Show other coaches' practice members (pair practice)"
+msgstr "Afficher les membres d'entraînement des autres coachs (entraînement à deux)"
+
+#: crush_lu/templates/crush_lu/coach_verification_channel.html
+#, python-format
+msgid "Practice · %(name)s"
+msgstr "Entraînement · %(name)s"
+
+#: crush_lu/views_playground.py
+msgid "Video verification requests are switched off on this server."
+msgstr "Les demandes de vérification vidéo sont désactivées sur ce serveur."
+
+#: crush_lu/views_playground.py
+msgid "Video calls are not configured on this server."
+msgstr "Les appels vidéo ne sont pas configurés sur ce serveur."
+
+#: crush_lu/views_playground.py
+msgid "You already hold 10 open claims. Release one in the channel, then try again."
+msgstr "Tu as déjà 10 prises en charge ouvertes. Libères-en une dans le canal, puis réessaie."
+
+#: crush_lu/views_playground.py
+msgid "You already have an appointment at that time. Cancel it, then try again."
+msgstr "Tu as déjà un rendez-vous à cette heure. Annule-le, puis réessaie."
+
+#: crush_lu/views_playground.py
+msgid "Please sign in with crush.lu again to use the playground."
+msgstr "Reconnecte-toi avec crush.lu pour utiliser l'espace d'entraînement."
+
+#: crush_lu/views_playground.py
+#, python-format
+msgid "A check refused this scenario (%(code)s). Nothing was changed."
+msgstr "Une vérification a refusé ce scénario (%(code)s). Rien n'a été modifié."
+
+#: crush_lu/views_playground.py
+msgid "Your practice member is ready. Switch to it on your phone."
+msgstr "Ton membre d'entraînement est prêt. Passe dessus depuis ton téléphone."
+
+#: crush_lu/views_playground.py
+msgid "Create your practice member first."
+msgstr "Crée d'abord ton membre d'entraînement."
+
+#: crush_lu/views_playground.py
+msgid "This session cannot switch back. Sign in again with your coach account."
+msgstr "Cette session ne peut pas revenir en arrière. Reconnecte-toi avec ton compte coach."
+
+#: crush_lu/middleware.py
+msgid "This is a practice member, so that action is switched off."
+msgstr "C'est un membre d'entraînement : cette action est donc désactivée."
+
+#: crush_lu/services/playground_practice.py
+msgid "LuxID linked, ready to request a video check"
+msgstr "LuxID lié, prêt à demander une vérification vidéo"
+
+#: crush_lu/services/playground_practice.py
+msgid "Verified with LuxID, photo approved. On the phone, request a video verification; then claim it in the channel."
+msgstr "Vérifié avec LuxID, photo approuvée. Sur le téléphone, demande une vérification vidéo, puis prends-la en charge dans le canal."
+
+#: crush_lu/services/playground_practice.py
+msgid "Video check requested"
+msgstr "Vérification vidéo demandée"
+
+#: crush_lu/services/playground_practice.py
+msgid "The member already pressed \"Request a video verification\". Start in the Verification Channel: claim, book, call, decide."
+msgstr "Le membre a déjà appuyé sur « Demander une vérification vidéo ». Commence dans le canal de vérification : prendre en charge, planifier, appeler, décider."
+
+#: crush_lu/services/playground_practice.py
+msgid "Video call booked in 3 minutes"
+msgstr "Appel vidéo prévu dans 3 minutes"
+
+#: crush_lu/services/playground_practice.py
+msgid "Claimed by you and booked to start in 3 minutes, so the call buttons are already open. Practise the call, a no-show or a connection problem."
+msgstr "Pris en charge par toi et prévu dans 3 minutes : les boutons d'appel sont déjà ouverts. Entraîne-toi à l'appel, à une absence ou à un problème de connexion."
+
+#: crush_lu/services/playground_practice.py
+msgid "Video verification approved"
+msgstr "Vérification vidéo approuvée"
+
+#: crush_lu/services/playground_practice.py
+msgid "You already passed this member on video. See what Connect Week asks for next."
+msgstr "Tu as déjà validé ce membre en vidéo. Regarde ce que Connect Week demande ensuite."
+
+#: crush_lu/services/playground_practice.py
+msgid "Asks for video, no LuxID"
+msgstr "Demande la vidéo, sans LuxID"
+
+#: crush_lu/services/playground_practice.py
+msgid "Verified by Crush.lu but without LuxID. The video route asks them to link LuxID first, or to come to an event."
+msgstr "Vérifié par Crush.lu mais sans LuxID. La voie vidéo lui demande d'abord de lier LuxID, ou de venir à un événement."
+
+#: crush_lu/services/playground_practice.py
+msgid "Old voice screening only"
+msgstr "Ancien appel de présélection uniquement"
+
+#: crush_lu/services/playground_practice.py
+msgid "Approved after an old voice screening call. That does not count as a video verification: they can still request one."
+msgstr "Approuvé après un ancien appel de présélection. Cela ne compte pas comme une vérification vidéo : il peut encore en demander une."
+
+#: crush_lu/services/playground_practice.py
+msgid "New photo after verification"
+msgstr "Nouvelle photo après la vérification"
+
+#: crush_lu/services/playground_practice.py
+msgid "Video-verified, then uploaded a new photo that waits for review. Others still see the approved photo."
+msgstr "Vérifié en vidéo, puis a envoyé une nouvelle photo en attente de vérification. Les autres voient toujours la photo approuvée."
+
+#: crush_lu/services/playground_practice.py
+msgid "Premium member assigned to you"
+msgstr "Membre Premium qui t'est attribué"
+
+#: crush_lu/services/playground_practice.py
+msgid "LuxID-verified with an active Premium membership and you as their coach. Other coaches cannot verify them."
+msgstr "Vérifié avec LuxID, avec un abonnement Premium actif et toi comme coach. Les autres coachs ne peuvent pas le vérifier."
+
 #: crush_lu/views_playground_sso.py
 msgid "A test.crush.lu account with your email exists but its email was never confirmed, so it cannot be linked. Ask Tom to remove it."
 msgstr "Un compte test.crush.lu utilise ton adresse e-mail, mais elle n'a jamais été confirmée : il ne peut donc pas être lié. Demande à Tom de le supprimer."

@@ -1,0 +1,130 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+{# Coach playground (test.crush.lu only). Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md #}
+
+{% block title %}{% trans "Coach playground" %} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl">
+    <div class="mb-6">
+        <p class="text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">test.crush.lu</p>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{% trans "Coach playground" %}</h1>
+        <p class="mt-1 text-gray-600 dark:text-gray-300">{% trans "Play the member side yourself. Nothing here reaches real members: this is the test server." %}</p>
+    </div>
+
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "How it works" %}</h2>
+        <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
+            <li>{% trans "Pick a starting scenario below. It creates your practice member, an ordinary member account that belongs to you." %}</li>
+            <li>{% trans "On your phone, open test.crush.lu, sign in as yourself, open this page and press \"Switch to my practice member\"." %}</li>
+            <li>{% trans "Keep this laptop as the coach. Play both sides, then start again whenever you like." %}</li>
+        </ol>
+    </section>
+
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Your practice member" %}</h2>
+        {% if practice_user %}
+        <div class="mt-3">
+            <p class="font-semibold text-gray-900 dark:text-white">{{ practice_user.get_full_name }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ practice_user.email }}</p>
+            {% if current_preset %}
+            <p class="mt-2 text-sm font-semibold text-crush-purple">{{ current_preset.label }}</p>
+            <p class="text-sm text-gray-600 dark:text-gray-300">{{ current_preset.description }}</p>
+            {% endif %}
+            <ul class="mt-3 flex flex-wrap gap-2 text-xs">
+                <li class="rounded-full px-2 py-1 {% if practice_status.luxid %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">LuxID {% if practice_status.luxid %}✓{% else %}✗{% endif %}</li>
+                <li class="rounded-full px-2 py-1 {% if practice_status.verified %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">{% trans "Profile verified" %} {% if practice_status.verified %}✓ ({{ practice_status.method }}){% else %}✗{% endif %}</li>
+                <li class="rounded-full px-2 py-1 {% if practice_status.photo_public %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% else %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">{% if practice_status.photo_public %}{% trans "Photo approved" %}{% else %}{% trans "New photo waiting for review" %}{% endif %}</li>
+                <li class="rounded-full px-2 py-1 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300">{% trans "Human verification:" %} {% if practice_status.human_verification == "video" %}{% trans "video" %}{% elif practice_status.human_verification == "event" %}{% trans "event" %}{% else %}{% trans "none yet" %}{% endif %}</li>
+                {% if practice_status.open_check %}
+                <li class="rounded-full px-2 py-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">{% if practice_status.open_check.coach %}{% blocktrans with name=practice_status.open_check.coach.user.first_name %}Video request claimed by {{ name }}{% endblocktrans %}{% else %}{% trans "Video request waiting in the channel" %}{% endif %}</li>
+                {% endif %}
+                <li class="rounded-full px-2 py-1 {% if practice_status.connect_week_open %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300{% else %}bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300{% endif %}">{% trans "Connect Week" %} {% if practice_status.connect_week_open %}✓{% else %}✗{% endif %}</li>
+            </ul>
+            <form method="post" action="{% url 'crush_lu:coach_playground_switch' %}" class="mt-4">
+                {% csrf_token %}
+                <button type="submit" class="btn-crush-primary btn-block w-full sm:w-auto">{% trans "Switch to my practice member" %}</button>
+            </form>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{% trans "This device then becomes the member. Use \"Back to coach\" in the practice bar to return." %}</p>
+        </div>
+        {% else %}
+        <p class="mt-3 text-sm text-gray-600 dark:text-gray-300">{% trans "You do not have a practice member yet. Pick a scenario to create one." %}</p>
+        {% endif %}
+
+        <form method="post" action="{% url 'crush_lu:coach_playground_scenario' %}" class="mt-6 border-t border-gray-100 pt-5 dark:border-gray-700">
+            {% csrf_token %}
+            <fieldset>
+                <legend class="text-sm font-semibold text-gray-900 dark:text-white">{% if practice_user %}{% trans "Start again with a scenario" %}{% else %}{% trans "Choose a starting scenario" %}{% endif %}</legend>
+                <div class="mt-3 space-y-3">
+                    {% for preset in presets %}
+                    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-gray-200 p-3 hover:border-crush-purple dark:border-gray-700">
+                        <input type="radio" name="preset" value="{{ preset.key }}" class="mt-1" {% if current_preset.key == preset.key or not current_preset and forloop.first %}checked{% endif %}>
+                        <span>
+                            <span class="block text-sm font-semibold text-gray-900 dark:text-white">{{ preset.label }}</span>
+                            <span class="block text-xs text-gray-600 dark:text-gray-300">{{ preset.description }}</span>
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </fieldset>
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                <div class="flex flex-col">
+                    <label for="playground-gender" class="mb-1 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">{% trans "Practice member gender" %}</label>
+                    <select id="playground-gender" name="gender" class="rounded-lg border-gray-200 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100">
+                        <option value="F">{% trans "Woman" %}</option>
+                        <option value="M">{% trans "Man" %}</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn-crush-solid">{% if practice_user %}{% trans "Start again" %}{% else %}{% trans "Create my practice member" %}{% endif %}</button>
+            </div>
+            {% if practice_user %}
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{% trans "Starting again retires the current practice member: its requests and appointments are released and its phone session ends." %}</p>
+            {% endif %}
+        </form>
+    </section>
+
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Practise a video verification" %}</h2>
+        <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
+            <li>{% trans "Phone (member): open your verification page and press \"Request a video verification\"." %}</li>
+            <li>{% trans "Laptop (coach): claim the request in the Verification Channel." %}</li>
+            <li>{% trans "Book the call 1 to 15 minutes ahead: the call buttons open 15 minutes before the start." %}</li>
+            <li>{% trans "Start the video on the laptop and join it on the phone. Allow the camera and microphone on both." %}</li>
+            <li>{% trans "Tick the checklist and record your decision. Ending the call alone approves nobody." %}</li>
+        </ol>
+        <a href="{% url 'crush_lu:coach_verification_channel' %}" class="btn-crush-outline btn-sm mt-3">{% trans "Open the Verification Channel" %}</a>
+        <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">{% trans "Other coaches' practice members are hidden in the channel unless you choose to show them, so nobody claims yours by accident." %}</p>
+    </section>
+
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Practice inbox" %}</h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{% trans "Emails your practice member would have received. They are kept here and never sent." %}</p>
+        {% if mails %}
+        <div class="mt-3 divide-y divide-gray-100 dark:divide-gray-700">
+            {% for mail in mails %}
+            <details class="py-3">
+                <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white">{{ mail.subject|default:_("(no subject)") }} <span class="font-normal text-gray-500 dark:text-gray-400">· {{ mail.created_at|date:"j M H:i" }}</span></summary>
+                <pre class="mt-2 whitespace-pre-wrap break-words rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">{{ mail.body_text }}</pre>
+                {% if mail.links %}
+                <ul class="mt-2 space-y-1 text-xs">
+                    {% for link in mail.links %}<li><a class="break-all text-crush-purple underline" href="{{ link }}" rel="noopener noreferrer">{{ link }}</a></li>{% endfor %}
+                </ul>
+                {% endif %}
+            </details>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">{% trans "No emails yet." %}</p>
+        {% endif %}
+    </section>
+
+    {% if quiz_rehearsal_enabled %}
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Quiz Night rehearsal" %}</h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{% trans "Practise hosting a quiz with test guests. Reset it any time from the host panel." %}</p>
+        <a href="{% url 'crush_lu:quiz_rehearsal' %}" class="btn-crush-outline btn-sm mt-3">{% trans "Open the quiz rehearsal" %}</a>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}

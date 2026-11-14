@@ -1,0 +1,16 @@
+{% load i18n %}
+{# Coach playground (test.crush.lu only): shown on every page while a coach plays their practice member. #}
+<div class="border-b border-amber-300 bg-amber-100 px-4 py-2 text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-100" role="status">
+    <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 text-sm">
+        <p class="font-semibold">
+            {% if playground_practice_owner %}{% blocktrans with name=playground_practice_owner %}Practice member of {{ name }}{% endblocktrans %}{% else %}{% trans "Practice member" %}{% endif %}
+            <span class="font-normal">· {% trans "nothing here is real" %}</span>
+        </p>
+        {% if playground_can_go_back %}
+        <form method="post" action="{% url 'crush_lu:playground_back_to_coach' %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-crush-outline btn-sm">{% trans "Back to coach" %}</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
