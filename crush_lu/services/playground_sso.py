@@ -140,6 +140,32 @@ def _code_key(code):
     return CODE_CACHE_PREFIX + hashlib.sha256(code.encode("ascii")).hexdigest()
 
 
+#: JWT claim carrying the crush.lu sign-in time of a linked staging coach.
+JWT_CLAIM = "pg_sso_at"
+
+
+def is_linked_coach(user):
+    """True for a staging coach account linked to crush.lu."""
+    from crush_lu.models import PlaygroundAccount
+
+    if user is None or not getattr(user, "pk", None):
+        return False
+    return PlaygroundAccount.objects.filter(
+        user_id=user.pk, kind=PlaygroundAccount.KIND_COACH
+    ).exists()
+
+
+def freshness_applies(user):
+    """The 7-day crush.lu recheck applies to this account on this slot."""
+    return consumer_enabled() and is_linked_coach(user)
+
+
+def timestamp_fresh(value):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
+    return 0 <= time.time() - value <= FRESHNESS_SECONDS
+
+
 def signed_in_recently(session):
     """True when the playground may trust this session's coach.
 
@@ -148,10 +174,7 @@ def signed_in_recently(session):
     """
     if not consumer_enabled():
         return True
-    signed_in_at = session.get(SIGNED_IN_AT_SESSION_KEY)
-    if not isinstance(signed_in_at, (int, float)):
-        return False
-    return 0 <= time.time() - signed_in_at <= FRESHNESS_SECONDS
+    return timestamp_fresh(session.get(SIGNED_IN_AT_SESSION_KEY))
 
 
 # ---------------------------------------------------------------------------

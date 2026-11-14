@@ -1413,7 +1413,9 @@ ACCOUNT_DEFAULT_HTTP_PROTOCOL = "http" if DEBUG else "https"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "hub.authentication.AdminApiKeyAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        # JWTAuthentication plus the coach playground's 7-day crush.lu
+        # recheck for linked staging coaches (a no-op everywhere else).
+        "hub.authentication.PlaygroundFreshJWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     # Custom exception handler for error sanitization in production
