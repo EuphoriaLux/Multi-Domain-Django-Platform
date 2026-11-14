@@ -309,6 +309,9 @@ class PracticeModeGuardMiddleware:
             "api_phone_whatsapp_verify",
         }
     )
+    #: Pages a practice member may look at but not submit (their POST erases
+    #: the account through the GDPR erasure services).
+    BLOCKED_POST_URL_NAMES = frozenset({"gdpr_data_management"})
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -322,7 +325,12 @@ class PracticeModeGuardMiddleware:
         if not playground_enabled():
             return None
         match = getattr(request, "resolver_match", None)
-        if match is None or match.url_name not in self.BLOCKED_URL_NAMES:
+        if match is None:
+            return None
+        blocked = match.url_name in self.BLOCKED_URL_NAMES or (
+            request.method == "POST" and match.url_name in self.BLOCKED_POST_URL_NAMES
+        )
+        if not blocked:
             return None
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:

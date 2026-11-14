@@ -47,3 +47,36 @@ class AdminApiKeyAuthentication(BaseAuthentication):
 
     def authenticate_header(self, request):
         return 'Bearer realm="api"'
+
+
+try:
+    from rest_framework_simplejwt.authentication import JWTAuthentication
+except ImportError:  # pragma: no cover - simplejwt is a hard dependency
+    JWTAuthentication = None
+
+
+class PlaygroundFreshJWTAuthentication(JWTAuthentication):
+    """SimpleJWT authentication that also enforces the coach playground's
+    7-day crush.lu recheck on test.crush.lu.
+
+    For a staging coach account linked to crush.lu (and only while the
+    staging side of that sign-in is configured), a token must carry a crush.lu
+    sign-in time (``pg_sso_at``) from the last 7 days. Tokens from any other
+    path, or older than that, are refused, so a coach removed on crush.lu
+    cannot keep using the API with tokens obtained earlier. Everyone else,
+    and production, behaves exactly like ``JWTAuthentication``.
+    Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    """
+
+    def authenticate(self, request):
+        result = super().authenticate(request)
+        if result is None:
+            return None
+        user, token = result
+        from crush_lu.services import playground_sso
+
+        if playground_sso.freshness_applies(user) and not (
+            playground_sso.timestamp_fresh(token.get(playground_sso.JWT_CLAIM))
+        ):
+            raise exceptions.AuthenticationFailed("Sign in with crush.lu again.")
+        return user, token
