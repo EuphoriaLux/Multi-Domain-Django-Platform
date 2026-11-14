@@ -402,8 +402,6 @@ class PlaygroundSSOFreshnessMiddleware:
         if sso.signed_in_recently(request.session):
             return None
 
-        from urllib.parse import quote
-
         from django.contrib.auth import logout
         from django.shortcuts import redirect
         from django.urls import NoReverseMatch, reverse
@@ -418,5 +416,5 @@ class PlaygroundSSOFreshnessMiddleware:
         except NoReverseMatch:
             return redirect("/")
         if request.method == "GET":
-            return redirect(f"{start}?next={quote(request.get_full_path(), safe='')}")
+            return redirect(sso.sign_in_again_url(request, start))
         return redirect(start)
