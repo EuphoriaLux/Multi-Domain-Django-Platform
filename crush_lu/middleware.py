@@ -279,3 +279,73 @@ class UserActivityMiddleware:
             pass
 
         return False
+
+
+class PlaygroundSSOFreshnessMiddleware:
+    """Coach playground: re-check crush.lu at least every 7 days (staging only).
+
+    A staging coach account linked to crush.lu (``PlaygroundAccount`` kind
+    ``coach``) keeps coach and staff rights only while its session holds a
+    crush.lu sign-in from the last 7 days. Older or missing: the session is
+    signed out and sent through crush.lu again, which also switches the
+    staging coach off when crush.lu no longer says "active coach". Sessions
+    renew themselves, so this has to be checked on every request, not only
+    on the playground pages. Does nothing unless the staging side of the
+    sign-in is configured.
+    Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    """
+
+    EXEMPT_PREFIXES = (
+        "/coach-playground/sso/",
+        "/api/auth/coach-playground/",
+        "/static/",
+        "/healthz/",
+        "/readyz/",
+    )
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        return self._stale_coach_redirect(request) or self.get_response(request)
+
+    def _stale_coach_redirect(self, request):
+        from crush_lu.services import playground_sso as sso
+
+        if not sso.consumer_enabled():
+            return None
+        # Every host, not only test.crush.lu: other platforms mount the coach
+        # pages too (vinsdelux includes crush_lu.urls), and a session cookie
+        # can be replayed on any host of this app.
+        user = getattr(request, "user", None)
+        if user is None or not user.is_authenticated:
+            return None
+        if request.path.startswith(self.EXEMPT_PREFIXES):
+            return None
+        from crush_lu.models import PlaygroundAccount
+
+        if not PlaygroundAccount.objects.filter(
+            user_id=user.pk, kind=PlaygroundAccount.KIND_COACH
+        ).exists():
+            return None
+        if sso.signed_in_recently(request.session):
+            return None
+
+        from urllib.parse import quote
+
+        from django.contrib.auth import logout
+        from django.shortcuts import redirect
+        from django.urls import NoReverseMatch, reverse
+
+        logger.info("Coach playground: staging coach %s must sign in again", user.pk)
+        logout(request)
+        try:
+            # The sign-in route exists only in the crush.lu URLconf.
+            start = reverse(
+                "coach_playground_sso_start", urlconf=getattr(request, "urlconf", None)
+            )
+        except NoReverseMatch:
+            return redirect("/")
+        if request.method == "GET":
+            return redirect(f"{start}?next={quote(request.get_full_path(), safe='')}")
+        return redirect(start)

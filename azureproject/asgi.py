@@ -40,6 +40,7 @@ from whitenoise import WhiteNoise  # noqa: E402
 
 from azureproject.domains import get_redirect_target  # noqa: E402
 from azureproject.host_validation import validate_production_request_host  # noqa: E402
+from crush_lu.playground_asgi import PlaygroundFreshnessASGIMiddleware  # noqa: E402
 from crush_lu.routing import websocket_urlpatterns  # noqa: E402
 
 logger = logging.getLogger("azureproject.asgi")
@@ -230,8 +231,13 @@ class StaticFilesASGI:
 
 
 _http_app = StaticFilesASGI(django_asgi_app)
+# PlaygroundFreshnessASGIMiddleware: the coach playground's 7-day crush.lu
+# recheck for WebSockets, which never pass Django's middleware (a no-op unless
+# the staging side of the coach sign-in is configured).
 _websocket_app = AllowedHostsOriginValidator(
-    AuthMiddlewareStack(URLRouter(websocket_urlpatterns))
+    AuthMiddlewareStack(
+        PlaygroundFreshnessASGIMiddleware(URLRouter(websocket_urlpatterns))
+    )
 )
 
 

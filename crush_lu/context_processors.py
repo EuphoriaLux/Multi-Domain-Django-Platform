@@ -488,3 +488,18 @@ def site_config_context(request):
         result["banner_link_text"] = config_obj.banner_link_text
         result["banner_link_url"] = config_obj.banner_link_url
     return result
+
+
+def playground_context(request):
+    """Coach playground flags (test.crush.lu only).
+
+    Returns ``{}`` at once off staging, so production does no extra work.
+    Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    """
+    from crush_lu.services.staging_playground import playground_enabled
+
+    if not playground_enabled():
+        return {}
+    from crush_lu.services.playground_sso import consumer_enabled
+
+    return {"playground_sso_enabled": consumer_enabled()}
