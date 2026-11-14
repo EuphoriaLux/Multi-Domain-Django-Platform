@@ -217,6 +217,13 @@ def lock_calendar(coach_id):
     _lock_calendar(coach_id)
 
 
+def lock_coach_row(coach_id):
+    """The claiming coach's row lock (``real_person_check._lock_coach``)."""
+    from crush_lu.services.real_person_check import _lock_coach
+
+    _lock_coach(coach_id)
+
+
 def lock_owner(coach_user):
     """Lock the coach's user row for the rest of the transaction.
 
@@ -226,8 +233,10 @@ def lock_owner(coach_user):
     owner user -> practice ``PlaygroundAccount`` -> member profile -> check.
     ``no_key`` (FOR NO KEY UPDATE) still conflicts with itself but not with
     the KEY SHARE that foreign-key inserts take on this user row.
-    Full lock order: coach calendar (advisory) -> owner user -> practice
-    ``PlaygroundAccount`` -> member profile -> check.
+    Full lock order: coach calendar (advisory) -> ``CrushCoach`` row ->
+    owner user -> practice ``PlaygroundAccount`` -> member profile -> check.
+    Every other path takes a subset in the same order (booking: calendar ->
+    profile; claim: coach row -> profile -> check).
     """
     list(
         get_user_model()
@@ -268,6 +277,7 @@ def retire_practice_member(coach_user):
         )
         if coach_id is not None:
             lock_calendar(coach_id)
+            lock_coach_row(coach_id)
         lock_owner(coach_user)
         link = (
             PlaygroundAccount.objects.select_for_update()
@@ -330,6 +340,9 @@ def apply_preset(coach, key, *, gender=None):
             # "call booked" books an appointment, so the reverse order could
             # deadlock with a booking for the old member.
             lock_calendar(coach.pk)
+            # Then the coach row, as claim_video_request() locks it before any
+            # profile and several scenarios claim after retiring.
+            lock_coach_row(coach.pk)
             # Then the coach's own user row, which exists from the very first
             # build, so two presses (first creation or "start again") run one
             # after the other.

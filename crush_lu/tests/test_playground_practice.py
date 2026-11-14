@@ -306,6 +306,9 @@ class TestStartAgain:
         # profile -> check.
         build = inspect.getsource(practice.apply_preset)
         assert build.index("lock_calendar(coach.pk)") < build.index(
+            "lock_coach_row(coach.pk)"
+        )
+        assert build.index("lock_coach_row(coach.pk)") < build.index(
             "lock_owner(coach.user)"
         )
         assert build.index("lock_owner(coach.user)") < build.index(
@@ -313,6 +316,9 @@ class TestStartAgain:
         )
         retire = inspect.getsource(practice.retire_practice_member)
         assert retire.index("lock_calendar(coach_id)") < retire.index(
+            "lock_coach_row(coach_id)"
+        )
+        assert retire.index("lock_coach_row(coach_id)") < retire.index(
             "lock_owner(coach_user)"
         )
         assert retire.index("lock_owner(coach_user)") < retire.index(
