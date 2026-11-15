@@ -101,6 +101,7 @@ def coach_playground(request):
     from crush_lu.services.quiz_rehearsal import rehearsal_enabled
 
     from crush_lu.services import playground_cast as cast
+    from crush_lu.services.event_lobby import lobby_feature_enabled
     from crush_lu.services.playground_events import ensure_practice_mixer
 
     link = practice.live_practice_link(request.user)
@@ -109,6 +110,7 @@ def coach_playground(request):
     context = {
         "cast": list(cast.cast_queryset().select_related("playground_account")),
         "practice_mixer": ensure_practice_mixer(request.user),
+        "lobby_enabled": lobby_feature_enabled(),
         "coach": request.coach,
         "practice_link": link,
         "practice_user": practice_user,
@@ -242,8 +244,8 @@ def coach_playground_connect(request):
             elif action == "decline":
                 cast.cast_answers_request(member, other, accept=False)
                 text = _(
-                    "%(name)s declined. The member is never told; the request "
-                    "just ends."
+                    "%(name)s declined. The member only sees that they could "
+                    "not connect right now; the request just ends."
                 )
             elif action == "reply":
                 cast.cast_replies(member, other)

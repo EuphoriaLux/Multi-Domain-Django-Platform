@@ -2356,6 +2356,14 @@ def consent_confirm(request):
     from crush_lu.models.profiles import UserDataConsent
     from crush_lu.oauth_statekit import get_client_ip
 
+    # The page the consent gate interrupted (CrushConsentMiddleware), if safe.
+    next_url = _safe_consent_next(
+        request, request.POST.get("next") or request.GET.get("next")
+    )
+
+    def _done():
+        return redirect(next_url) if next_url else redirect("crush_lu:dashboard")
+
     # Block banned users from re-consenting
     if (
         hasattr(request.user, "data_consent")
@@ -2369,7 +2377,7 @@ def consent_confirm(request):
         and request.user.data_consent.crushlu_consent_given
     ):
         messages.info(request, _("You have already given consent."))
-        return redirect("crush_lu:dashboard")
+        return _done()
 
     if request.method == "POST":
         # Get consent checkboxes
@@ -2378,7 +2386,10 @@ def consent_confirm(request):
 
         if not crushlu_consent:
             messages.error(request, _("You must consent to continue using Crush.lu."))
-            return redirect("crush_lu:consent_confirm")
+            retry = reverse("crush_lu:consent_confirm")
+            if next_url:
+                retry = f"{retry}?{urlencode({'next': next_url})}"
+            return redirect(retry)
 
         # Update or create consent record
         consent, created = UserDataConsent.objects.get_or_create(user=request.user)
@@ -2399,11 +2410,31 @@ def consent_confirm(request):
 
         logger.info(f"User {request.user.id} retroactively gave Crush.lu consent")
         messages.success(request, _("Thank you for confirming your consent!"))
-        return redirect("crush_lu:dashboard")
+        return _done()
 
     # GET request - show consent form
-    context = {}
+    context = {"next_url": next_url}
     return render(request, "crush_lu/consent_confirm.html", context)
+
+
+def _safe_consent_next(request, candidate):
+    """A same-host path to return to after consent, or ``""``.
+
+    Never the consent page itself, so a stale link cannot loop.
+    """
+    if (
+        not isinstance(candidate, str)
+        or not candidate.startswith("/")
+        or candidate.startswith("//")
+        or "/consent/confirm/" in candidate
+        or not url_has_allowed_host_and_scheme(
+            candidate,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        )
+    ):
+        return ""
+    return candidate
 
 
 @login_required

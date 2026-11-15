@@ -48278,7 +48278,7 @@ msgstr "Téléphone (membre) : ouvre Événements, trouve ton mixer d'entraînem
 
 #: crush_lu/templates/crush_lu/coach_playground.html
 msgid "Laptop (coach): open the door page and scan the ticket on the phone."
-msgstr "Ordinateur (coach) : ouvre la page d'accueil à l'entrée et scanne le billet sur le téléphone."
+msgstr "Ordinateur (coach) : ouvre la page de l'entrée et scanne le billet sur le téléphone."
 
 #: crush_lu/templates/crush_lu/coach_playground.html
 msgid "Fill the room with test members, then try the Event Lobby on the phone."
@@ -48294,7 +48294,7 @@ msgstr "Page du mixer"
 
 #: crush_lu/templates/crush_lu/coach_playground.html
 msgid "Door page"
-msgstr "Page d'accueil à l'entrée"
+msgstr "Page de l'entrée"
 
 #: crush_lu/templates/crush_lu/coach_playground.html
 msgid "Fill the room"
@@ -48320,8 +48320,8 @@ msgstr "%(name)s a accepté. Un chat est ouvert sur le téléphone."
 
 #: crush_lu/views_playground.py
 #, python-format
-msgid "%(name)s declined. The member is never told; the request just ends."
-msgstr "%(name)s a refusé. Le membre n'en est jamais informé : la demande se termine simplement."
+msgid "%(name)s declined. The member only sees that they could not connect right now; the request just ends."
+msgstr "%(name)s a refusé. Le membre voit seulement que la personne n'a pas pu donner suite ; la demande se termine simplement."
 
 #: crush_lu/views_playground.py
 #, python-format
@@ -48424,3 +48424,19 @@ msgstr "Prêt pour Connect Week et inscrit à ton mixer d'entraînement. Scanne 
 #: crush_lu/views_playground_sso.py
 msgid "A test.crush.lu account with your email exists but its email was never confirmed, so it cannot be linked. Ask Tom to remove it."
 msgstr "Un compte test.crush.lu utilise ton adresse e-mail, mais elle n'a jamais été confirmée : il ne peut donc pas être lié. Demande à Tom de le supprimer."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "The Event Lobby is switched off on this server, so the Lobby and its recap will not open. Ask Tom to switch on CRUSH_EVENT_LOBBY_ENABLED, then press \"Fill the room\" again."
+msgstr "L'Event Lobby est désactivé sur ce serveur : le Lobby et son récapitulatif ne s'ouvriront pas. Demande à Tom d'activer CRUSH_EVENT_LOBBY_ENABLED, puis appuie à nouveau sur « Remplir la salle »."
+
+#: crush_lu/services/playground_cast.py
+msgid "Hi! Nice to meet you here. How is your week going?"
+msgstr "Bonjour ! Ça me fait plaisir de te croiser ici. Comment se passe ta semaine ?"
+
+#: crush_lu/services/playground_cast.py
+msgid "Ha, that made me smile. Coffee in Grund some time?"
+msgstr "Haha, ça m'a fait sourire. Un café au Grund un de ces jours ?"
+
+#: crush_lu/services/playground_cast.py
+msgid "I'd like that. Shall we pick a day this week?"
+msgstr "Avec plaisir. On choisit un jour cette semaine ?"

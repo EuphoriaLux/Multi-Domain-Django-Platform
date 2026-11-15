@@ -29997,7 +29997,7 @@ msgstr ""
 
 #: crush_lu/views_playground.py
 #, python-format
-msgid "%(name)s declined. The member is never told; the request just ends."
+msgid "%(name)s declined. The member only sees that they could not connect right now; the request just ends."
 msgstr ""
 
 #: crush_lu/views_playground.py
@@ -30100,4 +30100,20 @@ msgstr ""
 
 #: crush_lu/views_playground_sso.py
 msgid "A test.crush.lu account with your email exists but its email was never confirmed, so it cannot be linked. Ask Tom to remove it."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "The Event Lobby is switched off on this server, so the Lobby and its recap will not open. Ask Tom to switch on CRUSH_EVENT_LOBBY_ENABLED, then press \"Fill the room\" again."
+msgstr ""
+
+#: crush_lu/services/playground_cast.py
+msgid "Hi! Nice to meet you here. How is your week going?"
+msgstr ""
+
+#: crush_lu/services/playground_cast.py
+msgid "Ha, that made me smile. Coffee in Grund some time?"
+msgstr ""
+
+#: crush_lu/services/playground_cast.py
+msgid "I'd like that. Shall we pick a day this week?"
 msgstr ""

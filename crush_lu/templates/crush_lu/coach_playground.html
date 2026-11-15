@@ -136,6 +136,9 @@
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Practise an event" %}</h2>
         {% if practice_mixer %}
         <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{{ practice_mixer.title }} · {{ practice_mixer.date_time|date:"j M H:i" }}</p>
+        {% if not lobby_enabled %}
+        <p class="mt-2 text-sm text-amber-800 dark:text-amber-300" data-lobby-off>{% trans "The Event Lobby is switched off on this server, so the Lobby and its recap will not open. Ask Tom to switch on CRUSH_EVENT_LOBBY_ENABLED, then press \"Fill the room\" again." %}</p>
+        {% endif %}
         <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-gray-700 dark:text-gray-300">
             <li>{% trans "Phone (member): open Events, find your practice mixer and register." %}</li>
             <li>{% trans "Laptop (coach): open the door page and scan the ticket on the phone." %}</li>

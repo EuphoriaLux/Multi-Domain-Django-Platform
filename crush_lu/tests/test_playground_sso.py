@@ -417,6 +417,24 @@ class TestCallback:
         assert len(response.redirect_chain) <= 3
         assert response.request["PATH_INFO"] == "/en/consent/confirm/"
 
+    def test_after_consent_the_coach_lands_on_the_playground(self, staging):
+        # The consent page used to send everyone to the dashboard afterwards
+        # (local test 2026-11-15): it now returns to the page it interrupted.
+        client = Client(HTTP_HOST="test.crush.lu")
+        state = _start(client)
+        with mock.patch("requests.post") as post:
+            post.return_value = _fake_response(200, _claims(state))
+            response = client.get(
+                CALLBACK, {"code": "k" * 43, "state": state}, follow=True
+            )
+        assert response.request["QUERY_STRING"] == "next=%2Fen%2Fcoach%2Fplayground%2F"
+        response = client.post(
+            "/en/consent/confirm/",
+            {"crushlu_consent": "on", "next": "/en/coach/playground/"},
+        )
+        assert response.status_code == 302
+        assert response["Location"] == "/en/coach/playground/"
+
     def test_unverified_staging_account_is_not_adopted(self, staging):
         # Someone registered on staging with the coach's email but never
         # confirmed it: linking would let them keep their own password.
@@ -551,6 +569,15 @@ class TestCallback:
         state = _start(client, "/en/coach/channel/")
         response, _ = self._callback(client, state, _claims(state))
         assert response["Location"] == "/en/coach/channel/"
+
+    @pytest.mark.parametrize("next_url", ["/en/dashboard/", "/fr/events/", "/"])
+    def test_a_member_page_falls_back_to_the_playground(self, staging, next_url):
+        # The login page passes its ?next= on (often the dashboard); a coach
+        # signing in with crush.lu wants the playground.
+        client = Client(HTTP_HOST="test.crush.lu")
+        state = _start(client, next_url)
+        response, _ = self._callback(client, state, _claims(state))
+        assert response["Location"] == "/en/coach/playground/"
 
 
 def test_login_page_shows_the_button_only_when_enabled(staging):

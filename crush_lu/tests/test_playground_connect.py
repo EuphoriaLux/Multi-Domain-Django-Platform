@@ -213,6 +213,27 @@ class TestConnect:
         cast.cast_replies(ready_member, lea)
         assert chat.messages.filter(sender=lea).count() == 1
 
+    def test_cast_reply_is_written_in_the_coach_language(self, ready_member):
+        from django.utils import translation
+
+        lea = _lea()
+        self._own_request(ready_member, lea)
+        cast.cast_answers_request(ready_member, lea, accept=True)
+        with translation.override("fr"):
+            cast.cast_replies(ready_member, lea)
+        with translation.override("de"):
+            cast.cast_replies(ready_member, lea)
+        chat = ConnectTemporaryChat.objects.get(
+            participant_1__in=[ready_member, lea], participant_2__in=[ready_member, lea]
+        )
+        texts = list(
+            chat.messages.filter(sender=lea)
+            .order_by("pk")
+            .values_list("message", flat=True)
+        )
+        assert texts[0].startswith("Bonjour !")
+        assert texts[1].startswith("Haha, da musste")
+
     def test_cast_declines(self, ready_member):
         lea = _lea()
         self._own_request(ready_member, lea)
@@ -358,6 +379,59 @@ class TestMixer:
         assert new.pk != old.pk
         assert not old.is_published
         assert "archived" in old.title
+        for column in ("title_en", "title_de", "title_fr"):
+            assert "archived" in getattr(old, column)
+
+    def test_the_mixer_is_the_same_in_every_language(self, coach):
+        # The title is translated: a plain title= lookup only read the active
+        # language's column, so each UI language made its own mixer.
+        from django.utils import translation
+
+        with translation.override("fr"):
+            event = mixer.ensure_practice_mixer(coach.user)
+        for language in ("de", "en"):
+            with translation.override(language):
+                assert mixer.ensure_practice_mixer(coach.user).pk == event.pk
+                assert mixer.practice_mixer(coach.user).pk == event.pk
+        event.refresh_from_db()
+        title = mixer.mixer_title(coach.user)
+        assert (event.title_en, event.title_de, event.title_fr) == (title,) * 3
+        assert event.description_de == event.description_fr == mixer.DESCRIPTION
+
+    def test_per_language_duplicates_are_archived(self, coach):
+        from django.utils import translation
+
+        from crush_lu.models import MeetupEvent
+
+        title = mixer.mixer_title(coach.user)
+        older = mixer.ensure_practice_mixer(coach.user)
+        MeetupEvent.objects.filter(pk=older.pk).update(title_en=None, title_de=None)
+        newer = MeetupEvent.objects.get(pk=older.pk)
+        newer.pk = newer.id = None
+        newer.title_fr = None
+        newer.title_de = title
+        newer.save()
+
+        with translation.override("en"):
+            kept = mixer.ensure_practice_mixer(coach.user)
+        assert kept.pk == newer.pk
+        older.refresh_from_db()
+        assert not older.is_published
+        kept.refresh_from_db()
+        assert kept.title_en == kept.title_fr == title
+
+    def test_start_again_frees_an_attended_seat(self, seeded):
+        member = practice.apply_preset(seeded, "event_lobby_ready")
+        event = mixer.practice_mixer(seeded.user)
+        registration = EventRegistration.objects.get(event=event, user=member)
+        assert _scan(seeded, registration).status_code == 200
+        registration.refresh_from_db()
+        assert registration.status == "attended"
+
+        practice.apply_preset(seeded, "luxid_ready")
+        registration.refresh_from_db()
+        # Not left checked in for the next practice member (door page, My Crush).
+        assert registration.status == "cancelled"
 
     def test_cast_gets_no_coach_from_the_room(self, seeded):
         mixer.ensure_practice_mixer(seeded.user)

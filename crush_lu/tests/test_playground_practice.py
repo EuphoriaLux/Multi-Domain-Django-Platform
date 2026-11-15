@@ -176,6 +176,54 @@ class TestScenarios:
         assert _call_role(coach.user, check) == "coach"
         assert _call_role(member, check) == "member"
 
+    def test_call_booked_again_after_a_passed_call(self, coach):
+        # A call passed before its start keeps its slot in the calendar; the
+        # next "call booked" starts after it instead of failing with
+        # appointment_overlap (which asked the coach to cancel it).
+        from crush_lu.real_person_check_rules import REQUIRED_CHECKLIST_KEYS
+
+        first = practice.apply_preset(coach, "call_booked")
+        check = _open_check(first)
+        old_slot = ScreeningSlot.objects.get(real_person_check=check, status="booked")
+        decide_check(
+            coach,
+            check.pk,
+            "pass_video",
+            checklist={key: True for key in REQUIRED_CHECKLIST_KEYS["video"]},
+            photo_key=_profile(first).photo_1.name,
+            confirmed=True,
+        )
+        old_slot.refresh_from_db()
+        assert old_slot.status == "completed"
+        assert old_slot.end_at > timezone.now()
+
+        second = practice.apply_preset(coach, "call_booked")
+        new_slot = ScreeningSlot.objects.get(
+            real_person_check=_open_check(second), status="booked"
+        )
+        assert new_slot.start_at - timezone.now() <= timedelta(minutes=3)
+        assert _call_role(coach.user, _open_check(second)) == "coach"
+        old_slot.refresh_from_db()
+        assert old_slot.status == "completed"
+        assert old_slot.start_at < old_slot.end_at <= new_slot.start_at
+
+    def test_call_booked_moves_past_a_real_appointment(self, coach):
+        now = timezone.now()
+        real = ScreeningSlot.objects.create(
+            coach=coach,
+            start_at=now + timedelta(minutes=1),
+            end_at=now + timedelta(minutes=10),
+            status="booked",
+        )
+        member = practice.apply_preset(coach, "call_booked")
+        new_slot = ScreeningSlot.objects.get(
+            real_person_check=_open_check(member), status="booked"
+        )
+        assert new_slot.start_at >= real.end_at
+        real.refresh_from_db()
+        assert real.status == "booked"
+        assert real.end_at == now + timedelta(minutes=10)
+
     def test_video_approved(self, coach):
         member = practice.apply_preset(coach, "video_approved")
         assert human_verification_method(member) == "video"
@@ -386,6 +434,13 @@ class TestPages:
         assert client.get(PLAYGROUND).status_code == 200
         assert PLAYGROUND.encode() in client.get("/en/coach/dashboard/").content
 
+    def test_playground_warns_when_the_lobby_is_off(self, coach, staging):
+        client = _coach_client(coach)
+        staging.CRUSH_EVENT_LOBBY_ENABLED = False
+        assert b"data-lobby-off" in client.get(PLAYGROUND).content
+        staging.CRUSH_EVENT_LOBBY_ENABLED = True
+        assert b"data-lobby-off" not in client.get(PLAYGROUND).content
+
     def test_scenario_form_creates_the_member(self, coach):
         client = _coach_client(coach)
         response = client.post(SCENARIO, {"preset": "luxid_ready", "gender": "M"})
@@ -534,6 +589,55 @@ class TestGuard:
         client = _coach_client(coach)
         response = client.get("/accounts/password/change/")
         assert response.get("Location") != "/en/dashboard/"
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/accounts/google/login/?process=connect",
+            "/accounts/microsoft/login/?process=connect",
+            "/accounts/luxid/login/?process=connect",
+        ],
+    )
+    def test_practice_member_cannot_connect_a_social_account(self, coach, path):
+        member = practice.apply_preset(coach, "luxid_ready")
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(member)
+        response = client.get(path)
+        assert response.status_code == 302
+        assert response["Location"] == "/en/dashboard/"
+
+    def test_social_connect_stays_open_for_others(self, coach):
+        client = Client(HTTP_HOST=HOST, raise_request_exception=False)
+        client.force_login(coach.user)
+        # No Google app in tests, so the view itself may fail: what matters is
+        # that the guard did not answer.
+        response = client.get("/accounts/google/login/?process=connect")
+        assert response.get("Location") != "/en/dashboard/"
+
+    def test_guard_answers_in_the_member_language(self, coach):
+        member = practice.apply_preset(coach, "luxid_ready")
+        CrushProfile.objects.filter(user=member).update(preferred_language="fr")
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(member)
+        # A language-neutral page: the member still lands on their dashboard.
+        response = client.get("/accounts/password/change/")
+        assert response["Location"] == "/fr/dashboard/"
+        # A prefixed page keeps its own language.
+        response = client.get("/de/onboarding/phone/")
+        assert response["Location"] == "/de/dashboard/"
+
+    def test_no_password_reset_link_for_practice_members(self, coach):
+        member = practice.apply_preset(coach, "luxid_ready")
+        mail.outbox = []
+        client = Client(HTTP_HOST=HOST)
+        response = client.post("/accounts/password/reset/", {"email": member.email})
+        assert response.status_code == 302
+        assert not PlaygroundMail.objects.filter(recipient=member).exists()
+        assert mail.outbox == []
+        # Control: an ordinary account still gets its link.
+        response = client.post("/accounts/password/reset/", {"email": coach.user.email})
+        assert response.status_code == 302
+        assert len(mail.outbox) == 1
 
 
 # ---------------------------------------------------------------------------
