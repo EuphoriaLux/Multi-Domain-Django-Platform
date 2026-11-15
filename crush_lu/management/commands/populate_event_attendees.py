@@ -8,15 +8,21 @@ Usage:
     python manage.py populate_event_attendees
     python manage.py populate_event_attendees --event-id 18
     python manage.py populate_event_attendees --count 15
+
+Staging / local only. Marking a real member as attended can make them
+event-verified and assign them a coach (``assign_coach_on_first_attendance``
+in ``crush_lu/signals.py``), so the command refuses to run unless
+``rehearsal_enabled()`` is true (``DJANGO_ENV=staging`` or local DEBUG).
 """
 
 import random
 
-from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
-from crush_lu.models import CrushProfile, MeetupEvent, EventRegistration
+from crush_lu.models import CrushProfile, EventRegistration, MeetupEvent
+from crush_lu.services.quiz_rehearsal import rehearsal_enabled
 
 
 class Command(BaseCommand):
@@ -43,6 +49,15 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        # Same rule as the coach playground gate: playground_enabled() in
+        # crush_lu/services/staging_playground.py (PR #1369) delegates here.
+        if not rehearsal_enabled():
+            raise CommandError(
+                "populate_event_attendees only runs on staging (DJANGO_ENV=staging) "
+                "or with DEBUG on: it marks random verified members as attended, "
+                "which can event-verify them and assign them a coach."
+            )
+
         event_id = options["event_id"]
         count = options["count"]
         include_user = options["include_current_user"]

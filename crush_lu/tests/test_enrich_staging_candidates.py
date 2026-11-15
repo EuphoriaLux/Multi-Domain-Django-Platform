@@ -1,9 +1,12 @@
+import secrets
 from io import StringIO
+from types import SimpleNamespace
 
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
 
+from crush_lu.management.commands import enrich_staging_candidates as enrich_command
 from crush_lu.models import CrushProfile, ProfileSubmission
 from crush_lu.models.crush_connect import CrushConnectMembership
 from crush_lu.models.profiles import CrushCoach
@@ -200,23 +203,56 @@ class TestEnrichStagingCandidatesCommand:
         )
         CrushCoach.objects.create(user=coach_user, is_active=True)
 
+        generated = []
+        real_token_urlsafe = secrets.token_urlsafe
+
+        def recording_token_urlsafe(*args, **kwargs):
+            value = real_token_urlsafe(*args, **kwargs)
+            generated.append(value)
+            return value
+
+        monkeypatch.setattr(
+            enrich_command,
+            "secrets",
+            SimpleNamespace(token_urlsafe=recording_token_urlsafe),
+        )
+
         out1, out2 = StringIO(), StringIO()
         call_command("enrich_staging_candidates", create_missing=1, stdout=out1)
+        first = User.objects.get(username="connect_candidate_1")
+        assert first.check_password(generated[0])
         call_command("enrich_staging_candidates", create_missing=2, stdout=out2)
 
-        assert "connect2025" not in out1.getvalue()
-        assert "Generated password for this run:" in out1.getvalue()
-        first_password = (
-            out1.getvalue()
-            .split("Generated password for this run: ")[1]
-            .split("\n")[0]
-            .strip()
-        )
-        second_password = (
-            out2.getvalue()
-            .split("Generated password for this run: ")[1]
-            .split("\n")[0]
-            .strip()
-        )
+        assert len(generated) == 2
+        first_password, second_password = generated
         assert first_password != second_password
         assert len(first_password) >= 12
+        assert "connect2025" not in out1.getvalue()
+
+    def test_generated_password_and_emails_never_printed(self, monkeypatch):
+        """Command output ends up in logs other people can read (CI runs,
+        Kudu consoles): log usernames, never the password or the account
+        email."""
+        monkeypatch.setattr("requests.get", _fake_get)
+        monkeypatch.setattr(
+            enrich_command,
+            "secrets",
+            SimpleNamespace(token_urlsafe=lambda *a, **kw: "generated-secret-XYZ"),
+        )
+
+        coach_user = User.objects.create_user(
+            username="test_coach7", email="coach7@crush.lu"
+        )
+        CrushCoach.objects.create(user=coach_user, is_active=True)
+
+        out, err = StringIO(), StringIO()
+        call_command(
+            "enrich_staging_candidates", create_missing=1, stdout=out, stderr=err
+        )
+
+        user = User.objects.get(username="connect_candidate_1")
+        assert user.check_password("generated-secret-XYZ")
+        for stream in (out.getvalue(), err.getvalue()):
+            assert "generated-secret-XYZ" not in stream
+            assert "connect_candidate_1@crush.lu" not in stream
+        assert "connect_candidate_1" in out.getvalue()
