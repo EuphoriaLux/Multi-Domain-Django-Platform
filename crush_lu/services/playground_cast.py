@@ -24,6 +24,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import F, Q
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 from crush_lu.services.playground_practice import PlaygroundError
 from crush_lu.services.staging_playground import require_playground
@@ -35,10 +36,12 @@ USERNAME_PREFIX = "cast_"
 ACTIVITY_CACHE_KEY = "playground:cast_activity_refreshed"
 ACTIVITY_REFRESH_SECONDS = 3600
 
+#: Written in the language of the coach pressing the button: the coach plays
+#: the practice member too, so that is the language they read the chat in.
 CANNED_REPLIES = (
-    "Hi! Nice to meet you here. How is your week going?",
-    "Ha, that made me smile. Coffee in Grund some time?",
-    "I'd like that. Shall we pick a day this week?",
+    _("Hi! Nice to meet you here. How is your week going?"),
+    _("Ha, that made me smile. Coffee in Grund some time?"),
+    _("I'd like that. Shall we pick a day this week?"),
 )
 
 
@@ -397,7 +400,9 @@ def cast_replies(practice_user, cast_user):
         raise PlaygroundError("no_chat")
     sent = chat.messages.filter(sender=cast_user).count()
     try:
-        return send_message(chat, cast_user, CANNED_REPLIES[sent % len(CANNED_REPLIES)])
+        return send_message(
+            chat, cast_user, str(CANNED_REPLIES[sent % len(CANNED_REPLIES)])
+        )
     except ValueError as exc:
         raise PlaygroundError(str(exc)) from exc
 

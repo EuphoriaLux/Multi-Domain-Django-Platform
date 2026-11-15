@@ -367,10 +367,13 @@ def retire_practice_member(coach_user):
         UserReport.objects.filter(
             reported_user=old, status__in=("open", "reviewing")
         ).update(status="dismissed")
-        # Give back the seat a ticket holds on a practice mixer.
-        EventRegistration.objects.filter(
-            user=old, status__in=("pending", "confirmed", "waitlist")
-        ).update(status="cancelled")
+        # Give back every seat, attended ones too: a checked-in practice member
+        # otherwise stays in the room for the next one (door page, attendee
+        # list, My Crush). Practice members only attend practice mixers; the
+        # quiz rehearsal never seats them.
+        EventRegistration.objects.filter(user=old).exclude(status="cancelled").update(
+            status="cancelled"
+        )
         old.is_active = False
         old.save(update_fields=["is_active"])
         link.retired_at = now
@@ -569,11 +572,71 @@ def _step_claim(coach, user, check):
     return claim_video_request(coach, check.pk)
 
 
+CALL_MINUTES = 15
+
+
+def _end_finished_practice_calls(coach):
+    """Free the calendar time of practice calls that are already decided.
+
+    A practice call keeps its slot until the booked end even once it is
+    passed, and the call buttons open 15 minutes early, so it usually ends
+    before its start. "Call booked" then failed with ``appointment_overlap``,
+    asking the coach to cancel something that cannot be cancelled. Only
+    completed slots of practice members' checks are touched.
+    """
+    from django.db.models.functions import Least
+
+    from crush_lu.models import PlaygroundAccount, ScreeningSlot
+
+    now = timezone.now()
+    ScreeningSlot.objects.filter(
+        coach=coach,
+        status="completed",
+        end_at__gt=now,
+        real_person_check__profile__user__playground_account__kind=(
+            PlaygroundAccount.KIND_PRACTICE
+        ),
+    ).update(
+        # end_at must stay after start_at (screening_slot_end_after_start).
+        start_at=Least("start_at", now - timedelta(minutes=1)),
+        end_at=now,
+        updated_at=now,
+    )
+
+
+def _book_start(coach):
+    """The first start at least ~3 minutes ahead that is free in the calendar.
+
+    Anything else still in the calendar (a real member's appointment) moves
+    the start past it, using the overlap rule of ``arrange_appointment``.
+    """
+    from crush_lu.models import ScreeningSlot
+
+    start = (timezone.now() + timedelta(minutes=3)).replace(second=0, microsecond=0)
+    busy = ScreeningSlot.objects.filter(coach=coach).exclude(
+        status__in=("cancelled", "no_show")
+    )
+    for _attempt in range(12):
+        end = start + timedelta(minutes=CALL_MINUTES)
+        clash_end = (
+            busy.filter(start_at__lt=end, end_at__gt=start)
+            .order_by("-end_at")
+            .values_list("end_at", flat=True)
+            .first()
+        )
+        if clash_end is None:
+            break
+        start = clash_end.replace(second=0, microsecond=0)
+        if start < clash_end:
+            start += timedelta(minutes=1)
+    return start
+
+
 def _step_book(coach, user, check):
     from crush_lu.services.verification_appointments import arrange_appointment
 
-    start = (timezone.now() + timedelta(minutes=3)).replace(second=0, microsecond=0)
-    arrange_appointment(coach, check.pk, start, 15)
+    _end_finished_practice_calls(coach)
+    arrange_appointment(coach, check.pk, _book_start(coach), CALL_MINUTES)
     return check
 
 

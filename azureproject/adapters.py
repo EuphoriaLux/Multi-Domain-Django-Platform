@@ -732,6 +732,28 @@ class MultiDomainAccountAdapter(DefaultAccountAdapter):
             message=message,
         )
 
+    def send_password_reset_mail(self, user, email, context):
+        """No reset link for coach playground members (test.crush.lu only).
+
+        Practice and cast accounts have no password on purpose: a practice
+        member is reached only through its coach's switch. A reset link would
+        land in the coach's practice inbox and give the account a password
+        that signs in without the coach. The reset page still answers as
+        usual, so nothing tells an account apart.
+        Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+        """
+        from crush_lu.models import PlaygroundAccount
+
+        if PlaygroundAccount.objects.filter(
+            user_id=user.pk,
+            kind__in=(PlaygroundAccount.KIND_PRACTICE, PlaygroundAccount.KIND_CAST),
+        ).exists():
+            logger.info(
+                "Password reset mail not sent to coach playground account %s", user.pk
+            )
+            return None
+        return super().send_password_reset_mail(user, email, context)
+
     def send_mail(self, template_prefix, email, context):
         """
         Override email sending to use domain-specific configuration.

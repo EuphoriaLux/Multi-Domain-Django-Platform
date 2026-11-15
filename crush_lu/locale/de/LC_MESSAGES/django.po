@@ -21489,7 +21489,7 @@ msgstr ""
 #: templates/crush_lu/crush_connect/experiences/todays-drop.html:28
 #: templates/crush_lu/spark_request.html:29
 msgid "How it works"
-msgstr "so funktioniert's"
+msgstr "So funktioniert's"
 
 #: templates/crush_lu/crush_connect/experiences/coach-pick.html:34
 msgid ""
@@ -48210,8 +48210,8 @@ msgstr "%(name)s hat angenommen. Auf dem Handy ist ein Chat offen."
 
 #: crush_lu/views_playground.py
 #, python-format
-msgid "%(name)s declined. The member is never told; the request just ends."
-msgstr "%(name)s hat abgelehnt. Das Mitglied erfährt das nie, die Anfrage endet einfach."
+msgid "%(name)s declined. The member only sees that they could not connect right now; the request just ends."
+msgstr "%(name)s hat abgelehnt. Das Mitglied sieht nur, dass sich die Person gerade nicht verbinden konnte; die Anfrage endet einfach."
 
 #: crush_lu/views_playground.py
 #, python-format
@@ -48314,3 +48314,19 @@ msgstr "Bereit für Connect Week und für deinen Übungs-Mixer angemeldet. Scann
 #: crush_lu/views_playground_sso.py
 msgid "A test.crush.lu account with your email exists but its email was never confirmed, so it cannot be linked. Ask Tom to remove it."
 msgstr "Auf test.crush.lu gibt es ein Konto mit deiner E-Mail-Adresse, deren Bestätigung nie abgeschlossen wurde. Es kann daher nicht verknüpft werden. Bitte Tom, es zu entfernen."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "The Event Lobby is switched off on this server, so the Lobby and its recap will not open. Ask Tom to switch on CRUSH_EVENT_LOBBY_ENABLED, then press \"Fill the room\" again."
+msgstr "Die Event-Lobby ist auf diesem Server ausgeschaltet, Lobby und Rückblick öffnen sich also nicht. Bitte Tom, CRUSH_EVENT_LOBBY_ENABLED einzuschalten, und tippe dann noch einmal auf „Raum füllen“."
+
+#: crush_lu/services/playground_cast.py
+msgid "Hi! Nice to meet you here. How is your week going?"
+msgstr "Hallo! Schön, dich hier kennenzulernen. Wie läuft deine Woche?"
+
+#: crush_lu/services/playground_cast.py
+msgid "Ha, that made me smile. Coffee in Grund some time?"
+msgstr "Haha, da musste ich lächeln. Mal einen Kaffee im Grund?"
+
+#: crush_lu/services/playground_cast.py
+msgid "I'd like that. Shall we pick a day this week?"
+msgstr "Gern. Wollen wir einen Tag diese Woche ausmachen?"

@@ -9,6 +9,8 @@ Only active on the Crush.lu domain (checks request.urlconf).
 """
 
 import logging
+from urllib.parse import urlencode
+
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.urls import reverse
@@ -252,9 +254,15 @@ class CrushConsentMiddleware:
                 logger.info(
                     f"User {request.user.id} attempted to access {request.path} without Crush.lu consent"
                 )
-                return redirect(
-                    reverse("crush_lu:consent_confirm", urlconf=CRUSH_URLCONF)
-                )
+                consent_url = reverse("crush_lu:consent_confirm", urlconf=CRUSH_URLCONF)
+                # Come back to the page that was asked for (a first sign-in
+                # landed on the dashboard instead). consent_confirm checks
+                # the target again before using it.
+                if request.method == "GET":
+                    consent_url = (
+                        f"{consent_url}?{urlencode({'next': request.get_full_path()})}"
+                    )
+                return redirect(consent_url)
 
         response = self.get_response(request)
         return response

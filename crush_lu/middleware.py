@@ -286,8 +286,9 @@ class PracticeModeGuardMiddleware:
 
     A practice member (test.crush.lu only) must not change its email or
     password, delete or merge itself, verify a phone number (that would send
-    a real SMS and store a dialable number) or link LuxID. Does nothing off
-    staging or for anyone else.
+    a real SMS and store a dialable number) or link LuxID or any other
+    social account (``?process=connect`` on a provider's login URL). Does
+    nothing off staging or for anyone else.
     Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
     """
 
@@ -319,6 +320,16 @@ class PracticeModeGuardMiddleware:
     def __call__(self, request):
         return self.get_response(request)
 
+    @staticmethod
+    def _social_connect(request, url_name):
+        """A provider login URL used to link a social account (any provider)."""
+        if not url_name or not url_name.endswith(("_login", "_login_by_token")):
+            return False
+        process = request.GET.get("process")
+        if process is None and request.method == "POST":
+            process = request.POST.get("process")
+        return process == "connect"
+
     def process_view(self, request, view_func, view_args, view_kwargs):
         from crush_lu.services.staging_playground import playground_enabled
 
@@ -327,8 +338,13 @@ class PracticeModeGuardMiddleware:
         match = getattr(request, "resolver_match", None)
         if match is None:
             return None
-        blocked = match.url_name in self.BLOCKED_URL_NAMES or (
-            request.method == "POST" and match.url_name in self.BLOCKED_POST_URL_NAMES
+        blocked = (
+            match.url_name in self.BLOCKED_URL_NAMES
+            or (
+                request.method == "POST"
+                and match.url_name in self.BLOCKED_POST_URL_NAMES
+            )
+            or self._social_connect(request, match.url_name)
         )
         if not blocked:
             return None
@@ -342,14 +358,36 @@ class PracticeModeGuardMiddleware:
         from django.contrib import messages
         from django.http import JsonResponse
         from django.shortcuts import redirect
+        from django.utils import translation
         from django.utils.translation import gettext as _
 
         if match.url_name.startswith("api_"):
             return JsonResponse({"error": "practice_member"}, status=403)
-        messages.info(
-            request, _("This is a practice member, so that action is switched off.")
+        # Language-neutral pages (/accounts/...) run in English: answer in the
+        # member's language instead, as the page they came from did.
+        language = translation.get_language_from_path(
+            request.path_info
+        ) or self._member_language(user)
+        with translation.override(language or translation.get_language()):
+            messages.info(
+                request,
+                _("This is a practice member, so that action is switched off."),
+            )
+            return redirect("crush_lu:dashboard")
+
+    @staticmethod
+    def _member_language(user):
+        from django.conf import settings
+
+        from crush_lu.models import CrushProfile
+
+        language = (
+            CrushProfile.objects.filter(user_id=user.pk)
+            .values_list("preferred_language", flat=True)
+            .first()
         )
-        return redirect("crush_lu:dashboard")
+        supported = {code for code, _name in settings.LANGUAGES}
+        return language if language in supported else None
 
 
 class PlaygroundSSOFreshnessMiddleware:

@@ -10,6 +10,7 @@ side of the flow is enabled on this slot.
 
 import json
 import logging
+import re
 import time
 from urllib.parse import quote
 
@@ -169,11 +170,24 @@ def issuer_exchange(request):
 # ---------------------------------------------------------------------------
 
 
+#: Coach pages, with or without a language prefix (``/fr/coach/channel/``).
+COACH_PAGE_RE = re.compile(r"^/(?:[a-z]{2}/)?coach/")
+
+
 def _safe_next(request, candidate):
+    """Where to land after "Sign in with crush.lu": a coach page, else the playground.
+
+    The sign-in is for coaches only and the playground is what it is for, so a
+    member page such as the dashboard (which the login page passes on as
+    ``?next=``) falls back to the playground. Pages the sign-in was sent from
+    to re-check a coach (the playground, the channel) are coach pages and are
+    kept.
+    """
     if (
         isinstance(candidate, str)
         and candidate.startswith("/")
         and not candidate.startswith("//")
+        and COACH_PAGE_RE.match(candidate)
         and url_has_allowed_host_and_scheme(
             candidate,
             allowed_hosts={request.get_host()},
