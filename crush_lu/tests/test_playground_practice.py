@@ -143,9 +143,11 @@ class TestScenarios:
         assert profile.phone_verified
         assert UserDataConsent.objects.get(user=member).crushlu_consent_given
         assert member.emailaddress_set.get().verified
-        assert not hasattr(member, "crush_connect_membership") or not (
-            member.crush_connect_membership.selected_as_tester
-        )
+        from crush_lu.models import CrushConnectWaitlist
+
+        assert not CrushConnectWaitlist.objects.filter(
+            user=member, selected_as_tester=True
+        ).exists()
 
     def test_luxid_ready(self, coach):
         member = practice.apply_preset(coach, "luxid_ready")

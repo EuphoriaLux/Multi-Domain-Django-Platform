@@ -57,6 +57,7 @@ class Preset:
     luxid: bool = True
     method: str = "luxid"
     steps: tuple = ()
+    verify: bool = True
 
 
 #: Starting scenarios, in the order the coach guide lists the cases.
@@ -137,6 +138,65 @@ PRESETS = {
                 "their coach. Other coaches cannot verify them."
             ),
             steps=("premium",),
+        ),
+        Preset(
+            "event_verified_no_luxid",
+            _("Event route, no LuxID"),
+            _(
+                "Verified by you at your practice mixer, without LuxID. The "
+                "event route opens Connect Week; the Event Lobby still needs "
+                "LuxID."
+            ),
+            luxid=False,
+            method="coach_event",
+            steps=("mixer_attended",),
+        ),
+        Preset(
+            "connect_ready",
+            _("Connect Week ready"),
+            _(
+                "Video-verified and Connect onboarding done. On the phone, open "
+                "Connect Week; use the test member buttons below to play the "
+                "other side."
+            ),
+            steps=("request", "claim", "pass_video", "connect_onboard"),
+        ),
+        Preset(
+            "connect_onboarding_todo",
+            _("Connect onboarding still to do"),
+            _(
+                "Video-verified, but Connect setup not started. Walk through the "
+                "onboarding on the phone like a new member."
+            ),
+            steps=("request", "claim", "pass_video"),
+        ),
+        Preset(
+            "event_ticket_pending",
+            _("First-time guest with a ticket"),
+            _(
+                "Profile submitted, not verified, no LuxID, registered for your "
+                "practice mixer. Scan the ticket at the door: the scan verifies "
+                "them."
+            ),
+            luxid=False,
+            method="",
+            verify=False,
+            steps=("mixer_ticket",),
+        ),
+        Preset(
+            "event_lobby_ready",
+            _("Event Lobby ready"),
+            _(
+                "Connect Week ready and registered for your practice mixer. Scan "
+                "the ticket, fill the room, then open the Lobby on the phone."
+            ),
+            steps=(
+                "request",
+                "claim",
+                "pass_video",
+                "connect_onboard",
+                "mixer_ticket",
+            ),
         ),
     )
 }
@@ -258,6 +318,7 @@ def retire_practice_member(coach_user):
         ConnectRealPersonCheck,
         CrushCoach,
         CrushProfile,
+        EventRegistration,
         PlaygroundAccount,
         ScreeningSlot,
         UserReport,
@@ -306,6 +367,10 @@ def retire_practice_member(coach_user):
         UserReport.objects.filter(
             reported_user=old, status__in=("open", "reviewing")
         ).update(status="dismissed")
+        # Give back the seat a ticket holds on a practice mixer.
+        EventRegistration.objects.filter(
+            user=old, status__in=("pending", "confirmed", "waitlist")
+        ).update(status="cancelled")
         old.is_active = False
         old.save(update_fields=["is_active"])
         link.retired_at = now
@@ -457,7 +522,8 @@ def _build_base(coach, preset, gender):
         ],
     )
     profile.refresh_from_db()
-    claim_profile_verification(profile, method=preset.method, approved_at=now)
+    if preset.verify:
+        claim_profile_verification(profile, method=preset.method, approved_at=now)
     return user
 
 
@@ -575,7 +641,42 @@ def _step_premium(coach, user, check):
     return check
 
 
+def _step_connect_onboard(coach, user, check):
+    from crush_lu.services.playground_cast import onboard_for_connect
+
+    onboard_for_connect(user)
+    return check
+
+
+def _step_mixer_ticket(coach, user, check):
+    from crush_lu.models import EventRegistration
+    from crush_lu.services.playground_events import ensure_practice_mixer
+
+    event = ensure_practice_mixer(coach.user)
+    EventRegistration.objects.create(event=event, user=user, status="confirmed")
+    return check
+
+
+def _step_mixer_attended(coach, user, check):
+    """Attended the coach's mixer, recorded as the coach's own door scan."""
+    from crush_lu.models import EventRegistration
+    from crush_lu.services.playground_events import ensure_practice_mixer
+
+    event = ensure_practice_mixer(coach.user)
+    now = timezone.now()
+    registration = EventRegistration.objects.create(
+        event=event, user=user, status="attended"
+    )
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_granted_coach=coach, checkin_granted_coach_at=now
+    )
+    return check
+
+
 _STEPS = {
+    "connect_onboard": _step_connect_onboard,
+    "mixer_ticket": _step_mixer_ticket,
+    "mixer_attended": _step_mixer_attended,
     "request": _step_request,
     "claim": _step_claim,
     "book": _step_book,
