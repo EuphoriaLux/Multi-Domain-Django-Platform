@@ -15,6 +15,7 @@ from . import views_connect_cycle
 from . import views_connect_chat
 from . import views_moderation
 from . import views_profile
+from . import views_playground
 from . import views_media
 from . import views_oauth_popup
 from . import views_journey
@@ -815,6 +816,29 @@ urlpatterns = [
         "coach/quiz-rehearsal/",
         views_quiz.quiz_rehearsal_entry,
         name="quiz_rehearsal",
+    ),
+    # Coach playground (staging only, 404 elsewhere): practice member,
+    # scenarios, switch to the member and back, practice inbox.
+    # Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    path(
+        "coach/playground/",
+        views_playground.coach_playground,
+        name="coach_playground",
+    ),
+    path(
+        "coach/playground/scenario/",
+        views_playground.coach_playground_scenario,
+        name="coach_playground_scenario",
+    ),
+    path(
+        "coach/playground/switch/",
+        views_playground.coach_playground_switch,
+        name="coach_playground_switch",
+    ),
+    path(
+        "playground/back-to-coach/",
+        views_playground.playground_back_to_coach,
+        name="playground_back_to_coach",
     ),
     # Crush Connect Event Lobby — live "I'd like to meet you" photo grid
     # (spec 2026-07-17). APIs are called from event-lobby.js via {% url %}

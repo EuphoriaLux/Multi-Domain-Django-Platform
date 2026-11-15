@@ -11,10 +11,16 @@
 </div>
 
 {% if rehearsal_enabled %}
-{# Staging/local only: permanent Quiz Night rehearsal that any coach can host. #}
-<div class="mb-6 rounded-xl bg-amber-50 p-4 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
-    <a href="{% url 'crush_lu:quiz_rehearsal' %}" class="font-semibold underline">Quiz Night rehearsal</a>
-    <span class="text-sm">&mdash; practise hosting a quiz with test guests (staging only). Reset it any time from the host panel.</span>
+{# Staging/local only: the coach playground and the permanent Quiz Night rehearsal. #}
+<div class="mb-6 space-y-2 rounded-xl bg-amber-50 p-4 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200">
+    <p>
+        <a href="{% url 'crush_lu:coach_playground' %}" class="font-semibold underline">{% trans "Coach playground" %}</a>
+        <span class="text-sm">&mdash; {% trans "play the member side yourself with a practice member (test server only)." %}</span>
+    </p>
+    <p>
+        <a href="{% url 'crush_lu:quiz_rehearsal' %}" class="font-semibold underline">Quiz Night rehearsal</a>
+        <span class="text-sm">&mdash; practise hosting a quiz with test guests (staging only). Reset it any time from the host panel.</span>
+    </p>
 </div>
 {% endif %}
 

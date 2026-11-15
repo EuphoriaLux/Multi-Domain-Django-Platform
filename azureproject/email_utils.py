@@ -233,6 +233,47 @@ def _without_suppressed_crush_addresses(
     return filtered
 
 
+def _divert_playground_mail(
+    subject, message, html_message, email_from, recipient_list, cc, bcc
+):
+    """Keep mail for coach playground accounts instead of sending it.
+
+    Only ``@crush.test`` addresses that belong to a practice or cast member on
+    staging are captured (``crush_lu.services.playground_mail``); they are
+    removed from every list. Returns the lists and the number captured. A
+    capture failure never blocks the send.
+    Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
+    """
+    from crush_lu.services.playground_mail import (
+        mentions_playground_domain,
+        normalized_address,
+    )
+
+    addresses = list(recipient_list or []) + list(cc or []) + list(bcc or [])
+    if not mentions_playground_domain(addresses):
+        return recipient_list, cc, bcc, 0
+    try:
+        from crush_lu.services.playground_mail import capture_mail
+
+        captured = capture_mail(
+            subject=subject,
+            body_text=message,
+            body_html=html_message,
+            from_address=email_from,
+            addresses=addresses,
+        )
+    except Exception:
+        logger.warning("Practice inbox capture failed; sending normally", exc_info=True)
+        return recipient_list, cc, bcc, 0
+    if not captured:
+        return recipient_list, cc, bcc, 0
+
+    def keep(addresses):
+        return [a for a in (addresses or []) if normalized_address(a) not in captured]
+
+    return keep(recipient_list), keep(cc), keep(bcc), len(captured)
+
+
 def send_domain_email(
     subject,
     message,
@@ -295,6 +336,11 @@ def send_domain_email(
     )
     if not recipient_list:
         return 0
+    recipient_list, cc, bcc, captured = _divert_playground_mail(
+        subject, message, html_message, email_from, recipient_list, cc, bcc
+    )
+    if not recipient_list and not cc and not bcc:
+        return captured
 
     configured_reply_to = reply_to or config.get("REPLY_TO_EMAIL")
     if isinstance(configured_reply_to, str):

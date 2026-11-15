@@ -113,6 +113,16 @@
         </div>
     </form>
 
+    {% if playground_channel %}
+    {# test.crush.lu only: other coaches' practice members are hidden by default. #}
+    <p class="mb-3 text-sm text-amber-800 dark:text-amber-300">
+        {% if playground_show_all_practice %}
+        <a href="?" class="underline">{% trans "Hide other coaches' practice members" %}</a>
+        {% else %}
+        <a href="?practice=all" class="underline">{% trans "Show other coaches' practice members (pair practice)" %}</a>
+        {% endif %}
+    </p>
+    {% endif %}
     {% if channel %}
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden">
         <div class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -134,6 +144,9 @@
                         {# Name row #}
                         <div class="flex items-center gap-2 flex-wrap mb-1">
                             <p class="font-semibold text-gray-900 dark:text-white">{{ p.display_name }}</p>
+                            {% if sub.practice_owner_name %}
+                            <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{% blocktrans with name=sub.practice_owner_name %}Practice · {{ name }}{% endblocktrans %}</span>
+                            {% endif %}
                             <span class="text-sm font-semibold text-crush-purple">{% include "crush_lu/partials/_verification_task_label.html" with kind=sub.kind %}{% if sub.kind == 'video' %} · LuxID ✓ · {% trans "Photo approved" %}{% endif %}</span>
                             {% if p.age_display %}
                             <span class="text-sm text-gray-500 dark:text-gray-400">{{ p.age_display }}</span>

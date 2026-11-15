@@ -166,6 +166,24 @@ def timestamp_fresh(value):
     return 0 <= time.time() - value <= FRESHNESS_SECONDS
 
 
+def sign_in_again_url(request, start):
+    """``start?next=<this page>``, kept on this host.
+
+    ``start`` is our own sign-in route and validates ``next`` again; the
+    same-host check here makes the redirect safe on its own as well.
+    """
+    from urllib.parse import urlencode
+
+    from django.utils.http import url_has_allowed_host_and_scheme
+
+    target = f"{start}?{urlencode({'next': request.get_full_path()})}"
+    if url_has_allowed_host_and_scheme(
+        target, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return target
+    return start
+
+
 def signed_in_recently(session):
     """True when the playground may trust this session's coach.
 

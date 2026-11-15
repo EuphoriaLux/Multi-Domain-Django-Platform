@@ -500,6 +500,23 @@ def playground_context(request):
 
     if not playground_enabled():
         return {}
+    from crush_lu.services.playground_practice import practice_link_for, switch_marker
     from crush_lu.services.playground_sso import consumer_enabled
 
-    return {"playground_sso_enabled": consumer_enabled()}
+    context = {"playground_sso_enabled": consumer_enabled()}
+    user = getattr(request, "user", None)
+    link = practice_link_for(user) if user is not None else None
+    if link is not None:
+        marker = switch_marker(request)
+        context.update(
+            {
+                "playground_practice_mode": True,
+                "playground_practice_owner": (
+                    link.owner.first_name if link.owner else ""
+                ),
+                "playground_can_go_back": bool(
+                    marker and marker.get("coach") == link.owner_id
+                ),
+            }
+        )
+    return context

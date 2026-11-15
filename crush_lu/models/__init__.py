@@ -34,4 +34,4 @@ from .email_delivery import *
 from .real_person_check import *
 from .premium_recovery import PremiumPaymentRecoveryCase  # noqa: F401
 from .account_merge import AccountMerge  # noqa: F401
-from .playground import PlaygroundAccount  # noqa: F401
+from .playground import PlaygroundAccount, PlaygroundMail  # noqa: F401
