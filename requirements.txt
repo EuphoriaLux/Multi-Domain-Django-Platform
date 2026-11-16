@@ -47,7 +47,7 @@ python-magic-bin==0.4.14; sys_platform == 'win32'
 msal==1.39.0  # Updated from 1.31.1 (latest stable)
 
 # Production Server
-gunicorn==26.2.0
+gunicorn==27.0.1
 channels==4.3.2
 channels-redis==4.3.0
 django-redis==7.0.0  # Redis cache backend for Django 6.0
