@@ -2173,7 +2173,7 @@ class ProfileSubmission(models.Model):
             qs = qs.select_related(*select_related)
         if for_update:
             qs = qs.select_for_update(of=("self",))
-        latest = qs.order_by("-submitted_at").first()
+        latest = qs.order_by("-submitted_at", "-pk").first()
         if latest is not None and latest.status == "expired":
             return None
         return latest

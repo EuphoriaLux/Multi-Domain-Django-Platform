@@ -1416,7 +1416,7 @@ def notify_profile_approved(
                 user=user,
                 notification_type=NotificationType.PROFILE_APPROVED.value,
             )
-            .order_by("-created_at")
+            .order_by("-created_at", "-pk")
             .first()
         )
         last_rejected = (
@@ -1424,12 +1424,15 @@ def notify_profile_approved(
                 user=user,
                 notification_type=NotificationType.PROFILE_REJECTED.value,
             )
-            .order_by("-created_at")
+            .order_by("-created_at", "-pk")
             .first()
         )
+        # Ties on created_at (two rows in one clock tick) break by pk, the
+        # insertion order.
         already_notified = last_approved is not None and not (
             last_rejected is not None
-            and last_rejected.created_at > last_approved.created_at
+            and (last_rejected.created_at, last_rejected.pk)
+            > (last_approved.created_at, last_approved.pk)
         )
         # Names the lifecycle rather than the user: the rejection that reopened
         # it, or a sentinel for a member who has never been rejected. Two

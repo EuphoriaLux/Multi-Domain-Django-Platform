@@ -10,6 +10,7 @@ Spec: ai-memory-hub/specs/2026-09-13-crush-premium-payment-recovery.md
 import inspect
 import re
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -957,6 +958,13 @@ class CaseLifecycleTests(_Base):
 
         self.membership.confirm(by_user=self.coach.user)
         late = self._tx("REC-AFTER-STAFF", status=PaymentTransaction.Status.PAID)
+        # Explicitly later: on a coarse clock (Windows) paid_at can equal
+        # payment_date, and the command only flags a strictly later capture.
+        self.membership.refresh_from_db()
+        PaymentTransaction.objects.filter(pk=late.pk).update(
+            paid_at=self.membership.payment_date + timedelta(minutes=1)
+        )
+        late.refresh_from_db()
         call_command("backfill_premium_recovery_cases", "--apply", stdout=StringIO())
         case = PremiumPaymentRecoveryCase.objects.get(payment=late)
         self.assertEqual(case.reason, Reason.DUPLICATE_CAPTURE)

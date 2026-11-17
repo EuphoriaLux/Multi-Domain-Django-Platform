@@ -124,7 +124,9 @@ def send_push_notification(
 
     # Active subscriptions for this user, narrowed to the ones that opted in to
     # this kind of notification when the caller named a preference.
-    subscriptions = PushSubscription.objects.filter(user=user, enabled=True)
+    subscriptions = PushSubscription.objects.filter(user=user, enabled=True).order_by(
+        "-created_at", "-pk"
+    )
     if preference_key:
         subscriptions = subscriptions.filter(**{f"notify_{preference_key}": True})
 

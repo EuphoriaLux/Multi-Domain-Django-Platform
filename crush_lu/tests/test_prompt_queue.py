@@ -192,18 +192,24 @@ class OtherSitesCookieSheetTests(TestCase):
 
 class PromptQueueSourceTests(SimpleTestCase):
     def test_store_orders_cookie_messages_install_push(self):
-        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine/core.js").read_text()
+        js = (REPO_ROOT / "crush_lu/static/crush_lu/js/alpine/core.js").read_text(
+            encoding="utf-8"
+        )
         self.assertIn('Alpine.store("prompts"', js)
         self.assertIn('["cookie", "messages", "install", "push"]', js)
         self.assertIn('Alpine.data("flashMessage"', js)
         self.assertIn("PUSH_CHECK_TIMEOUT_MS = 3000", js)
 
     def test_flash_messages_register_with_the_store(self):
-        base = (REPO_ROOT / "crush_lu/templates/crush_lu/base.html").read_text()
+        base = (REPO_ROOT / "crush_lu/templates/crush_lu/base.html").read_text(
+            encoding="utf-8"
+        )
         self.assertIn('x-data="flashMessage"', base)
 
     def test_built_css_lifts_prompts_above_the_tab_bar(self):
-        css = (REPO_ROOT / "crush_lu/static/crush_lu/css/tailwind.css").read_text()
+        css = (REPO_ROOT / "crush_lu/static/crush_lu/css/tailwind.css").read_text(
+            encoding="utf-8"
+        )
         self.assertRegex(
             css,
             r"\.bottom-nav\)\s*\.prompt-above-nav\s*\{\s*bottom:\s*calc\("

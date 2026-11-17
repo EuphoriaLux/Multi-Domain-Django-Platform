@@ -82,6 +82,7 @@ def test_toast_escapes_every_interpolated_value():
         [NODE, "-e", HARNESS, str(JS_FILE)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         timeout=60,
         check=True,
     )

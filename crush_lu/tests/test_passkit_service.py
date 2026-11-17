@@ -14,11 +14,13 @@ the PassKit service ROOT (e.g. https://crush.lu/wallet). Apple appends its own
 /wallet/v1/v1/... and every web-service request 404s.
 """
 
+from datetime import timedelta
 from unittest import mock
 
 import httpx
 import pytest
 from django.test import RequestFactory
+from django.utils import timezone
 
 # ---------------------------------------------------------------------------
 # webServiceURL resolution
@@ -384,12 +386,19 @@ class TestMarkPassesUpdated:
     def _registration(self, serial="evt-1-reg-1-abcd"):
         from crush_lu.models import PasskitDeviceRegistration
 
-        return PasskitDeviceRegistration.objects.create(
+        reg = PasskitDeviceRegistration.objects.create(
             device_library_identifier="device-abc",
             pass_type_identifier="pass.lu.crush",
             serial_number=serial,
             push_token="push-tok",
         )
+        # Backdate the tag: on a coarse clock (Windows) the advance can land in
+        # the same tick as the create, and `>` would see no change.
+        PasskitDeviceRegistration.objects.filter(pk=reg.pk).update(
+            updated_at=timezone.now() - timedelta(minutes=1)
+        )
+        reg.refresh_from_db()
+        return reg
 
     def test_advances_the_tag(self):
         from crush_lu.wallet.passkit_apns import mark_passes_updated
@@ -1093,6 +1102,10 @@ class TestEventLevelTicketRefresh:
             serials.append(serial)
 
         settings.PASSKIT_BULK_PUSH_LIMIT = 2
+        # Backdated so the advance is observable on a coarse clock (Windows).
+        PasskitDeviceRegistration.objects.update(
+            updated_at=timezone.now() - timedelta(minutes=1)
+        )
         before = list(
             PasskitDeviceRegistration.objects.order_by("pk").values_list(
                 "updated_at", flat=True

@@ -1,6 +1,7 @@
 """Issue #1113 / owner decision C: every consent writer stamps the canonical
 ``legal.CURRENT_TERMS_VERSION``; existing rows are never rewritten."""
 
+from datetime import timedelta
 from unittest import mock
 
 from django.contrib.auth import get_user_model
@@ -92,7 +93,9 @@ class TermsVersionStampTests(TestCase):
             crushlu_consent_given=True,
             crushlu_consent_date=timezone.now(),
         )
-        consent.crushlu_consent_date = timezone.now()
+        # Explicitly later: back-to-back now() calls can return the same value
+        # on a coarse clock (Windows), which would make this a no-op re-save.
+        consent.crushlu_consent_date = timezone.now() + timedelta(seconds=1)
         with mock.patch.object(legal, "CURRENT_TERMS_VERSION", "4.0"):
             consent.save()
         self.assertEqual(_fresh(self.user).crushlu_terms_version, "4.0")
