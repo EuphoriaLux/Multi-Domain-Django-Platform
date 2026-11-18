@@ -43,8 +43,34 @@ DESCRIPTION = (
 )
 
 
+#: Every practice mixer's title starts with this, archived ones included.
+TITLE_PREFIX = "Practice mixer (coach "
+
+
 def mixer_title(coach_user):
-    return f"Practice mixer (coach {coach_user.pk})"
+    return f"{TITLE_PREFIX}{coach_user.pk})"
+
+
+def is_practice_mixer(event):
+    """True for a playground practice mixer (live or archived), in any language.
+
+    echo.lu and Google Indexing ask this before they list an event: a practice
+    mixer is published so the real register and door pages work, but it must
+    never reach a public listing, even if a slot that runs the playground
+    switches either integration on.
+    """
+    for lang in _languages():
+        title = getattr(event, f"title_{lang}", None)
+        if isinstance(title, str) and title.startswith(TITLE_PREFIX):
+            return True
+    return False
+
+
+def exclude_practice_mixers(queryset):
+    """``queryset`` without practice mixers (any language column)."""
+    for lang in _languages():
+        queryset = queryset.exclude(**{f"title_{lang}__startswith": TITLE_PREFIX})
+    return queryset
 
 
 def _languages():
@@ -142,6 +168,19 @@ def ensure_practice_mixer(coach_user):
         event.date_time = start
         event.registration_deadline = start
         event.save(update_fields=["date_time", "registration_deadline"])
+    return event
+
+
+def upcoming_practice_mixer(coach_user):
+    """The coach's mixer if it has not started yet, else a fresh one.
+
+    For scenarios that hand the practice member a ticket: after "end the
+    mixer now" the old one is over, and a ticket for it would open the Lobby
+    straight on its recap.
+    """
+    event = ensure_practice_mixer(coach_user)
+    if event.date_time <= timezone.now():
+        event = fresh_practice_mixer(coach_user)
     return event
 
 

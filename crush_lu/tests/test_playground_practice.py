@@ -639,6 +639,112 @@ class TestGuard:
         assert response.status_code == 302
         assert len(mail.outbox) == 1
 
+    def test_practice_member_cannot_unlink_its_luxid(self, coach):
+        from allauth.socialaccount.models import SocialAccount
+
+        member = practice.apply_preset(coach, "luxid_ready")
+        social = SocialAccount.objects.get(user=member, provider="luxid")
+        client = Client(HTTP_HOST=HOST)
+        client.force_login(member)
+        response = client.post(f"/en/account/disconnect/{social.pk}/")
+        assert response["Location"] == "/en/dashboard/"
+        assert SocialAccount.objects.filter(pk=social.pk).exists()
+
+
+#: Route names that look like account changes but are safe for a practice
+#: member, each with the reason. A new route whose name matches
+#: ``RISKY_ROUTE_NAME`` must be added either to
+#: ``PracticeModeGuardMiddleware.BLOCKED_URL_NAMES`` (or the POST list) or here.
+GUARD_REVIEWED_SAFE = {
+    # Sign-in, sign-out and sign-up pages: nothing about the signed-in account.
+    "account_login": "sign-in page",
+    "account_logout": "signs out only",
+    "account_inactive": "information page",
+    "account_signup": "creates a separate account",
+    "account_banned": "information page",
+    "account_reauthenticate": "re-auth before a blocked action",
+    "account_request_reauthentication_code": "re-auth before a blocked action",
+    "account_confirm_reauthentication_code": "re-auth before a blocked action",
+    "account_confirm_login_code": "sign-in step",
+    "account_email_verification_sent": "information page",
+    "account_confirm_email": "confirms an address it already has",
+    # Password reset: the adapter sends no reset mail to practice accounts.
+    "account_reset_password": "adapter sends nothing to playground accounts",
+    "account_reset_password_done": "information page",
+    "account_reset_password_from_key": "needs a reset key it never gets",
+    "account_reset_password_from_key_done": "information page",
+    "socialaccount_login_cancelled": "information page",
+    "socialaccount_login_error": "information page",
+    "socialaccount_signup": "signup of a new social account, not a link",
+    # Read-only or the member's own content.
+    "api_phone_check_available": "read-only",
+    "api_phone_status": "read-only",
+    "api_update_email_preference": "mail goes to the practice inbox anyway",
+    "email_unsubscribe": "mail goes to the practice inbox anyway",
+    "api_delete_push_subscription": "the device's own push subscription",
+    "api_delete_photo_draft": "profile content, part of practising",
+    "api_delete_profile_photo": "profile content, part of practising",
+    # Coach and staff routes: a practice member is neither.
+    "api_coach_delete_push_subscription": "coach only",
+    "coach_preview_email": "coach only",
+    "coach_quiz_round_delete": "coach only",
+    "coach_quiz_question_delete": "coach only",
+    "api_admin_delete_all_contacts": "staff only",
+    "api_admin_gdpr_retention": "staff only",
+}
+RISKY_ROUTE_NAME = (
+    r"delete|erase|email|password|phone|merge|gdpr|deactivat|unlink|"
+    r"disconnect|luxid|account"
+)
+
+
+def _crush_route_names():
+    from django.urls import get_resolver
+    from django.urls.resolvers import URLResolver
+
+    # Staff-only areas: the Django admin sites, the hub API (coach JWT) and
+    # the admin email tools. A practice member is neither staff nor coach.
+    staff_apps = ("admin", "hub")
+    staff_modules = ("crush_lu.admin_views",)
+
+    def walk(patterns):
+        for pattern in patterns:
+            if isinstance(pattern, URLResolver):
+                if pattern.app_name not in staff_apps:
+                    yield from walk(pattern.url_patterns)
+            elif pattern.name and not pattern.callback.__module__.startswith(
+                staff_modules
+            ):
+                yield pattern.name
+
+    return set(walk(get_resolver("azureproject.urls_crush").url_patterns))
+
+
+def test_every_account_route_is_guarded_or_reviewed():
+    """A new account-changing route is open to practice members until it is
+    listed: fail here so whoever adds it decides."""
+    import re
+
+    from crush_lu.middleware import PracticeModeGuardMiddleware as Guard
+
+    risky = re.compile(RISKY_ROUTE_NAME)
+    decided = (
+        Guard.BLOCKED_URL_NAMES
+        | Guard.BLOCKED_POST_URL_NAMES
+        | set(GUARD_REVIEWED_SAFE)
+    )
+    unreviewed = sorted(
+        name
+        for name in _crush_route_names()
+        if risky.search(name) and name not in decided
+        # Social provider login routes are guarded by ?process=connect.
+        and not name.endswith(("_login", "_login_by_token", "_callback"))
+    )
+    assert unreviewed == [], (
+        f"Decide whether a practice member may use {unreviewed}: add each to "
+        "PracticeModeGuardMiddleware.BLOCKED_URL_NAMES or GUARD_REVIEWED_SAFE."
+    )
+
 
 # ---------------------------------------------------------------------------
 # Practice inbox

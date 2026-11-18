@@ -58,54 +58,77 @@ class Persona:
     luxid: bool = True
 
 
+#: The cast, frozen. Coaches, tests and the coach guide name them, and staging
+#: already holds these accounts, so the list never follows edits to the
+#: staging persona set: a renamed or reordered curated candidate must not
+#: create a new cast member while the old one stays in the pool.
+CAST_KEYS = (
+    ("marie", "F"),
+    ("sophie", "F"),
+    ("camille", "F"),
+    ("lea", "F"),
+    ("charlotte", "F"),
+    ("laura", "F"),
+    ("thomas", "M"),
+    ("lucas", "M"),
+    ("nicolas", "M"),
+    ("alexandre", "M"),
+    ("julien", "M"),
+    ("sam", "M"),
+)
+
+#: Sam has no LuxID: the My Crush counterpart. Not in the staging persona set.
+SAM = Persona(
+    key="sam",
+    first_name="Sam",
+    last_name="Weber",
+    gender="M",
+    age=31,
+    location="Esch-sur-Alzette",
+    bio="Teacher, trail runner, terrible at karaoke. Here for the events.",
+    luxid=False,
+)
+
+
 def personas():
-    """12 personas: 6 women and 5 men from the staging persona set (each with
-    its own photo URL), plus Sam, who has no LuxID: the My Crush counterpart.
+    """The 12 cast personas, in ``CAST_KEYS`` order.
+
+    Names, ages, bios and photos come from the staging persona set when it
+    still has that first name. A name it lost keeps its key with a generic
+    profile and a generated photo, so the cast never changes size.
     """
     from crush_lu.management.commands.enrich_staging_candidates import (
         CURATED_FEMALE_CANDIDATES,
         CURATED_MALE_CANDIDATES,
     )
 
+    curated = {}
+    for source in (CURATED_FEMALE_CANDIDATES, CURATED_MALE_CANDIDATES):
+        for raw in source:
+            curated.setdefault(raw["first_name"].lower(), raw)
+
     chosen = []
     used_urls = set()
-    for source, gender, wanted in (
-        (CURATED_FEMALE_CANDIDATES, "F", 6),
-        (CURATED_MALE_CANDIDATES, "M", 5),
-    ):
-        taken = 0
-        for raw in source:
-            if taken == wanted:
-                break
-            url = next((u for u in raw.get("photos", []) if u not in used_urls), "")
-            if not url:
-                continue
+    for key, gender in CAST_KEYS:
+        if key == SAM.key:
+            chosen.append(SAM)
+            continue
+        raw = curated.get(key, {})
+        url = next((u for u in raw.get("photos", []) if u not in used_urls), "")
+        if url:
             used_urls.add(url)
-            chosen.append(
-                Persona(
-                    key=raw["first_name"].lower(),
-                    first_name=raw["first_name"],
-                    last_name=raw["last_name"],
-                    gender=gender,
-                    age=raw["age"],
-                    location=raw.get("location", "Luxembourg"),
-                    bio=raw.get("bio", ""),
-                    photo_url=url,
-                )
+        chosen.append(
+            Persona(
+                key=key,
+                first_name=raw.get("first_name", key.capitalize()),
+                last_name=raw.get("last_name", "Test"),
+                gender=gender,
+                age=raw.get("age", 30),
+                location=raw.get("location", "Luxembourg"),
+                bio=raw.get("bio", ""),
+                photo_url=url,
             )
-            taken += 1
-    chosen.append(
-        Persona(
-            key="sam",
-            first_name="Sam",
-            last_name="Weber",
-            gender="M",
-            age=31,
-            location="Esch-sur-Alzette",
-            bio="Teacher, trail runner, terrible at karaoke. Here for the events.",
-            luxid=False,
         )
-    )
     return chosen
 
 
@@ -123,6 +146,9 @@ def seed_cast(coach, *, download=True, log=None):
     """
     require_playground()
     created = refreshed = 0
+    retired = retire_unlisted_cast()
+    if log and retired:
+        log(f"retired {retired} cast member(s) no longer in the cast list")
     for persona in personas():
         user, was_created = ensure_cast_member(coach, persona, download=download)
         if was_created:
@@ -132,6 +158,21 @@ def seed_cast(coach, *, download=True, log=None):
         if log:
             log(f"{'created' if was_created else 'kept'} {user.username}")
     return created, refreshed
+
+
+def retire_unlisted_cast():
+    """Deactivate cast members whose key left ``CAST_KEYS``. Nothing is deleted."""
+    from crush_lu.models import PlaygroundAccount
+
+    listed = [f"{USERNAME_PREFIX}{key}" for key, _gender in CAST_KEYS]
+    return (
+        get_user_model()
+        .objects.filter(
+            playground_account__kind=PlaygroundAccount.KIND_CAST, is_active=True
+        )
+        .exclude(username__in=listed)
+        .update(is_active=False)
+    )
 
 
 def ensure_cast_member(coach, persona, *, download=True):
@@ -151,8 +192,10 @@ def ensure_cast_member(coach, persona, *, download=True):
         return existing, False
     if User.objects.filter(username=username).exists():
         raise PlaygroundError("cast_username_taken")
+    # The download (up to 12 s) runs before the transaction opens.
+    photo = _cast_photo_bytes(persona, download)
     with transaction.atomic():
-        user = _build_cast_member(coach, persona, download=download)
+        user = _build_cast_member(coach, persona, photo)
     return user, True
 
 
@@ -168,7 +211,7 @@ def _cast_photo_bytes(persona, download):
     return practice_photo_bytes(placeholder, variant=1)
 
 
-def _build_cast_member(coach, persona, *, download):
+def _build_cast_member(coach, persona, photo):
     from allauth.account.models import EmailAddress
     from allauth.socialaccount.models import SocialAccount
 
@@ -211,7 +254,7 @@ def _build_cast_member(coach, persona, *, download):
     profile.phone_verified_at = now
     profile.photo_1.save(
         f"cast-{persona.key}.jpg",
-        ContentFile(_cast_photo_bytes(persona, download)),
+        ContentFile(photo),
         save=False,
     )
     profile.save()
