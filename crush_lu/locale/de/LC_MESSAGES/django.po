@@ -48362,6 +48362,12 @@ msgstr ""
 "Wird vor Ort direkt bei %(venue)s bezahlt, getrennt von deiner Crush.lu-"
 "Anmeldung."
 
+msgid "The ghost's favourite"
+msgstr "Der Liebling des Geistes"
+
+msgid "per person, paid on site"
+msgstr "pro Person, vor Ort bezahlt"
+
 msgid "Tasting formulas"
 msgstr "Verkostungsformeln"
 

@@ -393,3 +393,47 @@ class MenuSurfaceRenderTests(WineTastingFixtures, TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "🍷 Wine Lover tasting — 16 €")
         self.assertContains(response, "Guests per tasting formula")
+
+
+class MenuShowcaseTests(WineTastingFixtures, TestCase):
+    """The single most expensive active formula is promoted on the event page."""
+
+    def test_most_expensive_active_formula_is_featured(self):
+        event = self.wine_event()
+        showcase = event.menu_showcase
+        self.assertEqual(showcase["featured"], self.wine_lover)
+        self.assertEqual(showcase["others"], [self.discovery])
+        self.assertEqual(showcase["count"], 2)
+
+    def test_inactive_formula_is_never_featured(self):
+        event = self.wine_event()
+        self.retired.price = Decimal("99")
+        self.retired.save()
+        self.assertEqual(event.menu_showcase["featured"], self.wine_lover)
+
+    def test_tie_for_top_price_features_nothing(self):
+        event = self.wine_event()
+        self.discovery.price = self.wine_lover.price
+        self.discovery.save()
+        showcase = event.menu_showcase
+        self.assertIsNone(showcase["featured"])
+        self.assertEqual(len(showcase["others"]), 2)
+
+    def test_single_formula_is_not_featured(self):
+        event = self.wine_event()
+        self.discovery.is_active = False
+        self.discovery.save()
+        showcase = event.menu_showcase
+        self.assertIsNone(showcase["featured"])
+        self.assertEqual(showcase["others"], [self.wine_lover])
+
+    def test_event_page_shows_wine_ghost_on_featured_card(self):
+        event = self.wine_event()
+        response = self.client_for().get(f"/en/events/{event.pk}/")
+        self.assertContains(response, "The ghost's favourite", count=1)
+        self.assertContains(response, "wine-ghost-bowl")
+
+    def test_register_picker_badges_the_featured_formula(self):
+        event = self.wine_event()
+        response = self.client_for().get(f"/en/events/{event.pk}/register/")
+        self.assertContains(response, "The ghost's favourite")
