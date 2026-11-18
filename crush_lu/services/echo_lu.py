@@ -515,7 +515,16 @@ def should_publish(event):
         return False
     if event.is_private_invitation:
         return False
+    if _is_practice_mixer(event):
+        return False
     return event.end_time > timezone.now()
+
+
+def _is_practice_mixer(event):
+    """A coach playground practice mixer (test.crush.lu): never listed."""
+    from .playground_events import is_practice_mixer
+
+    return is_practice_mixer(event)
 
 
 def _cancellation_notice_wanted(event):
@@ -528,6 +537,8 @@ def _cancellation_notice_wanted(event):
     simply finishes, the notice comes down like any other listing.
     """
     if not event.is_published or event.is_private_invitation:
+        return False
+    if _is_practice_mixer(event):
         return False
     return event.end_time > timezone.now()
 
@@ -2141,8 +2152,12 @@ def events_needing_sync(queryset=None):
     if queryset is None:
         queryset = MeetupEvent.objects.all()
 
+    from .playground_events import exclude_practice_mixers
+
     now = timezone.now()
-    publishable = queryset.filter(
+    # Coach playground practice mixers are never listed, whatever they say.
+    listable = exclude_practice_mixers(queryset)
+    publishable = listable.filter(
         is_published=True,
         is_cancelled=False,
         is_private_invitation=False,

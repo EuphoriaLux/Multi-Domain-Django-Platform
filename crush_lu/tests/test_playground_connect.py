@@ -118,6 +118,45 @@ class TestCast:
         assert set(cast.cast_queryset().values_list("pk", flat=True)) == first
         assert len(first) == 12
 
+    def test_cast_list_is_frozen(self):
+        # Coaches, tests and staging know these twelve: an edit to the staging
+        # persona set must not add or rename a cast member.
+        chosen = cast.personas()
+        assert [p.key for p in chosen] == [key for key, _gender in cast.CAST_KEYS]
+        assert [p.gender for p in chosen].count("F") == 6
+        assert [p.key for p in chosen if not p.luxid] == ["sam"]
+        assert len({p.photo_url for p in chosen if p.photo_url}) == 11
+
+    def test_a_name_missing_from_the_persona_set_keeps_its_key(self):
+        from crush_lu.management.commands import enrich_staging_candidates as source
+
+        without_lea = [
+            c for c in source.CURATED_FEMALE_CANDIDATES if c["first_name"] != "Lea"
+        ]
+        with mock.patch.object(source, "CURATED_FEMALE_CANDIDATES", without_lea):
+            chosen = cast.personas()
+        assert [p.key for p in chosen] == [key for key, _gender in cast.CAST_KEYS]
+        lea = next(p for p in chosen if p.key == "lea")
+        assert (lea.first_name, lea.gender, lea.photo_url) == ("Lea", "F", "")
+
+    def test_seed_retires_cast_members_no_longer_listed(self, seeded):
+        shorter = tuple(k for k in cast.CAST_KEYS if k[0] != "lea")
+        with mock.patch.object(cast, "CAST_KEYS", shorter):
+            call_command("seed_playground_cast", "--no-download")
+        lea = User.objects.get(username="cast_lea")
+        assert not lea.is_active
+        assert cast.cast_queryset().count() == 11
+        # Back on the list: the next seed brings the same account back.
+        call_command("seed_playground_cast", "--no-download")
+        lea.refresh_from_db()
+        assert lea.is_active
+        assert cast.cast_queryset().count() == 12
+
+    def test_seed_explains_a_taken_username(self, coach):
+        User.objects.create_user(username="cast_marie", email="marie@example.com")
+        with pytest.raises(CommandError, match="cast_username_taken"):
+            call_command("seed_playground_cast", "--no-download")
+
     def test_cast_members_are_safe(self, seeded):
         for member in cast.cast_queryset():
             profile = CrushProfile.objects.get(user=member)
@@ -432,6 +471,48 @@ class TestMixer:
         registration.refresh_from_db()
         # Not left checked in for the next practice member (door page, My Crush).
         assert registration.status == "cancelled"
+
+    def test_ticket_after_the_mixer_ended_gets_a_fresh_mixer(self, seeded):
+        ended = mixer.ensure_practice_mixer(seeded.user)
+        mixer.end_practice_mixer(seeded.user)
+        member = practice.apply_preset(seeded, "event_ticket_pending")
+        registration = EventRegistration.objects.get(user=member)
+        assert registration.event_id != ended.pk
+        assert registration.event.date_time > timezone.now()
+        ended.refresh_from_db()
+        assert not ended.is_published
+
+    def test_an_upcoming_mixer_is_kept_for_a_ticket(self, seeded):
+        event = mixer.ensure_practice_mixer(seeded.user)
+        member = practice.apply_preset(seeded, "event_ticket_pending")
+        assert EventRegistration.objects.get(user=member).event_id == event.pk
+
+    def test_practice_mixers_never_reach_echo_lu_or_google(self, coach):
+        from crush_lu.models import MeetupEvent
+        from crush_lu.services import echo_lu
+        from crush_lu.services.google_indexing import should_index_event
+
+        archived = mixer.ensure_practice_mixer(coach.user)
+        live = mixer.fresh_practice_mixer(coach.user)
+        archived.refresh_from_db()
+        for event in (live, archived):
+            assert mixer.is_practice_mixer(event)
+            assert not should_index_event(event)
+            assert not echo_lu.should_publish(event)
+            assert not echo_lu._cancellation_notice_wanted(event)
+        pending = echo_lu.events_needing_sync(MeetupEvent.objects.all())
+        assert live.pk not in set(pending.values_list("pk", flat=True))
+
+    def test_a_real_event_is_still_listed(self, coach):
+        from crush_lu.services import echo_lu
+        from crush_lu.services.google_indexing import should_index_event
+
+        event = mixer.ensure_practice_mixer(coach.user)
+        for column in ("title_en", "title_de", "title_fr"):
+            setattr(event, column, "Friday Social Mixer")
+        assert not mixer.is_practice_mixer(event)
+        assert should_index_event(event)
+        assert echo_lu.should_publish(event)
 
     def test_cast_gets_no_coach_from_the_room(self, seeded):
         mixer.ensure_practice_mixer(seeded.user)

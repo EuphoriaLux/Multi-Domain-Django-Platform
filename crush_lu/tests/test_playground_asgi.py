@@ -121,3 +121,93 @@ class TestMiddleware:
             seen, _ = _run({"type": "http", "user": self.USER}, None)
         deadline.assert_not_called()
         assert seen["user"] is self.USER
+
+
+class TestThroughTheRealAuthStack:
+    """The middleware as azureproject.asgi mounts it: inside Channels' cookie,
+    session and auth middleware, reading a real session cookie."""
+
+    @pytest.fixture(autouse=True)
+    def keep_test_connection(self):
+        # database_sync_to_async would close the test transaction's connection.
+        with mock.patch("channels.db.close_old_connections", lambda *a, **kw: None):
+            yield
+
+    @staticmethod
+    def _cookie_for(user, signed_in_ago=None):
+        from importlib import import_module
+
+        from django.conf import settings
+        from django.contrib.auth import (
+            BACKEND_SESSION_KEY,
+            HASH_SESSION_KEY,
+            SESSION_KEY,
+        )
+
+        session = import_module(settings.SESSION_ENGINE).SessionStore()
+        session[SESSION_KEY] = str(user.pk)
+        session[BACKEND_SESSION_KEY] = "django.contrib.auth.backends.ModelBackend"
+        session[HASH_SESSION_KEY] = user.get_session_auth_hash()
+        if signed_in_ago is not None:
+            session[sso.SIGNED_IN_AT_SESSION_KEY] = int(time.time()) - signed_in_ago
+        session.save()
+        return f"{settings.SESSION_COOKIE_NAME}={session.session_key}".encode()
+
+    @staticmethod
+    def _connect(cookie):
+        from channels.auth import AuthMiddlewareStack
+
+        seen = {}
+
+        async def inner(scope, receive, send):
+            seen["user"] = scope["user"]
+
+        async def receive():
+            await asyncio.Event().wait()
+
+        async def send(message):
+            pass
+
+        app = AuthMiddlewareStack(
+            playground_asgi.PlaygroundFreshnessASGIMiddleware(inner)
+        )
+        scope = {
+            "type": "websocket",
+            "path": "/ws/checkin/1/",
+            "headers": [(b"cookie", cookie), (b"host", b"test.crush.lu")],
+        }
+        async_to_sync(app)(scope, receive, send)
+        return seen["user"]
+
+    def test_fresh_linked_coach_keeps_their_account(self, staging):
+        coach = _coach()
+        user = self._connect(self._cookie_for(coach, signed_in_ago=60))
+        assert user.pk == coach.pk
+
+    def test_stale_linked_coach_connects_as_anonymous(self, staging):
+        coach = _coach()
+        stale = sso.FRESHNESS_SECONDS + 60
+        assert not self._connect(
+            self._cookie_for(coach, signed_in_ago=stale)
+        ).is_authenticated
+        assert not self._connect(self._cookie_for(coach)).is_authenticated
+
+    def test_unlinked_member_is_untouched(self, staging):
+        member = User.objects.create_user(username="wsmember", email="m@example.com")
+        assert self._connect(self._cookie_for(member)).pk == member.pk
+
+
+def test_asgi_mounts_the_middleware_inside_the_auth_stack():
+    """azureproject.asgi keeps the recheck between the auth stack and the router."""
+    from channels.auth import AuthMiddleware
+
+    from azureproject import asgi
+
+    chain, app = [], asgi._websocket_app
+    while app is not None:
+        chain.append(type(app))
+        app = getattr(app, "inner", None) or getattr(app, "application", None)
+    assert playground_asgi.PlaygroundFreshnessASGIMiddleware in chain
+    assert chain.index(AuthMiddleware) < chain.index(
+        playground_asgi.PlaygroundFreshnessASGIMiddleware
+    )
