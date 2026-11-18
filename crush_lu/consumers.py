@@ -1881,23 +1881,7 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
 
         # When all tables scored, include full results for the reveal
         if all_scored:
-            all_scores = TableRoundScore.objects.filter(
-                quiz=quiz, question=question
-            ).select_related("table", "question", "question__round")
-            reveal_results = []
-            for score in all_scores:
-                pts = score.question.points if score.is_correct else 0
-                if score.is_correct and score.question.round.is_bonus:
-                    pts *= 2
-                reveal_results.append(
-                    {
-                        "table_id": score.table_id,
-                        "table_number": score.table.table_number,
-                        "is_correct": score.is_correct,
-                        "points_awarded": pts,
-                    }
-                )
-            result["reveal_results"] = reveal_results
+            result["reveal_results"] = build_reveal_results(quiz, question)
             # The hidden word of a ``{{word}}`` question, sent only now.
             result["revealed_segments"] = revealed_segments_payload(question)
 
@@ -2194,6 +2178,33 @@ class QuizConsumer(BaseCrushWebsocketConsumer):
     @database_sync_to_async
     def get_leaderboard(self):
         return build_leaderboard(self.quiz_id)
+
+
+def build_reveal_results(quiz, question):
+    """Every table's score for ``question``, as sent in ``quiz.reveal_scores``.
+
+    Module level so the HTTP score endpoint (the host's fallback when its
+    socket is down) reveals exactly what a tap over the socket would.
+    """
+    from crush_lu.models.quiz import TableRoundScore
+
+    all_scores = TableRoundScore.objects.filter(
+        quiz=quiz, question=question
+    ).select_related("table", "question", "question__round")
+    reveal_results = []
+    for score in all_scores:
+        pts = score.question.points if score.is_correct else 0
+        if score.is_correct and score.question.round.is_bonus:
+            pts *= 2
+        reveal_results.append(
+            {
+                "table_id": score.table_id,
+                "table_number": score.table.table_number,
+                "is_correct": score.is_correct,
+                "points_awarded": pts,
+            }
+        )
+    return reveal_results
 
 
 def build_leaderboard(quiz_id):
