@@ -48440,3 +48440,89 @@ msgstr "Haha, ça m'a fait sourire. Un café au Grund un de ces jours ?"
 #: crush_lu/services/playground_cast.py
 msgid "I'd like that. Shall we pick a day this week?"
 msgstr "Avec plaisir. On choisit un jour cette semaine ?"
+
+msgid "Wine Tasting"
+msgstr "Dégustation de vins"
+
+msgid "Your tasting formula"
+msgstr "Votre formule de dégustation"
+
+msgid "Your tasting formula:"
+msgstr "Votre formule de dégustation :"
+
+msgid "Please choose your formula."
+msgstr "Veuillez choisir votre formule."
+
+msgid "This formula is no longer available. Please choose another one."
+msgstr "Cette formule n'est plus disponible. Veuillez en choisir une autre."
+
+#, python-format
+msgid ""
+"Your drinks are paid on site directly to %(venue)s, not to Crush.lu. Choose "
+"the formula you would like to taste."
+msgstr ""
+"Vos boissons se règlent sur place directement auprès de %(venue)s, et non à "
+"Crush.lu. Choisissez la formule que vous souhaitez déguster."
+
+#, python-format
+msgid ""
+"Paid on site directly to %(venue)s, separately from your Crush.lu "
+"registration."
+msgstr ""
+"Réglée sur place directement auprès de %(venue)s, séparément de votre "
+"inscription Crush.lu."
+
+msgid "Tasting formulas"
+msgstr "Formules de dégustation"
+
+#, python-format
+msgid ""
+"You choose one formula when you sign up. Drinks are paid on site directly to"
+" %(venue)s, separately from your Crush.lu registration."
+msgstr ""
+"Vous choisissez une formule lors de votre inscription. Les boissons se "
+"règlent sur place directement auprès de %(venue)s, séparément de votre "
+"inscription Crush.lu."
+
+msgid "Your choice"
+msgstr "Votre choix"
+
+msgid "Guests per tasting formula"
+msgstr "Invités par formule de dégustation"
+
+msgid "This formula belongs to another event."
+msgstr "Cette formule appartient à un autre événement."
+
+msgid "🍷 Export drinks list for the venue (CSV)"
+msgstr "🍷 Exporter la liste des boissons pour le lieu (CSV)"
+
+msgid "Menu / tasting formula"
+msgstr "Menu / formule de dégustation"
+
+msgid ""
+"Menu / tasting formulas (guests pick one at sign-up, pay the venue on site)"
+msgstr ""
+"Menu / formules de dégustation (les invités en choisissent une à "
+"l'inscription et paient sur place au lieu)"
+
+msgid "Event menu option"
+msgstr "Option de menu de l'événement"
+
+msgid "Event menu options"
+msgstr "Options de menu de l'événement"
+
+msgid "e.g. 'Discovery tasting'"
+msgstr "ex. « Dégustation découverte »"
+
+msgid "What is included, e.g. '4 wines + 1 Crémant'"
+msgstr "Ce qui est inclus, ex. « 4 vins + 1 Crémant »"
+
+msgid ""
+"Price per person charged by the venue. Paid on site to the venue, never "
+"through crush.lu."
+msgstr ""
+"Prix par personne facturé par le lieu. Payé sur place au lieu, jamais via "
+"crush.lu."
+
+msgid "Inactive options are hidden from the sign-up form."
+msgstr "Les options inactives sont masquées dans le formulaire d'inscription."

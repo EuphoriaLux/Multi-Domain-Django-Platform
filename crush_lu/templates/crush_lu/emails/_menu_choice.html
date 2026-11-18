@@ -1,0 +1,5 @@
+{% load i18n %}{% if registration.menu_option_name %}
+    <p><strong>{% trans "Your tasting formula:" %}</strong><br>
+    {{ registration.menu_option_name }}{% if registration.menu_option_price is not None %} — {{ registration.menu_option_price|floatformat:"-2" }} €{% endif %}<br>
+    <small>{% blocktrans trimmed with venue=registration.event.location %}Paid on site directly to {{ venue }}, separately from your Crush.lu registration.{% endblocktrans %}</small></p>
+{% endif %}

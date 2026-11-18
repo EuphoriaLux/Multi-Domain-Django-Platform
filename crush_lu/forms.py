@@ -843,6 +843,13 @@ class CoachSessionForm(forms.ModelForm):
         }
 
 
+class MenuOptionChoiceField(forms.ModelChoiceField):
+    """Radio label: "<name> — <price> €", the description rendered apart."""
+
+    def label_from_instance(self, obj):
+        return f"{obj.name} — {obj.price_display} €"
+
+
 class EventRegistrationForm(forms.ModelForm):
     """Dynamic registration form based on event configuration"""
 
@@ -920,6 +927,40 @@ class EventRegistrationForm(forms.ModelForm):
             if not event.guests_open:
                 self.fields.pop("bringing_guest", None)
                 self.fields.pop("guest_name", None)
+
+            # Events with menu options (Wine Tasting formulas) make the guest
+            # pick one. Paid to the venue on site, never through crush.lu.
+            menu_options = event.active_menu_options
+            if menu_options.exists():
+                self.fields["menu_option"] = MenuOptionChoiceField(
+                    queryset=menu_options,
+                    required=True,
+                    label=_("Your tasting formula"),
+                    empty_label=None,
+                    widget=forms.RadioSelect(
+                        attrs={
+                            "class": "h-4 w-4 border-gray-300 text-crush-purple focus:ring-crush-purple"
+                        }
+                    ),
+                    error_messages={
+                        "required": _("Please choose your formula."),
+                        "invalid_choice": _(
+                            "This formula is no longer available. Please choose "
+                            "another one."
+                        ),
+                    },
+                )
+
+    def apply_menu_choice(self, registration):
+        """Copy the chosen menu option (and a snapshot of it) onto the row.
+
+        Called on both the new and the reused (re-registration) row, so a
+        stale choice from a cancelled registration is always overwritten.
+        """
+        option = self.cleaned_data.get("menu_option")
+        registration.menu_option = option
+        registration.menu_option_name = option.name if option else ""
+        registration.menu_option_price = option.price if option else None
 
     def clean(self):
         cleaned_data = super().clean()

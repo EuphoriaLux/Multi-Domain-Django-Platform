@@ -376,6 +376,7 @@ OFFER_EVENT_TYPE_CHOICES = [
     ("themed", "Themed Event"),
     ("quiz_night", "Quiz Night"),
     ("crush_cache", "Crush Cache Hunt"),
+    ("wine_tasting", "Wine Tasting"),
 ]
 
 

@@ -24,7 +24,7 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
-from modeltranslation.admin import TranslationAdmin
+from modeltranslation.admin import TranslationAdmin, TranslationTabularInline
 
 from azureproject.admin_translation_mixin import AutoTranslateMixin
 
@@ -40,6 +40,8 @@ from crush_lu.models import (
 from crush_lu.models.events import (
     CURATED_ONLY_STATUSES,
     SEAT_HOLDING_STATUSES,
+    EventMenuOption,
+    format_menu_price,
     normalize_lu_postcode,
 )
 from crush_lu.models.payments import PaymentTransaction
@@ -383,6 +385,19 @@ class EventRegistrationAdminForm(forms.ModelForm):
         if not event or not user:
             return cleaned_data
 
+        # Formula (Wine Tasting): must belong to this event, and a change by
+        # staff refreshes the copied name/price the venue invoices from.
+        if "menu_option" in self.fields:
+            option = cleaned_data.get("menu_option")
+            if option is not None and option.event_id != event.pk:
+                self.add_error(
+                    "menu_option",
+                    _("This formula belongs to another event."),
+                )
+            elif "menu_option" in self.changed_data:
+                self.instance.menu_option_name = option.name if option else ""
+                self.instance.menu_option_price = option.price if option else None
+
         # "Applied" holds no seat, so choosing it on an event that admits
         # members on arrival silently releases one. Checked HERE rather than
         # relying on EventRegistration.clean(), because this is the only place
@@ -592,6 +607,18 @@ class EventRegistrationInline(admin.TabularInline):
     readonly_fields = ("registered_at",)
     can_delete = False
     show_change_link = True
+
+
+class EventMenuOptionInline(AutoTranslateMixin, TranslationTabularInline):
+    """Formulas a guest picks at sign-up (Wine Tasting). Paid to the venue."""
+
+    model = EventMenuOption
+    extra = 0
+    fields = ("name", "description", "price", "sort_order", "is_active")
+    verbose_name = _("Menu / tasting formula")
+    verbose_name_plural = _(
+        "Menu / tasting formulas (guests pick one at sign-up, pay the venue on site)"
+    )
 
 
 # Inline admin for Event Invitations (Private Events)
@@ -911,6 +938,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     )
     inlines = [
         QuizEventInline,
+        EventMenuOptionInline,
         CuratedEventGroupInline,
         EventRegistrationInline,
         EventInvitationInline,
@@ -932,6 +960,7 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
         "mark_unattended_as_no_show",
         "send_event_reminders",
         "export_attendees_csv",
+        "export_venue_menu_csv",
         "sync_to_echo_lu",
         "withdraw_from_echo_lu",
         "ping_google_indexing",
@@ -2368,6 +2397,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                 "Status",
                 "Payment Confirmed",
                 "Dietary Restrictions",
+                "Menu / Formula",
+                "Formula Price (EUR, paid to venue)",
                 "Bringing Guest",
                 "Guest Name",
                 "Registered At",
@@ -2402,6 +2433,8 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
                         reg.get_status_display(),
                         "Yes" if reg.payment_confirmed else "No",
                         reg.dietary_restrictions or "",
+                        reg.menu_option_name or "",
+                        format_menu_price(reg.menu_option_price),
                         "Yes" if reg.bringing_guest else "No",
                         reg.guest_name or "",
                         (
@@ -2418,6 +2451,74 @@ class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
             _("Exported attendees from %(count)d event(s) to CSV.")
             % {"count": total_events},
         )
+        return response
+
+    @admin.action(description=_("🍷 Export drinks list for the venue (CSV)"))
+    def export_venue_menu_csv(self, request, queryset):
+        """Per-guest formula list the venue invoices from (Wine Tasting).
+
+        Leaves the platform for an outside company, so it carries the minimum
+        the venue needs to charge each guest on site: name, formula and price.
+        No email, phone or dietary data. A per-formula total block follows
+        each event so the venue can plan glasses and stock.
+        """
+        import csv
+        from collections import Counter
+        from decimal import Decimal
+
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = (
+            f'attachment; filename="venue_drinks_list_'
+            f'{timezone.now().strftime("%Y%m%d_%H%M%S")}.csv"'
+        )
+        # BOM so Excel opens accents (Crémant) correctly.
+        response.write("﻿")
+        writer = csv.writer(response, delimiter=";")
+
+        for event in queryset:
+            when = (
+                timezone.localtime(event.date_time).strftime("%Y-%m-%d %H:%M")
+                if event.date_time
+                else ""
+            )
+            writer.writerow([event.title, when, event.location])
+            writer.writerow(["#", "First name", "Last name", "Formula", "Price EUR"])
+            registrations = (
+                event.eventregistration_set.filter(status__in=SEAT_HOLDING_STATUSES)
+                .select_related("user")
+                .order_by("user__last_name", "user__first_name", "pk")
+            )
+            counts = Counter()
+            totals = {}
+            for index, reg in enumerate(registrations, start=1):
+                name = reg.menu_option_name or "-"
+                writer.writerow(
+                    [
+                        index,
+                        reg.user.first_name,
+                        reg.user.last_name,
+                        name,
+                        format_menu_price(reg.menu_option_price),
+                    ]
+                )
+                counts[name] += 1
+                totals[name] = totals.get(name, Decimal("0")) + (
+                    reg.menu_option_price or Decimal("0")
+                )
+            writer.writerow([])
+            writer.writerow(["Formula", "Guests", "Total EUR"])
+            for name, count in counts.most_common():
+                writer.writerow([name, count, format_menu_price(totals[name])])
+            writer.writerow(
+                [
+                    "TOTAL",
+                    sum(counts.values()),
+                    format_menu_price(sum(totals.values(), Decimal("0"))),
+                ]
+            )
+            writer.writerow([])
         return response
 
     def formfield_for_dbfield(self, db_field, request, **kwargs):
@@ -2689,7 +2790,13 @@ class EventRegistrationAdmin(admin.ModelAdmin):
         "event__title",
     )
     autocomplete_fields = ["user", "event"]
-    readonly_fields = ("registered_at", "updated_at", "cancelled_at")
+    readonly_fields = (
+        "registered_at",
+        "updated_at",
+        "cancelled_at",
+        "menu_option_name",
+        "menu_option_price",
+    )
     # Quick inline editing for registration management
     list_editable = ("status", "payment_confirmed")
     actions = [
@@ -2708,6 +2815,16 @@ class EventRegistrationAdmin(admin.ModelAdmin):
                     "dietary_restrictions",
                     "bringing_guest",
                     "guest_name",
+                )
+            },
+        ),
+        (
+            "Menu / tasting formula (paid to the venue)",
+            {
+                "fields": (
+                    "menu_option",
+                    "menu_option_name",
+                    "menu_option_price",
                 )
             },
         ),
