@@ -9,7 +9,8 @@ themselves. So each coach gets a separate, ordinary member account, linked by
 
 Every practice member is built through the real services (photo review,
 profile verification, the verification funnel), so when a gate changes, the
-canary tests in ``test_playground_presets.py`` fail loudly instead of the
+canary tests in ``test_playground_practice.py`` and
+``test_playground_connect.py`` fail loudly instead of the
 playground drifting silently.
 
 A practice member is never deleted: "start again" retires it (releases its
@@ -713,9 +714,9 @@ def _step_connect_onboard(coach, user, check):
 
 def _step_mixer_ticket(coach, user, check):
     from crush_lu.models import EventRegistration
-    from crush_lu.services.playground_events import ensure_practice_mixer
+    from crush_lu.services.playground_events import upcoming_practice_mixer
 
-    event = ensure_practice_mixer(coach.user)
+    event = upcoming_practice_mixer(coach.user)
     EventRegistration.objects.create(event=event, user=user, status="confirmed")
     return check
 

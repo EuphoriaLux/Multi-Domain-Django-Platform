@@ -300,6 +300,7 @@ class PracticeModeGuardMiddleware:
             "socialaccount_connections",
             "luxid_login",
             "luxid_callback",
+            "disconnect_social_account",
             "set_password",
             "delete_account",
             "delete_crushlu_profile",
