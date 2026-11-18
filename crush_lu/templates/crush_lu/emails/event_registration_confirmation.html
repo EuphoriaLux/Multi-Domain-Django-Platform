@@ -33,9 +33,11 @@
 
 <div>{{ event.description|linebreaks }}</div>
 
-{% if registration.dietary_restrictions or registration.bringing_guest %}
+{% if registration.dietary_restrictions or registration.bringing_guest or registration.menu_option_name %}
 <div class="info-box">
     <strong>{% trans "Your Registration Details:" %}</strong>
+
+    {% include "crush_lu/emails/_menu_choice.html" %}
 
     {% if registration.dietary_restrictions %}
     <p><strong>{% trans "Dietary Restrictions:" %}</strong><br>

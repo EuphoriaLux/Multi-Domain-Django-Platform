@@ -188,6 +188,7 @@ class MeetupEvent(models.Model):
         ("themed", "Themed Event"),
         ("quiz_night", "Quiz Night"),
         ("crush_cache", "Crush Cache Hunt"),
+        ("wine_tasting", "Wine Tasting"),
     ]
 
     # Reachable as MeetupEvent.CANTON_CHOICES for callers that validate against
@@ -1367,6 +1368,11 @@ class MeetupEvent(models.Model):
         ).count()
 
     @property
+    def active_menu_options(self):
+        """Formulas a guest picks at sign-up (Wine Tasting), in display order."""
+        return self.menu_options.filter(is_active=True).order_by("sort_order", "pk")
+
+    @property
     def uses_curated_registration(self):
         """Do sign-ups on this event land as applications rather than seats?
 
@@ -1580,6 +1586,65 @@ class MeetupEvent(models.Model):
         return True, ""
 
 
+class EventMenuOption(models.Model):
+    """A drinks/food formula a guest picks when signing up for an event.
+
+    Built for the Wine Tasting events at partner cellars (e.g. Domaines
+    Vinsmoselle): each guest chooses one tasting formula at sign-up and pays
+    it to the venue on site. ``price`` is the venue's price and is shown for
+    information only -- crush.lu never charges it (no PaymentTransaction).
+    The venue gets the per-guest list from the attendee CSV export.
+
+    Any event that has at least one active option makes the choice required
+    on its registration form, whatever its event_type.
+    """
+
+    event = models.ForeignKey(
+        MeetupEvent, on_delete=models.CASCADE, related_name="menu_options"
+    )
+    name = models.CharField(max_length=120, help_text=_("e.g. 'Discovery tasting'"))
+    description = models.TextField(
+        blank=True,
+        help_text=_("What is included, e.g. '4 wines + 1 Crémant'"),
+    )
+    price = models.DecimalField(
+        max_digits=7,
+        decimal_places=2,
+        default=0,
+        help_text=_(
+            "Price per person charged by the venue. Paid on site to the venue, "
+            "never through crush.lu."
+        ),
+    )
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(
+        default=True,
+        help_text=_("Inactive options are hidden from the sign-up form."),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "pk"]
+        verbose_name = _("Event menu option")
+        verbose_name_plural = _("Event menu options")
+
+    def __str__(self):
+        return f"{self.name} ({self.price_display} €)"
+
+    @property
+    def price_display(self):
+        """'12' for whole euros, '12.50' otherwise (never '1E+1')."""
+        return format_menu_price(self.price)
+
+
+def format_menu_price(price):
+    if price is None:
+        return ""
+    if price == price.to_integral_value():
+        return str(int(price))
+    return f"{price:.2f}"
+
+
 class EventRegistration(models.Model):
     """User registration for meetup events"""
 
@@ -1629,6 +1694,25 @@ class EventRegistration(models.Model):
         max_length=100, blank=True, help_text=_("Guest's name (if bringing someone)")
     )
     special_requests = models.TextField(blank=True)
+
+    # Menu/formula chosen at sign-up (events with EventMenuOption rows, e.g.
+    # Wine Tasting). The name and price are copied at sign-up so the list the
+    # venue invoices from stays stable if an option is later edited or deleted.
+    menu_option = models.ForeignKey(
+        EventMenuOption,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="registrations",
+    )
+    # db_default: an older release re-swapped in (or the warm-up before a
+    # swap) inserts rows without this column; it must not fail NOT NULL.
+    menu_option_name = models.CharField(
+        max_length=120, blank=True, default="", db_default=""
+    )
+    menu_option_price = models.DecimalField(
+        max_digits=7, decimal_places=2, null=True, blank=True
+    )
 
     # Payment (if applicable)
     payment_confirmed = models.BooleanField(default=False)

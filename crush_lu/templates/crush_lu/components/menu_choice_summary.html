@@ -1,0 +1,20 @@
+{% load i18n %}
+{% comment %}
+The formula a guest chose at sign-up (Wine Tasting). Expects `registration`.
+Paid on site to the venue, separately from any Crush.lu fee.
+{% endcomment %}
+{% if registration.menu_option_name %}
+<div class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4 mb-6 text-left">
+    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+        🍷 {% trans "Your tasting formula" %}
+    </p>
+    <p class="text-gray-700 dark:text-gray-200">
+        {{ registration.menu_option_name }}{% if registration.menu_option_price is not None %} — {{ registration.menu_option_price|floatformat:"-2" }} €{% endif %}
+    </p>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+        {% blocktrans trimmed with venue=registration.event.location %}
+            Paid on site directly to {{ venue }}, separately from your Crush.lu registration.
+        {% endblocktrans %}
+    </p>
+</div>
+{% endif %}

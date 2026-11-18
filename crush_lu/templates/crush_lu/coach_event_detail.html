@@ -483,6 +483,16 @@ comes next.
     </div>
     {% endif %}
 
+    {% if menu_summary %}
+    <div class="flex flex-wrap gap-2 mb-4" aria-label="{% trans 'Guests per tasting formula' %}">
+        {% for name, count, total in menu_summary %}
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border bg-gray-50 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300">
+            🍷 <span class="font-bold">{{ count }}</span> {{ name }} <span class="opacity-70">({{ total|floatformat:"-2" }} €)</span>
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
     {% if confirmed_registrations %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {% for reg in confirmed_registrations %}
@@ -546,6 +556,11 @@ comes next.
                         {% trans "Registered" %}: {{ reg.registered_at|date:"M j, g:i A" }}
                     </p>
                     {% include "crush_lu/components/coach_promotion_notice.html" %}
+                    {% if reg.menu_option_name %}
+                    <p class="text-xs text-crush-purple flex items-center gap-1">
+                        🍷 {{ reg.menu_option_name }}{% if reg.menu_option_price is not None %} — {{ reg.menu_option_price|floatformat:"-2" }} €{% endif %}
+                    </p>
+                    {% endif %}
                     {% if event.has_food_component and reg.dietary_restrictions %}
                     <p class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                         <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
@@ -659,6 +674,11 @@ comes next.
                         {% include "shared/icons/clock.html" with class="w-3 h-3" %}
                         {% trans "Joined waitlist" %}: {{ reg.registered_at|date:"M j, g:i A" }}
                     </p>
+                    {% if reg.menu_option_name %}
+                    <p class="text-xs text-crush-purple flex items-center gap-1">
+                        🍷 {{ reg.menu_option_name }}{% if reg.menu_option_price is not None %} — {{ reg.menu_option_price|floatformat:"-2" }} €{% endif %}
+                    </p>
+                    {% endif %}
                     {% if event.has_food_component and reg.dietary_restrictions %}
                     <p class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                         <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>
@@ -843,6 +863,11 @@ size still select by moving rows to Confirmed / Pending Payment in admin.
                         {% trans "Registered" %}: {{ reg.registered_at|date:"M j, g:i A" }}
                     </p>
                     {% include "crush_lu/components/coach_promotion_notice.html" %}
+                    {% if reg.menu_option_name %}
+                    <p class="text-xs text-crush-purple flex items-center gap-1">
+                        🍷 {{ reg.menu_option_name }}{% if reg.menu_option_price is not None %} — {{ reg.menu_option_price|floatformat:"-2" }} €{% endif %}
+                    </p>
+                    {% endif %}
                     {% if event.has_food_component and reg.dietary_restrictions %}
                     <p class="text-xs text-orange-600 dark:text-orange-400 flex items-center gap-1">
                         <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path></svg>

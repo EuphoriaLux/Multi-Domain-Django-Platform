@@ -1,0 +1,35 @@
+{% load i18n %}
+{% comment %}
+Event page: the formulas a guest will pick from at sign-up (Wine Tasting),
+and, once registered, the one they chose. Prices are the venue's, paid on site.
+{% endcomment %}
+{% with options=event.active_menu_options %}
+{% if options %}
+<section class="mb-6 sm:mb-8" aria-labelledby="event-menu-heading">
+    <h2 id="event-menu-heading" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-1">
+        🍷 {% trans "Tasting formulas" %}
+    </h2>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        {% blocktrans trimmed with venue=event.location %}
+            You choose one formula when you sign up. Drinks are paid on site directly to {{ venue }}, separately from your Crush.lu registration.
+        {% endblocktrans %}
+    </p>
+    <ul class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {% for option in options %}
+        <li class="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 p-4{% if user_registration.menu_option_id == option.pk %} ring-2 ring-crush-purple{% endif %}">
+            <div class="flex items-baseline justify-between gap-3">
+                <span class="font-semibold text-gray-900 dark:text-white">{{ option.name }}</span>
+                <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">{{ option.price_display }} €</span>
+            </div>
+            {% if option.description %}
+            <p class="text-sm text-gray-600 dark:text-gray-300 mt-1">{{ option.description|linebreaksbr }}</p>
+            {% endif %}
+            {% if user_registration.menu_option_id == option.pk and user_registration.status != 'cancelled' %}
+            <p class="text-xs font-semibold text-crush-purple mt-2">{% trans "Your choice" %}</p>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}
+{% endwith %}

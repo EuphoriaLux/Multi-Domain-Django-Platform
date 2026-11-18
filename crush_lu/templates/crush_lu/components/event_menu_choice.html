@@ -1,0 +1,40 @@
+{% load i18n %}
+{% comment %}
+Menu / tasting-formula picker for events with EventMenuOption rows (Wine
+Tasting). Required on the form when present. The price is the venue's and is
+paid on site to the venue, never through crush.lu, so the copy says so.
+{% endcomment %}
+{% if form.menu_option %}
+<fieldset class="mb-6" aria-describedby="menu-option-help">
+    <legend class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-1">
+        {{ form.menu_option.label }} <span class="text-red-500" aria-hidden="true">*</span>
+    </legend>
+    <p id="menu-option-help" class="text-sm text-gray-500 dark:text-gray-400 mb-3">
+        {% blocktrans trimmed with venue=event.location %}
+            Your drinks are paid on site directly to {{ venue }}, not to Crush.lu. Choose the formula you would like to taste.
+        {% endblocktrans %}
+    </p>
+    <div class="flex flex-col gap-2">
+        {% for radio in form.menu_option %}
+            {% with option=radio.data.value.instance %}
+            <label for="{{ radio.id_for_label }}"
+                   class="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 cursor-pointer has-[:checked]:border-crush-purple has-[:checked]:ring-2 has-[:checked]:ring-crush-purple/30">
+                <span class="mt-1">{{ radio.tag }}</span>
+                <span class="flex-1">
+                    <span class="flex items-baseline justify-between gap-3">
+                        <span class="font-semibold text-gray-900 dark:text-white">{{ option.name }}</span>
+                        <span class="text-sm font-semibold text-gray-700 dark:text-gray-200 whitespace-nowrap">{{ option.price_display }} €</span>
+                    </span>
+                    {% if option.description %}
+                        <span class="block text-sm text-gray-600 dark:text-gray-300 mt-1">{{ option.description|linebreaksbr }}</span>
+                    {% endif %}
+                </span>
+            </label>
+            {% endwith %}
+        {% endfor %}
+    </div>
+    {% if form.menu_option.errors %}
+        <div class="text-red-500 text-sm mt-2" role="alert">{{ form.menu_option.errors.0 }}</div>
+    {% endif %}
+</fieldset>
+{% endif %}

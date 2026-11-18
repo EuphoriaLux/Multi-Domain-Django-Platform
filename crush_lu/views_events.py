@@ -478,6 +478,7 @@ _EVENT_TYPE_FILTER_LABELS = {
     "themed": _("Themed Event"),
     "quiz_night": _("Quiz Night"),
     "crush_cache": _("Crush Cache Hunt"),
+    "wine_tasting": _("Wine Tasting"),
 }
 
 _LIST_CARD_STATUS_TONES = {
@@ -1366,6 +1367,7 @@ def event_detail(request, event_id):
         "activity": "SocialEvent",
         "themed": "SocialEvent",
         "quiz_night": "SocialEvent",
+        "wine_tasting": "FoodEvent",
     }
     schema_type = event_type_schema.get(event.event_type, "SocialEvent")
 
@@ -2132,6 +2134,10 @@ def event_register(request, event_id):
                     registration = form.save(commit=False)
                     registration.event = locked_event
                     registration.user = request.user
+                # Both paths: the menu field is added dynamically, so
+                # ModelForm.save() never copies it, and a reused row must not
+                # keep the cancelled registration's formula.
+                form.apply_menu_choice(registration)
 
                 # A curated event admits nobody at signup: the sign-up is an
                 # application and the organiser composes the group afterwards.

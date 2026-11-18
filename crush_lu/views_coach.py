@@ -2821,6 +2821,25 @@ def coach_event_list(request):
     return render(request, "crush_lu/coach_event_list.html", context)
 
 
+def _menu_summary(registrations):
+    """[(formula name, guests, total €)] for registrations with a formula."""
+    from decimal import Decimal
+
+    rows = {}
+    for reg in registrations:
+        if not reg.menu_option_name:
+            continue
+        count, total = rows.get(reg.menu_option_name, (0, Decimal("0")))
+        rows[reg.menu_option_name] = (
+            count + 1,
+            total + (reg.menu_option_price or Decimal("0")),
+        )
+    return sorted(
+        ((name, count, total) for name, (count, total) in rows.items()),
+        key=lambda row: (-row[1], row[0]),
+    )
+
+
 @coach_required
 def coach_event_detail(request, event_id):
     """Detailed view of event registrations for coaches"""
@@ -3159,6 +3178,10 @@ def coach_event_detail(request, event_id):
             )
         )
 
+    # Wine Tasting: guests per formula among seat holders -- the numbers the
+    # venue plans glasses and invoices from (paid to the venue on site).
+    menu_summary = _menu_summary(seat_holders)
+
     context = {
         "coach": request.coach,
         "event": event,
@@ -3184,6 +3207,7 @@ def coach_event_detail(request, event_id):
         "curated_groups_panel": curated_groups_panel,
         "curated_stage_label": curated_stage_label,
         "gender_pool_stats": gender_pool_stats,
+        "menu_summary": menu_summary,
         "connection_count": connection_count,
         "mutual_connections": mutual_connections,
         "spark_count": spark_count,

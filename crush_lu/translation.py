@@ -12,7 +12,7 @@ from .models.newsletter import Newsletter
 from .models.profiles import CrushCoach, SpecialUserExperience
 from .models.matching import Trait
 from .models.site_config import CrushSiteConfig
-from .models.events import MeetupEvent
+from .models.events import EventMenuOption, MeetupEvent
 from .models.event_polls import EventPoll, EventPollOption
 from .models.quiz import QuizRound, QuizQuestion
 from .models.crush_cache import CacheHunt, CacheStation, CacheChallenge
@@ -43,6 +43,12 @@ class MeetupEventTranslationOptions(TranslationOptions):
     """Translatable fields for meetup events."""
 
     fields = ("title", "description", "cancellation_reason")
+
+
+class EventMenuOptionTranslationOptions(TranslationOptions):
+    """Translatable fields for event menu/tasting formulas."""
+
+    fields = ("name", "description")
 
 
 class JourneyConfigurationTranslationOptions(TranslationOptions):
@@ -202,6 +208,7 @@ translator.register(JourneyChallenge, JourneyChallengeTranslationOptions)
 translator.register(JourneyReward, JourneyRewardTranslationOptions)
 translator.register(EventPoll, EventPollTranslationOptions)
 translator.register(EventPollOption, EventPollOptionTranslationOptions)
+translator.register(EventMenuOption, EventMenuOptionTranslationOptions)
 translator.register(QuizRound, QuizRoundTranslationOptions)
 translator.register(QuizQuestion, QuizQuestionTranslationOptions)
 translator.register(CacheHunt, CacheHuntTranslationOptions)

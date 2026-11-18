@@ -83,6 +83,8 @@
         {% endcomment %}
         {% if not event.uses_curated_registration %}{% include "crush_lu/components/registration_waitlist_warning.html" %}{% endif %}
 
+        {% include "crush_lu/components/event_menu_choice.html" %}
+
         <!-- Dietary Restrictions (Conditional) -->
         {% if event.has_food_component %}
         <div class="form-group">
