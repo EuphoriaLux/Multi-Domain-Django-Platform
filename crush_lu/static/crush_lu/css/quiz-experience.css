@@ -626,12 +626,177 @@ button.quiz-choice:hover:not(:disabled) {
 
 .quiz-display-waiting__body {
     display: grid;
+    grid-template-rows: minmax(0, 1fr);
     min-height: 0;
 }
 
 .quiz-display-waiting__body > aside {
     min-height: 0;
     overflow-y: auto;
+}
+
+/* Projector waiting screen: use the whole width of the big screen. */
+.quiz-stage-inner--wide {
+    width: 100%;
+}
+
+/*
+ * Seating grid on the projector. It must never scroll: fitTables() in
+ * quiz-display.js sets --quiz-seat-cols and the grid's font-size so every
+ * table fits the box. Everything inside is sized in em, so one font-size
+ * scales the whole grid.
+ */
+.quiz-seat-box {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.quiz-seat-grid {
+    display: grid;
+    flex: 1 1 auto;
+    min-height: 0;
+    grid-template-columns: repeat(var(--quiz-seat-cols, 2), minmax(0, 1fr));
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 0.75em;
+    font-size: 16px;
+}
+
+.quiz-seat-grid:empty {
+    display: none;
+}
+
+.quiz-seat-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    padding: 0.85em;
+    border-radius: 1.1em;
+    background: linear-gradient(to bottom, var(--quiz-stage-raised), color-mix(in srgb, var(--quiz-stage-raised) 80%, transparent));
+    box-shadow:
+        0 0 0 1px var(--quiz-line),
+        0 1em 2em color-mix(in srgb, var(--color-black, #000) 30%, transparent);
+}
+
+.quiz-seat-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5em;
+    margin-bottom: 0.65em;
+}
+
+.quiz-seat-card__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    min-width: 0;
+}
+
+.quiz-seat-card__badge {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.9em;
+    height: 1.9em;
+    border-radius: 0.45em;
+    font-size: 1.3em;
+    font-weight: 700;
+    color: var(--quiz-text);
+    background: linear-gradient(135deg, var(--quiz-accent), var(--quiz-accent-secondary));
+}
+
+.quiz-seat-card__label {
+    overflow: hidden;
+    font-size: 1.3em;
+    font-weight: 700;
+    color: var(--quiz-text);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.quiz-seat-card__score {
+    flex-shrink: 0;
+    padding: 0.3em 0.8em;
+    border-radius: 999px;
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+    color: oklch(87.2% 0.01 258.338);
+    background: var(--quiz-stage-soft);
+}
+
+.quiz-seat-card__score.has-points {
+    font-weight: 700;
+    color: var(--quiz-accent-secondary);
+    background: color-mix(in srgb, var(--quiz-accent-secondary) 20%, transparent);
+}
+
+.quiz-seat-card__list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+    min-height: 0;
+}
+
+.quiz-seat-card__empty {
+    padding-block: 1em;
+    font-style: italic;
+    text-align: center;
+    color: var(--quiz-text-muted);
+}
+
+.quiz-seat-row {
+    display: flex;
+    align-items: center;
+    gap: 0.65em;
+    min-width: 0;
+    padding: 0.4em 0.6em;
+    border-radius: 0.6em;
+    background: color-mix(in srgb, var(--color-slate-700, #334155) 40%, transparent);
+}
+
+.quiz-seat-avatar {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.4em;
+    height: 2.4em;
+    border-radius: 999px;
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--quiz-text);
+    object-fit: cover;
+}
+
+.quiz-seat-row__name {
+    overflow: hidden;
+    min-width: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--quiz-text);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.quiz-seat-row__role {
+    flex-shrink: 0;
+    margin-left: auto;
+    font-size: 0.75em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.quiz-seat-row__role.is-anchor {
+    color: var(--color-blue-400, oklch(70.7% 0.165 254.624));
+}
+
+.quiz-seat-row__role.is-rotator {
+    color: var(--color-pink-400, oklch(71.8% 0.202 349.761));
 }
 
 .quiz-display-leaderboard-grid {
@@ -792,7 +957,8 @@ button.quiz-choice:hover:not(:disabled) {
     }
 
     .quiz-display-waiting__body {
-        grid-template-columns: minmax(0, 1fr) minmax(24rem, 28rem);
+        /* The seating grid gets the space; the join panel stays readable. */
+        grid-template-columns: minmax(0, 1fr) clamp(18rem, 22vw, 28rem);
     }
 
     .quiz-display-leaderboard-grid {

@@ -72,7 +72,7 @@
         </section>
 
         <section x-show="isWaiting" x-cloak class="quiz-display-screen flex flex-col p-6 lg:p-10">
-            <header class="quiz-stage-inner quiz-stage-header max-w-7xl">
+            <header class="quiz-stage-inner quiz-stage-inner--wide quiz-stage-header">
                 <div>
                     <p class="quiz-stage-kicker">{% trans "Crush Quiz Night" %}</p>
                     <h1 class="quiz-stage-title" x-text="eventTitle"></h1>
@@ -84,15 +84,16 @@
                 </div>
             </header>
 
-            <div class="quiz-stage-inner mb-6 max-w-7xl">
+            <div class="quiz-stage-inner quiz-stage-inner--wide mb-6">
                 <div class="quiz-timer-track h-3">
                     <div class="quiz-timer-fill" x-bind:style="progressBarStyle"></div>
                 </div>
             </div>
 
-            <div class="quiz-display-waiting__body quiz-stage-inner max-w-7xl flex-1 gap-6">
-                <div class="quiz-surface min-h-0 overflow-y-auto p-5">
-                    <div x-ref="tablegrid" class="grid gap-4" style="grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));"></div>
+            <div class="quiz-display-waiting__body quiz-stage-inner quiz-stage-inner--wide flex-1 gap-6">
+                {# Projector: the seating grid never scrolls. fitTables() in quiz-display.js picks the column count and font size so every table fits the box. #}
+                <div x-ref="tablebox" class="quiz-surface quiz-seat-box p-5">
+                    <div x-ref="tablegrid" class="quiz-seat-grid"></div>
                     <div x-show="hasNoTables" class="quiz-key-moment flex h-full min-h-64 flex-col items-center justify-center">
                         <div class="quiz-key-moment__ghost mb-3">
                             {% include "crush_lu/includes/ghost-story-blushing-reader.html" with class="w-full h-full" %}

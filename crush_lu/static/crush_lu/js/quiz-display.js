@@ -332,6 +332,22 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
 
+                // Re-fit the projector seating grid whenever its box changes
+                // size: the waiting screen appearing, a resize, fullscreen.
+                if (window.ResizeObserver && this.$refs.tablebox) {
+                    // A timer, not requestAnimationFrame: rAF is paused while
+                    // the tab is hidden, so a projector tab opened in the
+                    // background would keep a stale size.
+                    this._tableBoxObserver = new ResizeObserver(function () {
+                        if (self._fitTimer) clearTimeout(self._fitTimer);
+                        self._fitTimer = setTimeout(function () {
+                            self._fitTimer = null;
+                            self.fitTables();
+                        }, 60);
+                    });
+                    this._tableBoxObserver.observe(this.$refs.tablebox);
+                }
+
                 // Watch data changes to trigger imperative DOM renders
                 this.$watch("tables", function () {
                     self.renderTables();
@@ -365,6 +381,8 @@ document.addEventListener("alpine:init", function () {
             },
 
             destroy: function () {
+                if (this._tableBoxObserver) this._tableBoxObserver.disconnect();
+                if (this._fitTimer) clearTimeout(this._fitTimer);
                 if (this._pollDelay) clearTimeout(this._pollDelay);
                 this.stopPolling();
                 this.stopCountdown();
@@ -985,6 +1003,12 @@ document.addEventListener("alpine:init", function () {
                 var s = size || "sm";
                 var dim = s === "lg" ? "h-10 w-10 text-sm" : "h-7 w-7 text-xs";
                 var imgDim = s === "lg" ? "h-10 w-10" : "h-7 w-7";
+                // "fit": sized in em by .quiz-seat-avatar, so it scales with the
+                // projector seating grid (see fitTables).
+                if (s === "fit") {
+                    dim = "quiz-seat-avatar";
+                    imgDim = "quiz-seat-avatar";
+                }
                 var initials =
                     member.initials || member.display_name.slice(0, 2).toUpperCase();
                 var color = member.color || "#8B5CF6";
@@ -1044,24 +1068,22 @@ document.addEventListener("alpine:init", function () {
                 var self = this;
                 this.tables.forEach(function (table) {
                     var card = document.createElement("div");
-                    card.className =
-                        "rounded-2xl bg-gradient-to-b from-slate-800 to-slate-800/80 p-6 shadow-xl ring-1 ring-white/10";
+                    card.className = "quiz-seat-card";
 
                     // Header with table number badge and score
                     var header = document.createElement("div");
-                    header.className = "flex items-center justify-between mb-5";
+                    header.className = "quiz-seat-card__header";
 
                     var leftGroup = document.createElement("div");
-                    leftGroup.className = "flex items-center gap-3";
+                    leftGroup.className = "quiz-seat-card__title";
 
                     var badge = document.createElement("div");
-                    badge.className =
-                        "flex h-14 w-14 items-center justify-center rounded-xl bg-gradient-to-br from-crush-purple to-crush-pink text-2xl font-bold text-white shadow-lg shadow-crush-purple/30";
+                    badge.className = "quiz-seat-card__badge";
                     badge.textContent = String(table.table_number);
                     leftGroup.appendChild(badge);
 
                     var label = document.createElement("span");
-                    label.className = "text-2xl font-bold text-white";
+                    label.className = "quiz-seat-card__label";
                     label.textContent = strTable + " " + table.table_number;
                     leftGroup.appendChild(label);
 
@@ -1069,12 +1091,10 @@ document.addEventListener("alpine:init", function () {
 
                     var score = document.createElement("span");
                     if (table.total_score > 0) {
-                        score.className =
-                            "rounded-full bg-crush-pink/20 px-4 py-1.5 text-base font-bold text-crush-pink";
+                        score.className = "quiz-seat-card__score has-points";
                         score.textContent = table.total_score + " " + strPts;
                     } else {
-                        score.className =
-                            "rounded-full bg-slate-700 px-4 py-1.5 text-base font-medium text-gray-300";
+                        score.className = "quiz-seat-card__score";
                         score.textContent = table.members.length + " " + strPlayers;
                     }
                     header.appendChild(score);
@@ -1084,37 +1104,32 @@ document.addEventListener("alpine:init", function () {
                     // Members with avatars
                     if (table.members.length === 0) {
                         var empty = document.createElement("div");
-                        empty.className =
-                            "flex items-center justify-center py-6 text-base text-gray-500 italic";
+                        empty.className = "quiz-seat-card__empty";
                         empty.textContent = strWaiting;
                         card.appendChild(empty);
                     } else {
                         var list = document.createElement("div");
-                        list.className = "space-y-2";
+                        list.className = "quiz-seat-card__list";
                         table.members.forEach(function (m) {
                             var row = document.createElement("div");
-                            row.className =
-                                "flex items-center gap-4 rounded-lg bg-slate-700/40 px-3 py-3";
+                            row.className = "quiz-seat-row";
 
-                            row.appendChild(self._avatarNode(m, "lg"));
+                            row.appendChild(self._avatarNode(m, "fit"));
 
                             var name = document.createElement("span");
-                            name.className =
-                                "text-xl font-semibold text-white truncate";
+                            name.className = "quiz-seat-row__name";
                             name.textContent = m.display_name;
                             row.appendChild(name);
 
                             if (m.role === "anchor") {
                                 var anchor = document.createElement("span");
-                                anchor.className =
-                                    "ml-auto text-sm text-blue-400 font-semibold";
-                                anchor.textContent = "\u2693 " + strAnchor;
+                                anchor.className = "quiz-seat-row__role is-anchor";
+                                anchor.textContent = "⚓ " + strAnchor;
                                 row.appendChild(anchor);
                             } else if (m.role === "rotator") {
                                 var rotator = document.createElement("span");
-                                rotator.className =
-                                    "ml-auto text-sm text-pink-400 font-semibold";
-                                rotator.textContent = "\u21BB " + strRotator;
+                                rotator.className = "quiz-seat-row__role is-rotator";
+                                rotator.textContent = "↻ " + strRotator;
                                 row.appendChild(rotator);
                             }
 
@@ -1125,6 +1140,82 @@ document.addEventListener("alpine:init", function () {
 
                     grid.appendChild(card);
                 });
+                this.fitTables();
+            },
+
+            /**
+             * Fit the seating grid into its box so the projector never scrolls.
+             *
+             * Picks the column count that gives the largest text for this
+             * number of tables and the fullest table, sets it as the grid's
+             * font-size (every card size is in em), then shrinks a little at a
+             * time while anything still overflows. A hidden screen has no
+             * size, so it does nothing; the ResizeObserver set up in init()
+             * calls it again when the waiting screen appears or the window
+             * changes size.
+             */
+            fitTables: function () {
+                var grid = this.$refs.tablegrid;
+                var box = this.$refs.tablebox;
+                if (!grid || !box) return;
+                var count = this.tables.length;
+                if (!count) return;
+                var style = window.getComputedStyle(box);
+                var width =
+                    box.clientWidth -
+                    parseFloat(style.paddingLeft) -
+                    parseFloat(style.paddingRight);
+                var height =
+                    box.clientHeight -
+                    parseFloat(style.paddingTop) -
+                    parseFloat(style.paddingBottom);
+                if (width <= 0 || height <= 0) return;
+
+                var maxMembers = 1;
+                this.tables.forEach(function (t) {
+                    if (t.members.length > maxMembers) maxMembers = t.members.length;
+                });
+                // Natural card size in em, from the .quiz-seat-* rules:
+                // padding + header + one row (avatar 2.4 x 0.8em + padding) per member.
+                var cardWidthEm = 16;
+                var cardHeightEm =
+                    1.7 + 2.5 + 0.65 + maxMembers * 2.75 + 0.4 * (maxMembers - 1);
+                var gapEm = 0.75;
+
+                var best = { cols: 1, size: 0, empty: count };
+                for (var cols = 1; cols <= count; cols++) {
+                    var rows = Math.ceil(count / cols);
+                    var size = Math.min(
+                        width / (cols * cardWidthEm + (cols - 1) * gapEm),
+                        height / (rows * cardHeightEm + (rows - 1) * gapEm)
+                    );
+                    var emptyCells = rows * cols - count;
+                    if (
+                        size > best.size * 1.02 ||
+                        (size > best.size * 0.98 && emptyCells < best.empty)
+                    ) {
+                        best = { cols: cols, size: size, empty: emptyCells };
+                    }
+                }
+
+                var fontSize = Math.max(8, Math.min(best.size, 40));
+                grid.style.setProperty("--quiz-seat-cols", String(best.cols));
+                grid.style.fontSize = fontSize + "px";
+
+                // The estimate is only an estimate (photos, fonts, rounding):
+                // shrink step by step until nothing overflows.
+                var overflows = function () {
+                    if (grid.scrollHeight > grid.clientHeight + 1) return true;
+                    var cards = grid.children;
+                    for (var i = 0; i < cards.length; i++) {
+                        if (cards[i].scrollHeight > cards[i].clientHeight + 1) return true;
+                    }
+                    return false;
+                };
+                for (var step = 0; step < 30 && fontSize > 8 && overflows(); step++) {
+                    fontSize = Math.max(8, fontSize * 0.94);
+                    grid.style.fontSize = fontSize + "px";
+                }
             },
 
             renderChoices: function () {
