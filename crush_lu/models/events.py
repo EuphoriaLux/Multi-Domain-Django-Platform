@@ -1373,6 +1373,26 @@ class MeetupEvent(models.Model):
         return self.menu_options.filter(is_active=True).order_by("sort_order", "pk")
 
     @property
+    def menu_showcase(self):
+        """Active formulas split for display: the one to promote, then the rest.
+
+        The featured formula is the single most expensive one, shown first with
+        the wine-ghost animation. With fewer than two formulas, or a tie for the
+        top price, nothing is featured and every formula is listed plainly.
+        """
+        options = list(self.active_menu_options)
+        featured = None
+        if len(options) >= 2:
+            top = max(options, key=lambda option: option.price)
+            if sum(1 for option in options if option.price == top.price) == 1:
+                featured = top
+        return {
+            "featured": featured,
+            "others": [option for option in options if option is not featured],
+            "count": len(options),
+        }
+
+    @property
     def uses_curated_registration(self):
         """Do sign-ups on this event land as applications rather than seats?
 

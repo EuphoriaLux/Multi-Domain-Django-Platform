@@ -48472,6 +48472,12 @@ msgstr ""
 "Réglée sur place directement auprès de %(venue)s, séparément de votre "
 "inscription Crush.lu."
 
+msgid "The ghost's favourite"
+msgstr "Le coup de cœur du fantôme"
+
+msgid "per person, paid on site"
+msgstr "par personne, à régler sur place"
+
 msgid "Tasting formulas"
 msgstr "Formules de dégustation"
 
