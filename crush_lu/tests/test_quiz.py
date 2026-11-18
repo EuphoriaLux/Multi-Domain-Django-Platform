@@ -5304,3 +5304,144 @@ class TestSeatChangeReauthorization:
         sent = consumer.send_json.await_args.args[0]
         assert sent == {"type": "quiz.table_update", "data": {"table_number": 1}}
         assert "affected_user_id" not in sent["data"]
+
+
+# ============================================================================
+# HTTP SCORE FALLBACK BROADCASTS LIKE THE SOCKET
+# ============================================================================
+
+
+@pytest.mark.django_db
+class TestScoreTableHttpBroadcast:
+    """A score sent over HTTP (the host's socket was down) must reach the
+    room the same way a tap over the socket does: table scored, then the
+    reveal and fresh standings once the last table is in."""
+
+    def _setup(self, quiz_event, n_tables=2):
+        round1 = QuizRound.objects.create(
+            quiz=quiz_event, title="R1", sort_order=0, time_per_question=30
+        )
+        question = QuizQuestion.objects.create(
+            round=round1, text="Q?", question_type="open_ended", points=10
+        )
+        tables = [
+            QuizTable.objects.create(quiz=quiz_event, table_number=n)
+            for n in range(1, n_tables + 1)
+        ]
+        return question, tables
+
+    def _post(self, client, quiz_event, table, question, is_correct=True):
+        return client.post(
+            f"/api/quiz/{quiz_event.id}/score-table/",
+            data=json.dumps(
+                {
+                    "table_id": table.id,
+                    "question_id": question.id,
+                    "is_correct": is_correct,
+                }
+            ),
+            content_type="application/json",
+        )
+
+    def _client_and_layer(self, coach_user):
+        from unittest.mock import AsyncMock, MagicMock
+
+        from django.test import Client
+
+        client = Client()
+        client.force_login(coach_user)
+        layer = MagicMock()
+        layer.group_send = AsyncMock()
+        return client, layer
+
+    def _sent(self, layer):
+        return [(c.args[0], c.args[1]) for c in layer.group_send.call_args_list]
+
+    def test_first_table_sends_only_table_scored(self, quiz_event, coach_user):
+        from unittest.mock import patch
+
+        question, tables = self._setup(quiz_event)
+        client, layer = self._client_and_layer(coach_user)
+
+        with patch("channels.layers.get_channel_layer", return_value=layer):
+            r = self._post(client, quiz_event, tables[0], question)
+        assert r.status_code == 200, r.content
+
+        sent = self._sent(layer)
+        assert [m["type"] for _, m in sent] == ["quiz.table_scored"]
+        group, msg = sent[0]
+        assert group == f"quiz_{quiz_event.id}"
+        assert msg["data"] == {
+            "table_id": tables[0].id,
+            "table_number": 1,
+            "question_id": question.id,
+            "scored_count": 1,
+            "total_tables": 2,
+        }
+        # Correctness stays hidden until the reveal, as over the socket.
+        assert "is_correct" not in msg["data"]
+
+    def test_last_table_sends_reveal_and_standings(self, quiz_event, coach_user):
+        from unittest.mock import patch
+
+        question, tables = self._setup(quiz_event)
+        client, layer = self._client_and_layer(coach_user)
+
+        with patch("channels.layers.get_channel_layer", return_value=layer):
+            assert (
+                self._post(client, quiz_event, tables[0], question, True).status_code
+                == 200
+            )
+            layer.group_send.reset_mock()
+            r = self._post(client, quiz_event, tables[1], question, False)
+        assert r.status_code == 200, r.content
+
+        sent = self._sent(layer)
+        assert [m["type"] for _, m in sent] == [
+            "quiz.table_scored",
+            "quiz.reveal_scores",
+            "quiz.leaderboard",
+        ]
+        assert {g for g, _ in sent} == {f"quiz_{quiz_event.id}"}
+
+        reveal = sent[1][1]["data"]
+        assert reveal["question_id"] == question.id
+        by_table = {r["table_number"]: r for r in reveal["results"]}
+        assert by_table[1]["is_correct"] is True
+        assert by_table[1]["points_awarded"] == 10
+        assert by_table[2]["is_correct"] is False
+        assert by_table[2]["points_awarded"] == 0
+
+        standings = sent[2][1]["data"]
+        assert {"tables", "individuals"} <= set(standings)
+        assert len(standings["tables"]) == 2
+
+    def test_rejected_rescore_sends_nothing(self, quiz_event, coach_user):
+        from unittest.mock import patch
+
+        question, tables = self._setup(quiz_event)
+        client, layer = self._client_and_layer(coach_user)
+
+        with patch("channels.layers.get_channel_layer", return_value=layer):
+            assert (
+                self._post(client, quiz_event, tables[0], question, True).status_code
+                == 200
+            )
+            layer.group_send.reset_mock()
+            r = self._post(client, quiz_event, tables[0], question, True)
+        assert r.status_code == 409
+        layer.group_send.assert_not_called()
+
+    def test_broadcast_failure_keeps_the_score(self, quiz_event, coach_user):
+        from unittest.mock import patch
+
+        question, tables = self._setup(quiz_event)
+        client, layer = self._client_and_layer(coach_user)
+        layer.group_send.side_effect = RuntimeError("redis down")
+
+        with patch("channels.layers.get_channel_layer", return_value=layer):
+            r = self._post(client, quiz_event, tables[0], question)
+        assert r.status_code == 200, r.content
+        assert TableRoundScore.objects.filter(
+            quiz=quiz_event, table=tables[0], question=question
+        ).exists()

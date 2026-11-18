@@ -348,6 +348,69 @@ def _get_personal_score(quiz, user):
     )
 
 
+def _broadcast_table_scored(quiz, table, question, scored_count, total_tables):
+    """Tell the room about a score that came in over HTTP.
+
+    The host page falls back to this endpoint when its socket is down (a coach
+    on patchy venue wifi). The score was saved, but nobody else heard about it:
+    the other hosts' table grids did not move, and if it was the last table the
+    reveal and the new standings never went out, so the room sat on the
+    question. Send the same three messages ``QuizConsumer.handle_score_table``
+    sends, in the same order, to the same group. A failed broadcast must not
+    undo or fail the saved score, so it is logged and swallowed.
+    """
+    try:
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+
+        from crush_lu.consumers import build_leaderboard, build_reveal_results
+        from crush_lu.services.quiz_blanks import revealed_segments_payload
+
+        channel_layer = get_channel_layer()
+        if not channel_layer:
+            return
+        group = f"quiz_{quiz.id}"
+        send = async_to_sync(channel_layer.group_send)
+
+        # No correctness here, as over the socket: it waits for the reveal.
+        send(
+            group,
+            {
+                "type": "quiz.table_scored",
+                "data": {
+                    "table_id": table.id,
+                    "table_number": table.table_number,
+                    "question_id": question.id,
+                    "scored_count": scored_count,
+                    "total_tables": total_tables,
+                },
+            },
+        )
+
+        if scored_count >= total_tables:
+            send(
+                group,
+                {
+                    "type": "quiz.reveal_scores",
+                    "data": {
+                        "question_id": question.id,
+                        "results": build_reveal_results(quiz, question),
+                        **revealed_segments_payload(question),
+                    },
+                },
+            )
+            send(
+                group,
+                {"type": "quiz.leaderboard", "data": build_leaderboard(quiz.id)},
+            )
+    except Exception:
+        logger.exception(
+            "score_table: WS broadcast failed for quiz %s question %s",
+            quiz.id,
+            question.id,
+        )
+
+
 @login_required
 def score_table(request, quiz_id):
     """Host-only REST endpoint to score a table for a question."""
@@ -512,6 +575,8 @@ def score_table(request, quiz_id):
 
     total_tables = QuizTable.objects.filter(quiz=quiz).count()
     scored_count = TableRoundScore.objects.filter(quiz=quiz, question=question).count()
+
+    _broadcast_table_scored(quiz, table, question, scored_count, total_tables)
 
     return JsonResponse(
         {
