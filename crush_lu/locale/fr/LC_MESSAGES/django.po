@@ -48532,3 +48532,23 @@ msgstr ""
 
 msgid "Inactive options are hidden from the sign-up form."
 msgstr "Les options inactives sont masquées dans le formulaire d'inscription."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "or with a code to your phone"
+msgstr "ou avec un code sur votre téléphone"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "Get my code on WhatsApp"
+msgstr "Recevoir mon code sur WhatsApp"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "We'll send a 6-digit code to your WhatsApp. It takes a few seconds."
+msgstr "Nous vous envoyons un code à 6 chiffres sur WhatsApp. Cela ne prend que quelques secondes."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "No WhatsApp?"
+msgstr "Pas de WhatsApp ?"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "Get the code by SMS"
+msgstr "Recevoir le code par SMS"

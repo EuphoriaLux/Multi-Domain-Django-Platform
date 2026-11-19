@@ -79,9 +79,8 @@
           {% trans "With LuxID (Luxembourg's official login app), a few clicks are all it takes to verify it's you. Once that's done, Crush Connect unlocks automatically and a Coach will guide you in the quest for your ideal Crush." %}
         </p>
         {% if luxid_connect_url %}
-        <a href="{{ luxid_connect_url }}" class="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-indigo-700">
-          {% trans "Connect LuxID" %}
-        </a>
+        {% trans "Connect LuxID" as luxid_label %}
+        {% include "crush_lu/includes/luxid_connect_button.html" with url=luxid_connect_url label=luxid_label btn_class="inline-flex w-full items-center justify-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-indigo-700" %}
         {% elif luxid_connected %}
         <span class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-green-50 px-4 py-2 text-sm font-semibold text-green-700 dark:bg-green-900/20 dark:text-green-300">
           {% include "shared/icons/check-circle.html" with class="w-4 h-4 flex-shrink-0" %}

@@ -1,0 +1,25 @@
+{% load i18n %}
+{% comment %}
+  "Connect LuxID" call to action as a POST form instead of a plain link.
+
+  A GET on /accounts/<provider>/login/ only renders allauth's confirmation
+  page (SOCIALACCOUNT_LOGIN_ON_GET = False, login-CSRF fix #542), so a link
+  costs the member a second "Continue" click. App Insights (Aug-Nov 2026)
+  showed about a quarter of members stop on that page. POSTing straight to
+  the same URL with a CSRF token skips it and keeps the #542 protection: the
+  confirmation page itself does nothing more than this form.
+
+  Parameters:
+    url        the connect URL, query string included (?process=connect&next=…)
+    btn_class  classes for the submit button
+    label      button text (already translated by the caller)
+    icon       optional: "shield" renders the shield-check icon before the label
+    form_class optional: classes for the <form> wrapper
+{% endcomment %}
+<form method="post" action="{{ url }}" class="{{ form_class|default:'' }}">
+  {% csrf_token %}
+  <button type="submit" class="{{ btn_class }}">
+    {% if icon == "shield" %}{% include "shared/icons/shield-check.html" with class="w-4 h-4" %}{% endif %}
+    {{ label }}
+  </button>
+</form>

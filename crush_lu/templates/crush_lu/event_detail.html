@@ -703,7 +703,8 @@
                                             <p class="text-xs sm:text-sm mb-3">{% trans "This event is for verified members only. Get verified at an entry event or with LuxID first." %}</p>
                                             <div class="flex flex-wrap gap-2">
                                                 {% if luxid_connect_url %}
-                                                <a href="{{ luxid_connect_url }}" class="btn-crush-solid btn-sm">{% trans "Verify with LuxID" %}</a>
+                                                {% trans "Verify with LuxID" as luxid_label %}
+                                                {% include "crush_lu/includes/luxid_connect_button.html" with url=luxid_connect_url label=luxid_label btn_class="btn-crush-solid btn-sm" %}
                                                 {% endif %}
                                                 <a href="{% url 'crush_lu:event_list' %}?entry=1" class="btn-crush-outline btn-sm">{% trans "See entry events" %}</a>
                                             </div>
