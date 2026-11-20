@@ -41,7 +41,8 @@
     {% trans "Connect LuxID to join Crush Connect and become discoverable to Premium members." %}
   </p>
   {% if luxid_connect_url %}
-  <a href="{{ luxid_connect_url }}" class="flex-shrink-0 text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">{% trans "Connect" %}</a>
+  {% trans "Connect" as luxid_label %}
+  {% include "crush_lu/includes/luxid_connect_button.html" with url=luxid_connect_url label=luxid_label form_class="flex-shrink-0" btn_class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-400" %}
   {% endif %}
 </div>
 {% endif %}

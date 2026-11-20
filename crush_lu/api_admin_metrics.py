@@ -16,6 +16,7 @@ wrapper pattern in ``api_admin_hybrid.pre_screening_invites``:
 from __future__ import annotations
 
 import logging
+import time
 from io import StringIO
 
 from django.core.management import CommandError, call_command
@@ -95,6 +96,12 @@ def rotate_connect_questions_sweep(request):
     )
 
 
+# Matches send_profile_reminders.SEND_TIME_BUDGET_SECONDS (Function HTTP timeout 60s).
+REMINDER_SWEEP_BUDGET_SECONDS = 55
+# One Graph send can block up to 30s; below that, starting a run is pointless.
+VERIFICATION_REMINDER_MIN_SECONDS = 31
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def profile_reminders_sweep(request):
@@ -110,6 +117,7 @@ def profile_reminders_sweep(request):
         return _unauthorized(request)
 
     started = timezone.now()
+    started_monotonic = time.monotonic()
     buffer = StringIO()
     try:
         call_command("send_profile_reminders", stdout=buffer, stderr=buffer)
@@ -121,6 +129,27 @@ def profile_reminders_sweep(request):
         return JsonResponse({"error": "internal_error"}, status=500)
 
     logger.info("[profile_reminders] completed: %s", buffer.getvalue().strip())
+
+    # Verification reminders for submitted, not yet verified members ride on
+    # the same daily timer, within what is left of the request's 55s budget.
+    # A failure here is logged and does not fail the profile-reminder sweep.
+    left = REMINDER_SWEEP_BUDGET_SECONDS - (time.monotonic() - started_monotonic)
+    if left > VERIFICATION_REMINDER_MIN_SECONDS:
+        vbuffer = StringIO()
+        try:
+            call_command(
+                "send_verification_reminders",
+                time_budget=left,
+                stdout=vbuffer,
+                stderr=vbuffer,
+            )
+            logger.info(
+                "[verification_reminders] completed: %s", vbuffer.getvalue().strip()
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("[verification_reminders] error")
+    else:
+        logger.info("[verification_reminders] skipped: no time budget left")
     return JsonResponse(
         {"status": "ok", "timestamp": started.isoformat()},
         status=202,

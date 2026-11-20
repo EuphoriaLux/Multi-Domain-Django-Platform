@@ -195,11 +195,8 @@
                             <p class="text-indigo-100 mb-6 text-sm leading-relaxed">
                                 {% trans "Connect your LuxID account and get approved in seconds — no screening call, no waiting." %}
                             </p>
-                            <a href="{{ luxid_connect_url }}"
-                               class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-indigo-700 font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm">
-                                {% include "shared/icons/shield-check.html" with class="w-4 h-4" %}
-                                {% trans "Connect LuxID & get verified" %}
-                            </a>
+                            {% trans "Connect LuxID & get verified" as luxid_label %}
+                            {% include "crush_lu/includes/luxid_connect_button.html" with url=luxid_connect_url label=luxid_label icon="shield" btn_class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-indigo-700 font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm" %}
                         </div>
                         <div class="px-6 py-3 bg-black/20 border-t border-white/10">
                             <p class="text-xs text-indigo-200 text-center mb-0">

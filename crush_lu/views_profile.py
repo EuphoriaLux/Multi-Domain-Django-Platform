@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 from django.db import transaction
 import json
@@ -816,6 +817,8 @@ def complete_profile_submission(request):
                     "submitted"  # legacy field; remove after migration cleanup
                 )
                 profile.verification_status = "pending"
+                # Starts the verification reminders (services/verification_nudges.py).
+                profile.submitted_for_verification_at = timezone.now()
 
                 # Clear ALL draft data on successful submission
                 profile.draft_data = {}
@@ -1467,6 +1470,11 @@ def phone_step(request):
         "profile": profile,
         "has_luxid_account": has_luxid_account,
         "luxid_linked_without_phone": has_luxid_account and not profile.phone_verified,
+        # POSTed by includes/luxid_connect_button.html, so the member skips
+        # allauth's "Continue" confirmation page.
+        "luxid_connect_url": reverse("luxid_login")
+        + "?"
+        + urlencode({"process": "connect", "next": request.path}),
     }
     context.update(onboarding.stepper_context(current=2))
     return render(request, "crush_lu/onboarding/phone.html", context)

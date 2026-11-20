@@ -482,8 +482,9 @@ class LuxidVerifyLinkTests(EventDetailWave3TestBase):
         ):
             html = self._get_detail(event)
 
+        # A POST form, so the member skips allauth's "Continue" page.
         self.assertIn(
-            'href="/accounts/luxid/login/?process=connect"',
+            '<form method="post" action="/accounts/luxid/login/?process=connect"',
             html,
         )
         self.assertIn("Verify with LuxID", html)

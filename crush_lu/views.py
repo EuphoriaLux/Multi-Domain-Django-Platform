@@ -883,6 +883,8 @@ def create_profile(request):
                 "submitted"  # legacy; remove after migration cleanup
             )
             profile.verification_status = "pending"
+            # Starts the verification reminders (services/verification_nudges.py).
+            profile.submitted_for_verification_at = timezone.now()
 
             if is_first_submission:
                 logger.info(
@@ -1995,6 +1997,8 @@ def edit_profile(request):
                 "submitted"  # legacy; remove after migration cleanup
             )
             profile.verification_status = "pending"
+            # Starts the verification reminders (services/verification_nudges.py).
+            profile.submitted_for_verification_at = timezone.now()
             profile.save()
 
             # Look through expired (closed-out pre-pivot) submissions so a
@@ -2377,6 +2381,7 @@ def profile_submitted(request):
 
     # Next current or upcoming event teaser.
     next_event = next_visible_event(request.user, now)
+    from .services.verification_nudges import upcoming_entry_events
 
     context = {
         "profile": profile,
@@ -2399,6 +2404,9 @@ def profile_submitted(request):
         "wait_status": wait_status,
         "progress_percent": progress_percent,
         "next_event": next_event,
+        # The concrete entry events the "Come to an event" card offers, so the
+        # in-person path is one tap away instead of a browse through all events.
+        "next_entry_events": upcoming_entry_events(now=now),
         "has_candidate_note": has_candidate_note,
         "pre_screening_visible": pre_screening_visible,
         "pre_screening_submitted": pre_screening_submitted,
