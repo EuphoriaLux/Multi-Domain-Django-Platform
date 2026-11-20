@@ -48596,8 +48596,8 @@ msgstr "Das Swipen für dieses Event ist geschlossen."
 msgid "You must attend this event to swipe."
 msgstr "Du musst an diesem Event teilgenommen haben, um zu swipen."
 
-msgid "You and %(name)s liked each other. Say hi!"
-msgstr "Du und %(name)s habt euch gegenseitig gelikt. Sag Hallo!"
+msgid "You and %(name)s liked each other at %(event)s. Say hi!"
+msgstr "Du und %(name)s habt euch bei %(event)s gegenseitig gelikt. Sag Hallo!"
 
 msgid "Your chat is open."
 msgstr "Euer Chat ist offen."
@@ -48640,3 +48640,109 @@ msgstr[1] "%(count)s Nachrichten"
 #: templates/crush_lu/create_profile.html
 msgid "Add a few playful flaws"
 msgstr "Ein paar charmante Macken hinzufügen"
+
+msgid "You chose not to appear in past-event decks. Turn that off to swipe your past events."
+msgstr "Du hast entschieden, nicht in den Decks vergangener Events zu erscheinen. Schalte das aus, um deine vergangenen Events zu swipen."
+
+msgid "You appear in past-event decks again."
+msgstr "Du erscheinst wieder in den Decks vergangener Events."
+
+msgid "Done. Nobody will see you in past-event decks any more."
+msgstr "Erledigt. Niemand sieht dich mehr in den Decks vergangener Events."
+
+msgid "Last weekend to swipe your past events"
+msgstr "Letztes Wochenende, um deine vergangenen Events zu swipen"
+
+msgid "Remember {title}?"
+msgstr "Erinnerst du dich an {title}?"
+
+msgid "Swipe your past events"
+msgstr "Swipe deine vergangenen Events"
+
+msgid "Until %(end)s: swipe the people from %(event)s and your other Crush.lu events. A mutual like opens your chat."
+msgstr "Bis %(end)s: Swipe die Leute von %(event)s und deinen anderen Crush.lu-Events. Ein gegenseitiger Like öffnet euren Chat."
+
+msgid "Your weekend plan 💜"
+msgstr "Dein Plan fürs Wochenende 💜"
+
+msgid "People from %(event)s are waiting for your swipe."
+msgstr "Leute von %(event)s warten auf deinen Swipe."
+
+msgid "Profiles left to swipe"
+msgstr "Noch Profile zu swipen"
+
+msgid "You still have people from your past events to swipe, until %(end)s."
+msgstr "Du hast noch Leute von deinen vergangenen Events zu swipen, bis %(end)s."
+
+msgid "There is no past-event swiping right now. Your matches stay available in your connections."
+msgstr "Gerade läuft kein Swipen vergangener Events. Deine Matches findest du weiterhin bei deinen Verbindungen."
+
+msgid "You are taking a break, so past-event decks are closed for you. Resume from your dashboard to swipe."
+msgstr "Du machst gerade Pause, deshalb sind die Decks vergangener Events für dich geschlossen. Beende die Pause im Dashboard, um zu swipen."
+
+msgid "You chose not to appear in past-event decks. Nobody sees you there, and you can't swipe them either."
+msgstr "Du hast entschieden, nicht in den Decks vergangener Events zu erscheinen. Dort sieht dich niemand, und du kannst sie auch nicht swipen."
+
+msgid "Until %(end)s you can swipe the people from your Crush.lu events once more. If you both like each other, your chat opens straight away. Nobody ever sees a one-sided like."
+msgstr "Bis %(end)s kannst du die Leute von deinen Crush.lu-Events noch einmal swipen. Wenn ihr euch beide mögt, öffnet sich sofort euer Chat. Niemand sieht jemals einen einseitigen Like."
+
+msgid "%(counter)s profile left"
+msgid_plural "%(counter)s profiles left"
+msgstr[0] "Noch %(counter)s Profil"
+msgstr[1] "Noch %(counter)s Profile"
+
+msgid "All swiped"
+msgstr "Alle geswipt"
+
+msgid "%(counter)s match"
+msgid_plural "%(counter)s matches"
+msgstr[0] "%(counter)s Match"
+msgstr[1] "%(counter)s Matches"
+
+msgid "You haven't attended an event yet, so there is nothing to swipe."
+msgstr "Du warst noch bei keinem Event, deshalb gibt es nichts zu swipen."
+
+msgid "Visibility"
+msgstr "Sichtbarkeit"
+
+msgid "You are hidden from past-event decks."
+msgstr "Du bist in den Decks vergangener Events ausgeblendet."
+
+msgid "Show me again"
+msgstr "Zeig mich wieder"
+
+msgid "Don't want people from past events to see you here? Hide yourself from every past-event deck. Your normal swiping right after an event is not affected."
+msgstr "Du willst nicht, dass Leute von vergangenen Events dich hier sehen? Blende dich in allen Decks vergangener Events aus. Das normale Swipen direkt nach einem Event bleibt davon unberührt."
+
+msgid "Hide me from past-event decks"
+msgstr "Mich in Decks vergangener Events ausblenden"
+
+msgid "Swipe the people from your past events, until %(end)s."
+msgstr "Swipe die Leute von deinen vergangenen Events, bis %(end)s."
+
+msgid "Matches between Crush Connect members chat in Crush Connect, with venue ideas and a coffee date. Join to get that for your next match."
+msgstr "Matches zwischen Crush-Connect-Mitgliedern chatten in Crush Connect, mit Ideen für den Treffpunkt und einem Kaffee-Date. Tritt bei, damit dein nächster Match das auch bekommt."
+
+msgid "Last weekend to swipe"
+msgstr "Letztes Wochenende zum Swipen"
+
+msgid "Swiping your past Crush.lu events closes on %(end_date)s. You still have people left to swipe — maybe someone from %(event_title)s."
+msgstr "Das Swipen deiner vergangenen Crush.lu-Events endet am %(end_date)s. Du hast noch Leute zu swipen, vielleicht jemanden von %(event_title)s."
+
+msgid "Remember %(event_title)s? Until %(end_date)s you can swipe the people from your Crush.lu events once more."
+msgstr "Erinnerst du dich an %(event_title)s? Bis %(end_date)s kannst du die Leute von deinen Crush.lu-Events noch einmal swipen."
+
+msgid "You only see people who were at the same event as you."
+msgstr "Du siehst nur Leute, die beim selben Event waren wie du."
+
+msgid "If you both like each other, your chat opens straight away."
+msgstr "Wenn ihr euch beide mögt, öffnet sich sofort euer Chat."
+
+msgid "Nobody ever sees a one-sided like."
+msgstr "Niemand sieht jemals einen einseitigen Like."
+
+msgid "Start swiping"
+msgstr "Jetzt swipen"
+
+msgid "Rather not be shown to people from past events? <a href=\"%(hub_url)s\">Hide yourself here</a> with one click."
+msgstr "Lieber nicht für Leute von vergangenen Events sichtbar sein? <a href=\"%(hub_url)s\">Hier ausblenden</a>, mit einem Klick."

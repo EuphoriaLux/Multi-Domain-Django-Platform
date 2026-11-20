@@ -1,0 +1,80 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% comment %}
+December swipe campaign hub (services/event_swipes.py, SwipeCampaign).
+Lists the member's past events with what is left to swipe, and carries the
+"don't show me in past-event decks" switch the campaign messages link to.
+{% endcomment %}
+
+{% block title %}{% trans "Swipe your past events" %} - Crush.lu{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    <h1 class="text-2xl font-bold mb-2 dark:text-white">{% trans "Swipe your past events" %}</h1>
+
+    {% if not campaign %}
+        <p class="text-muted-fg mb-6">{% trans "There is no past-event swiping right now. Your matches stay available in your connections." %}</p>
+        <a href="{% url 'crush_lu:my_connections' %}" class="btn-crush-primary inline-flex items-center gap-2">{% trans "My connections" %}</a>
+    {% elif on_break %}
+        <p class="text-muted-fg mb-6">{% trans "You are taking a break, so past-event decks are closed for you. Resume from your dashboard to swipe." %}</p>
+    {% elif hidden %}
+        <p class="text-muted-fg mb-6">{% trans "You chose not to appear in past-event decks. Nobody sees you there, and you can't swipe them either." %}</p>
+    {% else %}
+        <p class="text-muted-fg mb-6">
+            {% blocktrans with end=campaign.ends_at|date:"j F" %}Until {{ end }} you can swipe the people from your Crush.lu events once more. If you both like each other, your chat opens straight away. Nobody ever sees a one-sided like.{% endblocktrans %}
+        </p>
+
+        {% if rows %}
+            <ul class="space-y-3 mb-8" data-past-event-decks>
+                {% for row in rows %}
+                    <li class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 flex items-center gap-4">
+                        <div class="flex-grow min-w-0">
+                            <p class="font-semibold dark:text-white truncate">{{ row.event.title }}</p>
+                            <p class="text-sm text-muted-fg">
+                                {{ row.event.date_time|date:"j F Y" }}{% if row.event.location %} · {{ row.event.location }}{% endif %}
+                            </p>
+                            <p class="text-sm mt-1 dark:text-gray-300">
+                                {% if row.remaining %}
+                                    {% blocktrans count counter=row.remaining %}{{ counter }} profile left{% plural %}{{ counter }} profiles left{% endblocktrans %}
+                                {% else %}
+                                    {% trans "All swiped" %}
+                                {% endif %}
+                                {% if row.matches %}
+                                    · {% blocktrans count counter=row.matches %}{{ counter }} match{% plural %}{{ counter }} matches{% endblocktrans %}
+                                {% endif %}
+                            </p>
+                        </div>
+                        {% if row.remaining %}
+                            <a href="{% url 'crush_lu:event_attendees' row.event.id %}" class="btn-crush-primary shrink-0">{% trans "Swipe" %}</a>
+                        {% elif row.matches %}
+                            <a href="{% url 'crush_lu:event_attendees' row.event.id %}" class="btn-crush-outline shrink-0">{% trans "Matches" %}</a>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p class="text-muted-fg mb-8">{% trans "You haven't attended an event yet, so there is nothing to swipe." %}</p>
+        {% endif %}
+    {% endif %}
+
+    <section class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+        <h2 class="text-base font-semibold mb-1 dark:text-white">{% trans "Visibility" %}</h2>
+        {% if hidden %}
+            <p class="text-sm text-muted-fg mb-3">{% trans "You are hidden from past-event decks." %}</p>
+            <form method="post" action="{% url 'crush_lu:past_event_swipes_visibility' %}">
+                {% csrf_token %}
+                <input type="hidden" name="visible" value="1">
+                <button type="submit" class="btn-crush-outline">{% trans "Show me again" %}</button>
+            </form>
+        {% else %}
+            <p class="text-sm text-muted-fg mb-3">{% trans "Don't want people from past events to see you here? Hide yourself from every past-event deck. Your normal swiping right after an event is not affected." %}</p>
+            <form method="post" action="{% url 'crush_lu:past_event_swipes_visibility' %}">
+                {% csrf_token %}
+                <input type="hidden" name="visible" value="0">
+                <button type="submit" class="btn-crush-outline">{% trans "Hide me from past-event decks" %}</button>
+            </form>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

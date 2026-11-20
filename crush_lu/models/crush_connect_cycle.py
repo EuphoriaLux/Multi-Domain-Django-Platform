@@ -261,6 +261,18 @@ class ConnectTemporaryChat(models.Model):
         ConnectWeeklyRequest,
         on_delete=models.CASCADE,
         related_name="chat",
+        null=True,
+        blank=True,
+    )
+    # A post-event swipe match between two Connect members chats here instead
+    # of on the event connection page (decision 2026-11-20). Exactly one of
+    # ``request`` / ``event_connection`` is set.
+    event_connection = models.OneToOneField(
+        "crush_lu.EventConnection",
+        on_delete=models.CASCADE,
+        related_name="connect_chat",
+        null=True,
+        blank=True,
     )
     participant_1 = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -297,6 +309,15 @@ class ConnectTemporaryChat(models.Model):
         ordering = ["-created_at"]
         verbose_name = _("Connect Temporary Chat")
         verbose_name_plural = _("Connect Temporary Chats")
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(request__isnull=False, event_connection__isnull=True)
+                    | models.Q(request__isnull=True, event_connection__isnull=False)
+                ),
+                name="crush_lu_connectchat_one_origin",
+            ),
+        ]
 
     def __str__(self):
         return f"Connect Chat: {self.participant_1.username} & {self.participant_2.username} ({self.status})"

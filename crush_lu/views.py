@@ -115,6 +115,8 @@ from .views_events import (  # noqa: F401
 from .views_connections import (  # noqa: F401
     event_attendees,
     event_swipe,
+    past_event_swipes,
+    past_event_swipes_visibility,
     request_connection,
     request_connection_inline,
     connection_actions,
@@ -403,6 +405,23 @@ def _verify_pending_luxid_member(request, profile, submission):
     return profile.verification_status == "verified"
 
 
+def _swipe_campaign_banner(user):
+    """The running swipe campaign when it has past events for ``user``."""
+    from .services import event_swipes
+
+    campaign = event_swipes.active_campaign()
+    if campaign is None or event_swipes.hidden_from_past_decks(user):
+        return None
+    attended = (
+        event_swipes.with_event_end(
+            EventRegistration.objects.filter(user=user, status="attended")
+        )
+        .filter(_event_end__lt=campaign.starts_at)
+        .exists()
+    )
+    return campaign if attended else None
+
+
 @crush_login_required
 def dashboard(request):
     """User dashboard - always shows the dating profile dashboard.
@@ -677,6 +696,7 @@ def dashboard(request):
             # #925: a case can block a fresh purchase without a notice (a
             # staff-only one): no "Go Premium" the chooser would refuse.
             "premium_purchase_blocked": blocks_new_charge(request.user),
+            "swipe_campaign": _swipe_campaign_banner(request.user),
             **_verification_path_context(profile, request.user),
         }
     except CrushProfile.DoesNotExist:
