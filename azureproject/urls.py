@@ -12,7 +12,6 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 from entreprinder import views as entreprinder_views
-from entreprinder.vibe import views as vibe_views
 
 
 # Simple health check view
@@ -27,32 +26,6 @@ urlpatterns = [
     path(
         "login_complete/", entreprinder_views.login_complete, name="login_complete"
     ),  # Add this line
-    # VinsDelux direct URLs removed - simplified to portfolio-only version
-    # Add vibe API URLs outside i18n_patterns (merged into entreprinder)
-    path(
-        "vibe-coding/api/canvas-state/",
-        vibe_views.get_canvas_state,
-        name="canvas_state_api",
-    ),
-    path(
-        "vibe-coding/api/canvas-state/<int:canvas_id>/",
-        vibe_views.get_canvas_state,
-        name="canvas_state_by_id_api",
-    ),
-    path(
-        "vibe-coding/api/place-pixel/", vibe_views.place_pixel, name="place_pixel_api"
-    ),
-    path(
-        "vibe-coding/api/pixel-history/",
-        vibe_views.get_pixel_history,
-        name="pixel_history_api",
-    ),
-    # Add direct access to road trip music game
-    path(
-        "road-trip-music/",
-        vibe_views.road_trip_music_game,
-        name="road_trip_music_game_direct",
-    ),
     path("crush/", include("crush_lu.urls")),  # Ensure crush URLs are included
     # API endpoints outside i18n_patterns — JS uses hardcoded /api/ paths
     path("api/token/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
@@ -65,8 +38,6 @@ urlpatterns = [
 urlpatterns += i18n_patterns(
     path("", entreprinder_views.home, name="home"),
     path("", include("entreprinder.urls", namespace="entreprinder")),
-    # Vibe Coding URLs - included directly for top-level namespace access
-    path("vibe-coding/", include(("entreprinder.vibe.urls", "vibe_coding"))),
 )
 
 if settings.DEBUG:

@@ -1,10 +1,9 @@
 # entreprinder/vibe/__init__.py
 """
-Vibe Coding - Interactive Games and Creative Projects
+Legacy Vibe Coding ORM ownership module.
 
-This submodule provides:
-- Lux Pixel War: Collaborative pixel art game (multiple versions)
-- Road Trip Music Game: Discovery game with music integration
-
-Previously a standalone app (vibe_coding), now merged into entreprinder.
+Only the Pixel War ORM models remain here so their ``vibe_coding_*`` database
+tables stay owned by the ``entreprinder`` app label without requiring schema
+migrations. The active Pixel War UI, JSON APIs, admin registrations, and
+management commands live in ``power_up.pixel_war``.
 """

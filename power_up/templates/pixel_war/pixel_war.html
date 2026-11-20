@@ -1,0 +1,194 @@
+{% extends "power_up/base.html" %}
+{% load static i18n %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'power_up/css/pixel_war.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="pw-root">
+    {% csrf_token %}
+
+    <section class="pw-header" aria-labelledby="pw-title">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+            <div class="pw-header-grid">
+                <div>
+                    <p class="pw-eyebrow">{% trans "Power-Up Interactive Canvas" %}</p>
+                    <h1 id="pw-title" class="pw-title">{{ canvas.name }}</h1>
+                    <p class="pw-subtitle">{% trans "Collaborate or compete — place pixels on the shared grid in real time." %}</p>
+                </div>
+                <dl class="pw-header-stats">
+                    <div class="pw-stat-pill">
+                        <dt>{% trans "Grid" %}</dt>
+                        <dd>{{ canvas.width }} × {{ canvas.height }}</dd>
+                    </div>
+                    <div class="pw-stat-pill">
+                        <dt>{% trans "Pixels painted" %}</dt>
+                        <dd id="pw-pixel-count">{{ pixel_count }}</dd>
+                    </div>
+                    <div class="pw-stat-pill">
+                        <dt>{% trans "Status" %}</dt>
+                        <dd>
+                            {% if canvas.is_active %}
+                                <span class="pw-status-badge pw-status-live">{% trans "Live" %}</span>
+                            {% else %}
+                                <span class="pw-status-badge pw-status-paused">{% trans "Paused" %}</span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                </dl>
+            </div>
+        </div>
+    </section>
+
+    <div class="pw-workspace max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div id="pw-status-live" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+        <div id="pw-alert-live" class="pw-alert-toast" role="alert" aria-live="assertive" hidden></div>
+
+        <div class="pw-layout">
+            <section id="pw-stage" class="pw-stage" aria-label="{% trans 'Pixel canvas workspace' %}">
+                <div class="pw-toolbar" role="toolbar" aria-label="{% trans 'Canvas controls' %}">
+                    <div class="pw-toolbar-group">
+                        <button type="button" id="pw-zoom-out" class="pw-tool-btn" aria-label="{% trans 'Zoom out' %}">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14" />
+                            </svg>
+                        </button>
+                        <span id="pw-zoom-level" class="pw-zoom-readout" aria-label="{% trans 'Zoom level' %}">100%</span>
+                        <button type="button" id="pw-zoom-in" class="pw-tool-btn" aria-label="{% trans 'Zoom in' %}">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                            </svg>
+                        </button>
+                        <button type="button" id="pw-zoom-reset" class="pw-tool-btn pw-tool-text">
+                            {% trans "Fit" %}
+                        </button>
+                    </div>
+
+                    <div class="pw-toolbar-group">
+                        <button type="button" id="pw-grid-toggle" class="pw-tool-btn pw-tool-text" aria-pressed="true">
+                            {% trans "Grid on" %}
+                        </button>
+                        <button type="button" id="pw-mode-toggle" class="pw-tool-btn pw-tool-text" aria-pressed="false">
+                            {% trans "Instant tap" %}
+                        </button>
+                        <button type="button" id="pw-fullscreen-toggle" class="pw-tool-btn pw-tool-text" aria-pressed="false">
+                            {% trans "Fullscreen" %}
+                        </button>
+                    </div>
+
+                    <div id="pw-inspector" class="pw-inspector">
+                        <span id="pw-inspector-swatch" class="pw-inspector-swatch" aria-hidden="true"></span>
+                        <span id="pw-inspector-text">{% trans "Hover or focus a cell" %}</span>
+                    </div>
+                </div>
+
+                <div class="pw-canvas-frame">
+                    <canvas id="pw-canvas"
+                            tabindex="0"
+                            role="application"
+                            aria-label="{% trans 'Interactive pixel art canvas' %}"
+                            aria-describedby="pw-canvas-help"></canvas>
+                </div>
+
+                <p id="pw-canvas-help" class="pw-help-text">
+                    {% trans "Click or tap to paint. Drag to pan, scroll or pinch to zoom. Keyboard: arrow keys move cell, Shift+arrows pan, + / - / 0 zoom, Enter or Space places pixel." %}
+                </p>
+
+                <div id="pw-mobile-bar" class="pw-mobile-bar" hidden>
+                    <div class="pw-mobile-bar-inner">
+                        <div class="pw-bar-selection">
+                            <span id="pw-bar-swatch" class="pw-bar-swatch" aria-hidden="true"></span>
+                            <div>
+                                <div class="pw-bar-label">{% trans "Selected cell" %}</div>
+                                <div id="pw-selected-coords" class="pw-bar-coords">{% trans "Select a cell" %}</div>
+                            </div>
+                        </div>
+                        <button type="button" id="pw-place-btn" class="pw-place-btn" aria-disabled="true">
+                            {% trans "Place pixel" %}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <aside class="pw-sidebar" aria-label="{% trans 'Palette, limits and recent activity' %}">
+                <section class="pw-card" aria-labelledby="pw-palette-heading">
+                    <h2 id="pw-palette-heading" class="pw-card-title">{% trans "Color Palette" %}</h2>
+                    <div id="pw-palette" class="pw-palette" role="group" aria-labelledby="pw-palette-heading">
+                        <button type="button" class="pw-swatch is-selected" data-color="#FE4901" style="background-color: #FE4901" aria-label="{% trans 'Power-Up Orange' %}" aria-pressed="true"></button>
+                        <button type="button" class="pw-swatch" data-color="#E11D48" style="background-color: #E11D48" aria-label="{% trans 'Crimson Red' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#F59E0B" style="background-color: #F59E0B" aria-label="{% trans 'Amber Gold' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#FACC15" style="background-color: #FACC15" aria-label="{% trans 'Bright Yellow' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#22C55E" style="background-color: #22C55E" aria-label="{% trans 'Emerald Green' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#14B8A6" style="background-color: #14B8A6" aria-label="{% trans 'Teal' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#06B6D4" style="background-color: #06B6D4" aria-label="{% trans 'Cyan' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#2563EB" style="background-color: #2563EB" aria-label="{% trans 'Royal Blue' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#4F46E5" style="background-color: #4F46E5" aria-label="{% trans 'Indigo' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#9333EA" style="background-color: #9333EA" aria-label="{% trans 'Purple' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#EC4899" style="background-color: #EC4899" aria-label="{% trans 'Pink' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#78350F" style="background-color: #78350F" aria-label="{% trans 'Brown' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#FFFFFF" style="background-color: #FFFFFF" aria-label="{% trans 'White' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#CBD5E1" style="background-color: #CBD5E1" aria-label="{% trans 'Light Slate' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#475569" style="background-color: #475569" aria-label="{% trans 'Dark Slate' %}" aria-pressed="false"></button>
+                        <button type="button" class="pw-swatch" data-color="#151625" style="background-color: #151625" aria-label="{% trans 'Midnight Blue' %}" aria-pressed="false"></button>
+                    </div>
+
+                    <div class="pw-custom-color-row">
+                        <label for="pw-custom-color" class="pw-custom-label">{% trans "Custom color" %}</label>
+                        <input type="color" id="pw-custom-color" class="pw-color-input" value="#FE4901">
+                    </div>
+
+                    <div id="pw-recent-section" class="pw-recent-section" hidden>
+                        <h3 class="pw-subheading">{% trans "Recent colors" %}</h3>
+                        <div id="pw-recent-colors" class="pw-recent-colors" role="group" aria-label="{% trans 'Recent colors' %}"></div>
+                    </div>
+                </section>
+
+                <section class="pw-card" aria-labelledby="pw-limits-heading">
+                    <h2 id="pw-limits-heading" class="pw-card-title">{% trans "Canvas & Limits" %}</h2>
+                    <dl class="pw-info-list">
+                        <div class="pw-info-row">
+                            <dt>{% trans "Selected color" %}</dt>
+                            <dd class="pw-selected-color-dd">
+                                <span id="pw-selected-swatch" class="pw-inline-swatch" style="background-color: #FE4901" aria-hidden="true"></span>
+                                <code id="pw-selected-hex">#FE4901</code>
+                            </dd>
+                        </div>
+                        <div class="pw-info-row">
+                            <dt>{% trans "Rate limit" %}</dt>
+                            <dd>{% blocktrans with ppm=pixels_per_minute cooldown=cooldown_seconds %}{{ ppm }} px/min · {{ cooldown }}s cooldown{% endblocktrans %}</dd>
+                        </div>
+                        <div class="pw-info-row">
+                            <dt>{% trans "Cooldown" %}</dt>
+                            <dd id="pw-cooldown-status" class="pw-cooldown-ready">{% trans "Ready" %}</dd>
+                        </div>
+                        <div class="pw-info-row">
+                            <dt>{% trans "Remaining this min" %}</dt>
+                            <dd id="pw-pixels-remaining">{{ pixels_per_minute }}</dd>
+                        </div>
+                        {% if is_authenticated %}
+                        <div class="pw-info-row">
+                            <dt>{% trans "Your pixels" %}</dt>
+                            <dd id="pw-user-total">{{ user_stats.total_pixels_placed|default:0 }}</dd>
+                        </div>
+                        {% endif %}
+                    </dl>
+                </section>
+
+                <section class="pw-card" aria-labelledby="pw-activity-heading">
+                    <h2 id="pw-activity-heading" class="pw-card-title">{% trans "Recent Activity" %}</h2>
+                    <ul id="pw-activity-list" class="pw-activity-list">
+                        <li class="pw-activity-empty">{% trans "Loading recent pixels…" %}</li>
+                    </ul>
+                </section>
+            </aside>
+        </div>
+    </div>
+</div>
+
+{{ pixel_war_config|json_script:"pixel-war-config" }}
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{% static 'power_up/js/pixel_war.js' %}"></script>
+{% endblock %}
