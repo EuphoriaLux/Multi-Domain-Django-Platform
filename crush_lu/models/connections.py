@@ -280,9 +280,13 @@ class EventConnection(models.Model):
     # "My Crush!" post-event flow (spec 2026-07-21-crush-my-crush-post-event-flow §7)
     FLOW_LEGACY = "legacy"
     FLOW_CRUSH = "crush"
+    # Post-event swiping (decision 2026-11-20): a mutual like between two
+    # attendees. Born ``shared`` — no coach step, chat opens immediately.
+    FLOW_SWIPE = "swipe"
     FLOW_CHOICES = [
         (FLOW_LEGACY, "Legacy connection request"),
         (FLOW_CRUSH, "My Crush! coach lead"),
+        (FLOW_SWIPE, "Mutual swipe match"),
     ]
 
     # Recipient's answer, recorded by their own coach through the constrained

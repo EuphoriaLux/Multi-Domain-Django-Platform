@@ -323,6 +323,11 @@
             </a>
         </div>
         {% endif %}
+        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <a href="{% url 'crush_lu:coach_event_matches' %}?event={{ event.id }}" class="inline-flex items-center gap-1 text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                {% trans "See swipe matches" %} →
+            </a>
+        </div>
     </div>
 </div>
 {% endif %}

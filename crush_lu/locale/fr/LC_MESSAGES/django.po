@@ -48616,3 +48616,123 @@ msgstr "Toujours pas vérifié ? Voici le moyen le plus rapide"
 #: crush_lu/templates/crush_lu/emails/verification_reminder.html
 msgid "Your Crush.lu profile is waiting to be verified"
 msgstr "Votre profil Crush.lu attend d'être vérifié"
+
+
+msgid "Swipe"
+msgstr "Swiper"
+
+msgid "Swipe right on the people you'd like to see again, left on the others. Nobody ever learns about a left swipe. If you both swipe right, it's a match and your chat opens right away."
+msgstr "Glissez à droite sur les personnes que vous aimeriez revoir, à gauche sur les autres. Personne ne sait jamais que vous avez glissé à gauche. Si vous glissez tous les deux à droite, c'est un match et votre chat s'ouvre aussitôt."
+
+msgid "<strong>%(countdown)s</strong> left to swipe."
+msgstr "Encore <strong>%(countdown)s</strong> pour swiper."
+
+msgid "%(done)s of %(total)s swiped"
+msgstr "%(done)s sur %(total)s vus"
+
+msgid "Like"
+msgstr "J'aime"
+
+msgid "Pass on %(name)s"
+msgstr "Passer %(name)s"
+
+msgid "Like %(name)s"
+msgstr "Aimer %(name)s"
+
+msgid "You've seen everyone"
+msgstr "Vous avez vu tout le monde"
+
+msgid "We'll let you know the moment someone you liked likes you back."
+msgstr "Nous vous prévenons dès qu'une personne que vous avez aimée vous aime aussi."
+
+msgid "Nobody to show yet"
+msgstr "Personne à afficher pour l'instant"
+
+msgid "Check back later: attendees appear here once the coaches have marked them as attended."
+msgstr "Revenez plus tard : les participants apparaissent ici dès que les coachs les ont marqués comme présents."
+
+msgid "Your matches from this event"
+msgstr "Vos matchs de cet événement"
+
+msgid "No matches yet. Keep swiping!"
+msgstr "Pas encore de match. Continuez à swiper !"
+
+msgid "You and __NAME__ liked each other."
+msgstr "__NAME__ et vous vous êtes plu mutuellement."
+
+msgid "Say hi"
+msgstr "Dites bonjour"
+
+msgid "Keep swiping"
+msgstr "Continuer à swiper"
+
+msgid "Something went wrong. Please try again."
+msgstr "Une erreur s'est produite. Veuillez réessayer."
+
+msgid "Swiping opens once the event ends. During the event, the Event Lobby is where Crush Connect members quietly signal who they'd like to meet."
+msgstr "Le swipe s'ouvre à la fin de l'événement. Pendant l'événement, c'est dans l'Event Lobby que les membres Crush Connect signalent discrètement qui ils aimeraient rencontrer."
+
+msgid "Swiping for this event has closed. Your matches are always available here."
+msgstr "Le swipe pour cet événement est terminé. Vos matchs restent toujours disponibles ici."
+
+msgid "Choose like or pass."
+msgstr "Choisissez J'aime ou Passer."
+
+msgid "This person is not available."
+msgstr "Cette personne n'est pas disponible."
+
+msgid "It's a match with %(name)s! Your chat is open."
+msgstr "C'est un match avec %(name)s ! Votre chat est ouvert."
+
+msgid "Swipe through the attendees — a mutual like opens a chat."
+msgstr "Parcourez les participants — un like réciproque ouvre un chat."
+
+msgid "You cannot swipe on yourself."
+msgstr "Vous ne pouvez pas vous swiper vous-même."
+
+msgid "Swiping is closed for this event."
+msgstr "Le swipe est fermé pour cet événement."
+
+msgid "You must attend this event to swipe."
+msgstr "Vous devez avoir participé à cet événement pour swiper."
+
+msgid "You and %(name)s liked each other. Say hi!"
+msgstr "%(name)s et vous vous êtes plu. Dites bonjour !"
+
+msgid "Your chat is open."
+msgstr "Votre chat est ouvert."
+
+msgid "You both swiped right. Say hi to %(name)s — the first message is all it takes."
+msgstr "Vous avez tous les deux glissé à droite. Dites bonjour à %(name)s — un premier message suffit."
+
+msgid "Event matches"
+msgstr "Matchs des événements"
+
+msgid "Attendees who swiped right on each other after an event. Read-only: matches need no coach step, and their chat stays private."
+msgstr "Participants qui se sont mutuellement glissés à droite après un événement. Lecture seule : les matchs ne nécessitent aucune étape du coach et leur chat reste privé."
+
+msgid "Show only my events"
+msgstr "Afficher uniquement mes événements"
+
+msgid "Members who swiped"
+msgstr "Membres ayant swipé"
+
+msgid "Swipes"
+msgstr "Swipes"
+
+msgid "Likes"
+msgstr "J'aime"
+
+msgid "No messages yet"
+msgstr "Pas encore de messages"
+
+msgid "No matches yet."
+msgstr "Pas encore de match."
+
+msgid "See swipe matches"
+msgstr "Voir les matchs"
+
+msgid "%(count)s message"
+msgid_plural "%(count)s messages"
+msgstr[0] "%(count)s message"
+msgstr[1] "%(count)s messages"

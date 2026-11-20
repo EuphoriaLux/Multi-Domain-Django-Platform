@@ -1369,6 +1369,11 @@ urlpatterns = [
     # Coach connection management
     path("coach/connections/", views.coach_connections, name="coach_connections"),
     path(
+        "coach/event-matches/",
+        views.coach_event_matches,
+        name="coach_event_matches",
+    ),
+    path(
         "coach/connections/<int:connection_id>/",
         views.coach_connection_review,
         name="coach_connection_review",
@@ -1441,6 +1446,11 @@ urlpatterns = [
         "events/<int:event_id>/attendees/",
         views.event_attendees,
         name="event_attendees",
+    ),
+    path(
+        "events/<int:event_id>/swipe/<int:user_id>/",
+        views.event_swipe,
+        name="event_swipe",
     ),
     path(
         "events/<int:event_id>/connect/<int:user_id>/",

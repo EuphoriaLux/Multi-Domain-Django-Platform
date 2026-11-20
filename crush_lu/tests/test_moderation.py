@@ -478,9 +478,11 @@ def test_event_attendees_hint_excludes_blocked_requester(client):
     client.force_login(me)
     resp = client.get(f"/en/events/{event.id}/attendees/")
     assert resp.status_code == 200
-    assert resp.context["incoming_pending_count"] == 0
-    attendee_users = {a["user"].id for a in resp.context["attendees"]}
-    assert requester.id not in attendee_users
+    # The swipe deck (which replaced the attendee list) never shows a
+    # blocked counterpart, so there is nothing to hint at either.
+    deck_users = {c["user"].id for c in resp.context["deck"]}
+    assert requester.id not in deck_users
+    assert b"wants to connect" not in resp.content
 
 
 @pytest.mark.django_db

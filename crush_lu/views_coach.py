@@ -5273,6 +5273,39 @@ def _compute_connection_stages(conn):
 
 
 @coach_required
+def coach_event_matches(request):
+    """Read-only list of post-event swipe matches (decision 2026-11-20).
+
+    A coach sees the matches of the events they coach; staff see all. Only
+    the pair, the event, the match time and whether the chat has started are
+    shown — never the messages themselves.
+    """
+    from django.db.models import Count
+
+    from .services.event_swipes import coach_matches, event_swipe_stats
+
+    coach = request.coach
+    show_all = request.user.is_staff and request.GET.get("scope") == "all"
+    matches = coach_matches(coach, all_events=show_all).annotate(
+        message_count=Count("messages")
+    )
+
+    event_id = request.GET.get("event")
+    event = None
+    if event_id and event_id.isdigit():
+        matches = matches.filter(event_id=int(event_id))
+        event = MeetupEvent.objects.filter(pk=int(event_id)).first()
+
+    context = {
+        "matches": matches[:300],
+        "event": event,
+        "event_stats": event_swipe_stats(event) if event else None,
+        "show_all": show_all,
+    }
+    return render(request, "crush_lu/coach_event_matches.html", context)
+
+
+@coach_required
 def coach_connections(request):
     """Coach view to review and manage post-event connections."""
     coach = request.coach
@@ -5299,6 +5332,9 @@ def coach_connections(request):
             "assigned_coach__user",
         )
         .visible_to_coach(coach)
+        # Swipe matches need no coach work; they live read-only on
+        # coach_event_matches instead of in this action queue.
+        .exclude(flow=EventConnection.FLOW_SWIPE)
         .order_by("-requested_at")
     )
 
@@ -5466,6 +5502,11 @@ def coach_connection_review(request, connection_id):
         ),
         id=connection_id,
     )
+
+    # Swipe matches are the members' own private chat: coaches see them only
+    # read-only on coach_event_matches, never through this action page.
+    if connection.flow == EventConnection.FLOW_SWIPE:
+        raise Http404
 
     # Crush leads authorize on GET as well as POST: the ownership check below
     # only blocks writes, so without this any coach — including the
