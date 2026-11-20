@@ -405,12 +405,25 @@ def send_new_connection_notification(user, connection):
     )
 
     # Use context manager for thread-safe language activation
+    is_swipe_match = getattr(connection, "flow", "") == "swipe"
     with user_language_context(user):
-        title = _("New Connection Request!")
-        body = _("%(name)s wants to connect with you!") % {"name": display_name}
+        if is_swipe_match:
+            title = _("It's a match! 🎉")
+            body = _("You and %(name)s liked each other. Say hi!") % {
+                "name": display_name
+            }
+        else:
+            title = _("New Connection Request!")
+            body = _("%(name)s wants to connect with you!") % {"name": display_name}
 
-    # Use helper for language-prefixed URL
-    url = get_user_language_url(user, "crush_lu:my_connections")
+    # Use helper for language-prefixed URL. A swipe match opens straight into
+    # its chat.
+    if is_swipe_match:
+        url = get_user_language_url(
+            user, "crush_lu:connection_detail", kwargs={"connection_id": connection.id}
+        )
+    else:
+        url = get_user_language_url(user, "crush_lu:my_connections")
 
     return send_push_notification(
         user=user,

@@ -167,3 +167,19 @@ class ConnectionMessageAdmin(admin.ModelAdmin):
             "connection__event",
             "sender",
         )
+
+
+class EventSwipeAdmin(admin.ModelAdmin):
+    """Read-only audit of post-event swipes (decisions are final by design)."""
+
+    list_display = ("event", "swiper", "target", "liked", "created_at")
+    list_filter = ("liked", "event")
+    search_fields = ("swiper__email", "target__email", "event__title")
+    raw_id_fields = ("event", "swiper", "target")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False

@@ -563,6 +563,9 @@ ACCOUNT_ERASURE_PURGE = (
     # carry a removal request are kept (moderation record; see the purge loop).
     ("UserBlock", ("blocker", "blocked")),
     ("EventMeetSignal", ("sender", "recipient")),
+    # Post-event swipes (2026-11-20): private per-member decisions, same
+    # treatment as lobby signals — they go with the account.
+    ("EventSwipe", ("swiper", "target")),
     ("EventMeetingConfirmation", ("confirmer", "other_user")),
     ("ConfirmedEncounter", ("user_low", "user_high")),
     # Devices, push endpoints, phone numbers and activity tracking.

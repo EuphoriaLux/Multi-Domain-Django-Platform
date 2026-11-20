@@ -2,96 +2,17 @@
 {% load static %}
 {% load i18n crush_media %}
 
-{# ── Django 6.0 Template Partials ── #}
-{# These partials are rendered inline AND returned standalone for HTMX swaps #}
-{# View usage: render(request, "crush_lu/event_attendees.html#connection_actions", ctx) #}
+{% comment %}
+Post-event swipe deck (decision 2026-11-20, replaces the "My Crush!" list).
 
-{% partialdef connection_actions %}
-<div id="connection-actions-{{ attendee.user.id }}" role="status" aria-live="polite">
-    {% if attendee.connection_status == 'crush_sent' %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-pink-100 dark:bg-pink-900/30 text-pink-800 dark:text-pink-300 rounded-full">
-            {% include "shared/icons/heart.html" with class="w-3 h-3" %}
-            {% trans "Crush declared — your coach will call you" %}
-        </span>
-    {% elif attendee.connection_status == 'sent' %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 rounded-full">
-            {% include "shared/icons/check-circle.html" with class="w-3 h-3" %}
-            {% trans "Request Sent" %}
-        </span>
-    {% elif attendee.connection_status == 'received' %}
-        <div class="flex flex-col sm:flex-row gap-2">
-            <button hx-post="{% url 'crush_lu:respond_connection' attendee.connection_id 'accept' %}"
-                    hx-target="#connection-actions-{{ attendee.user.id }}"
-                    hx-swap="outerHTML"
-                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 font-semibold bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors">
-                <span class="htmx-indicator">
-                    {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
-                </span>
-                <span class="htmx-hide-on-request inline-flex items-center gap-1">
-                    {% include "shared/icons/check-circle.html" with class="w-4 h-4" %}
-                    {% trans "Accept" %}
-                </span>
-            </button>
-            <button hx-post="{% url 'crush_lu:respond_connection' attendee.connection_id 'decline' %}"
-                    hx-target="#connection-actions-{{ attendee.user.id }}"
-                    hx-swap="outerHTML"
-                    hx-confirm="{% trans 'Are you sure you want to decline this connection?' %}"
-                    class="inline-flex items-center justify-center gap-2 px-4 py-2.5 font-medium border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <span class="htmx-indicator">
-                    {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
-                </span>
-                <span class="htmx-hide-on-request">
-                    {% trans "Decline" %}
-                </span>
-            </button>
-        </div>
-    {% elif attendee.connection_status == 'mutual_match' %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold rounded-full bg-gradient-to-r from-crush-purple to-crush-pink text-white shadow-sm">
-            {% include "shared/icons/heart.html" with class="w-3 h-3" %}
-            {% trans "It's a match!" %}
-        </span>
-    {% elif attendee.connection_status == 'mutual' %}
-        <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">
-            {% include "shared/icons/heart.html" with class="w-3 h-3" %}
-            {% trans "Connected!" %}
-        </span>
-    {% else %}
-        {% if not event.connection_window_active %}
-            <a href="{% url 'crush_lu:crush_connect_hub' %}"
-               class="btn-crush-solid btn-sm gap-1"
-               title="{% trans 'Connection window closed for this event' %}">
-                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                {% trans "Try Crush Connect" %}
-            </a>
-        {% elif attendee.recap_cta %}
-            {# One pair, one flow (§9.1): this pair is in the open Event Recap — no My Crush! button. #}
-            <a href="{% url 'crush_lu:event_lobby' event.id %}"
-               class="btn-crush-solid btn-sm gap-2">
-                {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
-                {% trans "Find them in your event recap" %}
-            </a>
-        {% elif crushes_remaining <= 0 %}
-            <span class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-full">
-                {% trans "Crush used for this event" %}
-            </span>
-        {% else %}
-            <button hx-get="{% url 'crush_lu:request_connection_inline' event.id attendee.user.id %}"
-                    hx-target="#connection-actions-{{ attendee.user.id }}"
-                    hx-swap="outerHTML"
-                    title="{% trans 'Who caught your eye?' %}"
-                    class="btn-crush-primary inline-flex items-center justify-center gap-2 px-4 py-2.5">
-                <span class="htmx-indicator">
-                    {% include "shared/icons/loading.html" with class="w-4 h-4 animate-spin" %}
-                </span>
-                <span class="htmx-hide-on-request inline-flex items-center gap-1">
-                    {% include "shared/icons/heart.html" with class="w-4 h-4" %}
-                    {% trans "My Crush!" %}
-                </span>
-            </button>
-        {% endif %}
-    {% endif %}
-</div>
-{% endpartialdef %}
+Every card is a plain <form> POST to crush_lu:event_swipe, so the deck works
+without JavaScript (one card per page load). event-swipe.js upgrades it:
+drag or tap, fetch() the same endpoint as JSON, animate the card away and
+show the match overlay. The .swipe-* class names and data-* attributes are
+load-bearing for that script.
+{% endcomment %}
+
+{# Legacy Crush Spark fragment, still served standalone by views_crush_spark.spark_actions (soft-removed feature); not rendered on this page. #}
 
 {% partialdef spark_actions %}
 <div id="spark-actions-{{ attendee.user.id }}">
@@ -144,21 +65,97 @@
 </div>
 {% endpartialdef %}
 
-{% block title %}Who Did You Connect With? - {{ event.title }}{% endblock %}
+{% block title %}{% trans "Swipe" %} - {{ event.title }}{% endblock %}
+
+{% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/event-swipe.css' %}">{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
     <!-- Header -->
-    <div class="text-center mb-10">
-        <h1 class="text-3xl md:text-4xl font-bold mb-3 dark:text-white">{% trans "Who did you connect with?" %} 💕</h1>
-        <p class="text-xl text-gray-500 dark:text-gray-400">{{ event.title }}</p>
-        <p class="text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2 mt-2">
+    <div class="text-center mb-5">
+        <h1 class="text-2xl md:text-4xl font-bold mb-2 dark:text-white">{% trans "Who caught your eye?" %} 💕</h1>
+        <p class="text-lg text-gray-500 dark:text-gray-400">{{ event.title }}</p>
+        <p class="hidden sm:flex text-gray-500 dark:text-gray-400 items-center justify-center gap-2 mt-2">
             {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
             {% blocktrans with date=event.date_time|date:"DATE_FORMAT" time=event.date_time|date:"TIME_FORMAT" %}{{ date }} at {{ time }}{% endblocktrans %}
         </p>
     </div>
 
-    {# Event Lobby cross-link: recap participants confirm real-world meetings there; everyone else sees the static feature promo (§5.3 as amended 2026-07-18). #}
+    <!-- Window countdown -->
+    {% if connection_window_active and connection_window_deadline %}
+    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-2.5 mb-4 flex items-center justify-center gap-2 text-sm">
+        <span class="text-amber-500">⏳</span>
+        <span class="text-amber-800 dark:text-amber-300">
+            {% blocktrans with countdown=connection_window_deadline|timeuntil %}<strong>{{ countdown }}</strong> left to swipe.{% endblocktrans %}
+        </span>
+    </div>
+    {% endif %}
+
+    <!-- Deck -->
+    <div class="swipe-deck-wrap mb-10" data-swipe-deck>
+        {% if deck_total %}
+        <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-3" data-swipe-progress
+           data-done="{{ deck_done }}" data-total="{{ deck_total }}">
+            {% blocktrans with done=deck_done total=deck_total %}{{ done }} of {{ total }} swiped{% endblocktrans %}
+        </p>
+        {% endif %}
+
+        <div class="swipe-stack">
+            {% for card in deck %}
+            <article class="swipe-card bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden{% if not forloop.first %} swipe-card--queued{% endif %}"
+                     data-swipe-card data-name="{{ card.profile.display_name }}"
+                     aria-label="{{ card.profile.display_name }}">
+                <div class="swipe-card__photo">
+                    {% if card.profile|has_public_photo:'photo_1' %}
+                        <img src="{% profile_photo_url card.profile 'photo_1' %}" {% profile_photo_style card.profile 'photo_1' %}
+                             alt="{{ card.profile.display_name }}" class="w-full h-full object-cover object-face"
+                             draggable="false" {% if not forloop.first %}loading="lazy"{% endif %}>
+                    {% else %}
+                        <div class="w-full h-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                            <span class="text-white text-7xl font-semibold">{{ card.profile.display_name|first }}</span>
+                        </div>
+                    {% endif %}
+                    <span class="swipe-stamp swipe-stamp--like" aria-hidden="true">{% trans "Like" %}</span>
+                    <span class="swipe-stamp swipe-stamp--pass" aria-hidden="true">{% trans "Pass" %}</span>
+                </div>
+                <div class="p-4">
+                    <h2 class="text-xl font-bold dark:text-white">
+                        {{ card.profile.display_name }}
+                        <span class="text-gray-500 dark:text-gray-400 font-normal text-base">({{ card.profile.age_display }})</span>
+                    </h2>
+                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2 flex items-center gap-1">
+                        {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
+                        {% if card.profile.city %}{{ card.profile.city }}{% else %}Luxembourg{% endif %}
+                    </p>
+                    {% if card.profile.interests_new.all %}
+                        {% include "crush_lu/partials/_event_identity.html" with profile=card.profile limit=":4" hide_vibe=True %}
+                    {% endif %}
+                </div>
+                <form method="post" action="{% url 'crush_lu:event_swipe' event.id card.user.id %}"
+                      class="swipe-actions flex justify-center gap-6 pb-5" data-swipe-form>
+                    {% csrf_token %}
+                    <button type="submit" name="decision" value="pass" data-swipe-decision="pass"
+                            class="swipe-btn swipe-btn--pass" aria-label="{% blocktrans with name=card.profile.display_name %}Pass on {{ name }}{% endblocktrans %}">✕</button>
+                    <button type="submit" name="decision" value="like" data-swipe-decision="like"
+                            class="swipe-btn swipe-btn--like" aria-label="{% blocktrans with name=card.profile.display_name %}Like {{ name }}{% endblocktrans %}">♥</button>
+                </form>
+            </article>
+            {% endfor %}
+
+            <div class="swipe-empty text-center py-12 px-4{% if deck %} hidden{% endif %}" data-swipe-empty>
+                <div class="text-6xl mb-4">{% if deck_total %}✨{% else %}😔{% endif %}</div>
+                {% if deck_total %}
+                    <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "You've seen everyone" %}</h4>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "We'll let you know the moment someone you liked likes you back." %}</p>
+                {% else %}
+                    <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "Nobody to show yet" %}</h4>
+                    <p class="text-gray-500 dark:text-gray-400">{% trans "Check back later: attendees appear here once the coaches have marked them as attended." %}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {# Event Lobby cross-link (unchanged from the attendee list). #}
     {% if event_lobby_cta == "enter_recap" or event_lobby_cta == "enter_live" %}
     <div class="rounded-xl p-[2px] bg-gradient-to-r from-crush-purple to-crush-pink mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-[10px] p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
@@ -178,226 +175,44 @@
             </div>
         </div>
     </div>
-    {% elif event_lobby_cta == "promo_only" %}
-    <div class="mb-6">
-        {% include "crush_lu/components/event_lobby_promo.html" %}
-    </div>
     {% endif %}
 
-    <!-- Instructions -->
+    <!-- How it works -->
     <div class="bg-pink-50 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-700 text-pink-800 dark:text-pink-300 rounded-lg p-4 mb-6">
         <h5 class="font-semibold mb-2 flex items-center gap-2">
             {% include "shared/icons/heart.html" with class="w-5 h-5" %}
-            {% trans "My Crush! — How It Works" %}
+            {% trans "How it works" %}
         </h5>
         <p class="mb-0">
-            {% trans "Who caught your eye? Declare your crush — it's completely private and they'll never be notified. Your Crush Coach will call you within 48 hours to hear the story and personally arrange the introduction." %}
+            {% trans "Swipe right on the people you'd like to see again, left on the others. Nobody ever learns about a left swipe. If you both swipe right, it's a match and your chat opens right away." %}
         </p>
     </div>
 
-    <!-- Interest hint: aggregate, non-identifying -->
-    {% if incoming_pending_count %}
-    <div class="rounded-xl p-[2px] bg-gradient-to-r from-crush-purple to-crush-pink mb-6">
-        <div class="bg-white dark:bg-gray-800 rounded-[10px] p-4">
-            <div class="flex items-start gap-3">
-                <div class="shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center text-white">
-                    {% include "shared/icons/heart.html" with class="w-5 h-5" %}
-                </div>
+    <!-- Matches -->
+    <section class="mb-10">
+        <h3 class="text-lg font-semibold mb-3 dark:text-white">{% trans "Your matches from this event" %}</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4" data-swipe-matches>
+            {% for match in matches %}
+            <a href="{% url 'crush_lu:connection_detail' match.connection.id %}"
+               class="flex items-center gap-4 bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-200">
+                {% if match.profile and match.profile|has_public_photo:'photo_1' %}
+                    <img src="{% profile_photo_url match.profile 'photo_1' %}" {% profile_photo_style match.profile 'photo_1' %}
+                         alt="{{ match.profile.display_name }}" class="w-14 h-14 rounded-full object-cover object-face" loading="lazy">
+                {% else %}
+                    <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
+                        <span class="text-white text-xl font-semibold">{{ match.profile.display_name|first }}</span>
+                    </div>
+                {% endif %}
                 <div class="min-w-0">
-                    <h5 class="font-semibold mb-1 dark:text-white">
-                        {% blocktrans count count=incoming_pending_count %}Someone here wants to connect with you{% plural %}{{ count }} people here want to connect with you{% endblocktrans %}
-                    </h5>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-0">
-                        {% trans "Browse the room and tap “My Crush!” on anyone who caught your eye. It stays private — your Crush Coach calls you within 48 hours to talk it through." %}
-                    </p>
+                    <p class="font-semibold dark:text-white">{{ match.profile.display_name }}</p>
+                    <p class="text-sm text-crush-purple dark:text-purple-400">{% trans "Open chat" %} →</p>
                 </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Connection-window countdown -->
-    {% if connection_window_active and connection_window_deadline %}
-    <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-2.5 mb-6 flex items-center gap-2 text-sm">
-        <span class="text-amber-500">⏳</span>
-        <span class="text-amber-800 dark:text-amber-300">
-            {% blocktrans with countdown=connection_window_deadline|timeuntil %}<strong>{{ countdown }}</strong> left to request connections.{% endblocktrans %}
-        </span>
-    </div>
-    {% endif %}
-
-    <!-- My Crush! per-event counter -->
-    <div class="border rounded-lg p-4 mb-6 {% if crushes_remaining > 0 %}bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700{% else %}bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700{% endif %}">
-        <div class="flex items-start gap-3">
-            {% if crushes_remaining > 0 %}
-                {% include "shared/icons/heart.html" with class="w-5 h-5 text-crush-purple dark:text-purple-400 shrink-0 mt-0.5" %}
-                <div>
-                    <h5 class="font-semibold text-purple-800 dark:text-purple-300 mb-1">{% trans "One crush per event" %}</h5>
-                    <p class="text-sm text-purple-700 dark:text-purple-400 mb-0">
-                        {% blocktrans count remaining=crushes_remaining %}You can declare <strong>{{ remaining }}</strong> crush at this event. Choose wisely — your coach will call you about it.{% plural %}You can declare <strong>{{ remaining }}</strong> crushes at this event. Choose wisely — your coach will call you about them.{% endblocktrans %}
-                    </p>
-                </div>
-            {% else %}
-                {% include "shared/icons/information-circle.html" with class="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" %}
-                <div>
-                    <h5 class="font-semibold text-amber-800 dark:text-amber-300 mb-1">{% trans "Crush declared for this event" %}</h5>
-                    <p class="text-sm text-amber-700 dark:text-amber-400 mb-0">
-                        {% trans "You've used your crush for this event. Your Crush Coach will call you within 48 hours to talk about it." %}
-                    </p>
-                </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- How Others See You -->
-    {% if own_profile %}
-    <div class="mb-8">
-        <h2 class="text-lg font-semibold mb-3 dark:text-white flex items-center gap-2">
-            {% include "shared/icons/eye.html" with class="w-5 h-5 text-crush-purple" %}
-            {% trans "How Others See You" %}
-        </h2>
-        <div class="rounded-xl p-[2px] bg-gradient-to-r from-crush-purple to-crush-pink">
-            <div class="bg-white dark:bg-gray-800 rounded-[10px] p-4">
-                <div class="flex items-start gap-4">
-                    <div class="shrink-0">
-                        {% if own_profile|has_photo:'photo_1' %}
-                            <img src="{% profile_photo_url own_profile 'photo_1' %}" {% profile_photo_style own_profile 'photo_1' %}
-                                 alt="{{ own_profile.display_name }}"
-                                 class="w-20 h-20 rounded-full object-cover object-face"
-                                 loading="lazy">
-                        {% else %}
-                            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                                <span class="text-white text-2xl font-semibold">
-                                    {{ own_profile.display_name|first }}
-                                </span>
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="flex-1 min-w-0">
-                        <h5 class="font-semibold mb-1 dark:text-white">
-                            {{ own_profile.display_name }}
-                            <span class="text-gray-500 dark:text-gray-400 font-normal text-sm">({{ own_profile.age_display }})</span>
-                        </h5>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm mb-2 flex items-center gap-1">
-                            {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
-                            {% if own_profile.city %}{{ own_profile.city }}{% else %}Luxembourg{% endif %}
-                        </p>
-                        {% if own_profile.interests_new.all %}
-                            <div class="mt-1">
-                                {% include "crush_lu/partials/_event_identity.html" with profile=own_profile limit=":3" hide_vibe=True %}
-                            </div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Event Coaches -->
-    {% if event_coaches %}
-    <div class="mb-8">
-        <h2 class="text-lg font-semibold mb-3 dark:text-white flex items-center gap-2">
-            {% include "shared/icons/sparkles.html" with class="w-5 h-5 text-crush-purple" %}
-            {% trans "Your Event Coaches" %}
-        </h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {% for coach in event_coaches %}
-            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 p-4">
-                <div class="flex items-center gap-3">
-                    <div class="shrink-0">
-                        {% if coach.photo %}
-                            <img src="{{ coach.photo.url }}"
-                                 alt="{{ coach.user.get_full_name }}"
-                                 class="w-14 h-14 rounded-full object-cover border-2 border-crush-purple/30 shadow-md"
-                                 loading="lazy">
-                        {% else %}
-                            <div class="w-14 h-14 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                                <span class="text-white text-xl font-semibold">
-                                    {{ coach.user.first_name|first }}
-                                </span>
-                            </div>
-                        {% endif %}
-                    </div>
-                    <div class="min-w-0">
-                        <h5 class="font-semibold dark:text-white">{{ coach.user.get_full_name }}</h5>
-                        <p class="text-xs text-crush-purple dark:text-purple-400 font-medium">{% trans "Crush Coach" %}</p>
-                        {% if coach.specializations %}
-                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">{{ coach.specializations }}</p>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
+            </a>
+            {% empty %}
+            <p class="text-gray-500 dark:text-gray-400 text-sm" data-swipe-no-matches>{% trans "No matches yet. Keep swiping!" %}</p>
             {% endfor %}
         </div>
-    </div>
-    {% endif %}
-
-    <!-- Attendees List -->
-    {% if attendees %}
-        {% for gender_label, group_attendees in grouped_attendees.items %}
-        <h3 class="text-lg font-semibold mb-3 dark:text-white">{{ gender_label }}</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {% for attendee in group_attendees %}
-                <div class="bg-white dark:bg-gray-800 rounded-xl h-full shadow-sm dark:shadow-gray-900/20 hover:-translate-y-1 hover:shadow-lg transition-all duration-200">
-                    <div class="p-4">
-                        <div class="flex items-start gap-4">
-                            <!-- Profile Photo -->
-                            <div class="shrink-0">
-                                {% if attendee.profile and attendee.profile|has_public_photo:'photo_1' %}
-                                    <img src="{% profile_photo_url attendee.profile 'photo_1' %}" {% profile_photo_style attendee.profile 'photo_1' %}
-                                         alt="{{ attendee.profile.display_name }}"
-                                         class="w-20 h-20 rounded-full object-cover object-face"
-                                         loading="lazy">
-                                {% else %}
-                                    <div class="w-20 h-20 rounded-full bg-gradient-to-br from-crush-purple to-crush-pink flex items-center justify-center">
-                                        <span class="text-white text-2xl font-semibold">
-                                            {{ attendee.profile.display_name|first }}
-                                        </span>
-                                    </div>
-                                {% endif %}
-                            </div>
-
-                            <!-- Profile Info -->
-                            <div class="flex-1 min-w-0">
-                                <h5 class="font-semibold mb-1 dark:text-white">
-                                    {{ attendee.profile.display_name }}
-                                    {% if attendee.profile %}
-                                        <span class="text-gray-500 dark:text-gray-400 font-normal text-sm">({{ attendee.profile.age_display }})</span>
-                                    {% endif %}
-                                </h5>
-
-                                {% if attendee.profile %}
-                                    <p class="text-gray-500 dark:text-gray-400 text-sm mb-2 flex items-center gap-1">
-                                        {% include "shared/icons/map-pin.html" with class="w-4 h-4" %}
-                                        {% if attendee.profile.city %}{{ attendee.profile.city }}{% else %}Luxembourg{% endif %}
-                                    </p>
-
-                                    {% if attendee.profile.interests_new.all %}
-                                        <div class="mb-3">
-                                            {% include "crush_lu/partials/_event_identity.html" with profile=attendee.profile limit=":3" hide_vibe=True %}
-                                        </div>
-                                    {% endif %}
-                                {% endif %}
-
-                                <!-- Connection Actions (HTMX-powered, Django 6 partial) -->
-                                {% partial connection_actions %}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            {% endfor %}
-        </div>
-        {% endfor %}
-    {% else %}
-        <div class="text-center py-12">
-            <div class="mb-6">
-                <span class="text-7xl">😔</span>
-            </div>
-            <h4 class="text-xl font-semibold mb-2 dark:text-white">{% trans "No other attendees yet" %}</h4>
-            <p class="text-gray-500 dark:text-gray-400">{% trans "Check back after the event when other attendees are marked as attended." %}</p>
-        </div>
-    {% endif %}
+    </section>
 
     <!-- Back Button -->
     <div class="text-center mt-10">
@@ -408,30 +223,23 @@
     </div>
 </div>
 
-<style>
-.hover-lift {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
+<!-- Match overlay (shown by event-swipe.js) -->
+<div class="swipe-match hidden" data-swipe-match role="dialog" aria-modal="true" aria-labelledby="swipe-match-title">
+    <div class="swipe-match__panel bg-white dark:bg-gray-800 rounded-2xl p-8 text-center">
+        <div class="text-6xl mb-3">💞</div>
+        <h2 id="swipe-match-title" class="text-3xl font-bold mb-2 dark:text-white">{% trans "It's a match!" %}</h2>
+        <p class="text-gray-600 dark:text-gray-300 mb-6" data-swipe-match-text
+           data-template="{% trans 'You and __NAME__ liked each other.' %}"></p>
+        <div class="flex flex-col gap-3">
+            <a href="#" data-swipe-match-chat class="inline-flex items-center justify-center gap-2 px-5 py-3 font-semibold bg-gradient-to-r from-crush-purple to-crush-pink text-white rounded-lg">{% trans "Say hi" %}</a>
+            <button type="button" data-swipe-match-close class="px-5 py-2 text-gray-600 dark:text-gray-300">{% trans "Keep swiping" %}</button>
+        </div>
+    </div>
+</div>
+<p class="sr-only" aria-live="polite" data-swipe-live></p>
+<span class="hidden" data-swipe-error-text>{% trans "Something went wrong. Please try again." %}</span>
+{% endblock %}
 
-.hover-lift:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-}
-
-.bg-gradient-primary {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    color: white;
-}
-
-.btn-gradient-primary {
-    background: linear-gradient(135deg, #9B59B6, #FF6B9D);
-    border: none;
-    color: white;
-}
-
-.btn-gradient-primary:hover {
-    background: linear-gradient(135deg, #8E44AD, #E74C3C);
-    color: white;
-}
-</style>
+{% block extra_js %}
+<script nonce="{{ csp_nonce }}" defer src="{% static 'crush_lu/js/event-swipe.js' %}"></script>
 {% endblock %}
