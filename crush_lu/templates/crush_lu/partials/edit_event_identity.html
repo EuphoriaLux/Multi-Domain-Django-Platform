@@ -182,7 +182,7 @@ event vibe, and event languages.
 
                 <div class="flex flex-wrap gap-2">
                     {% for interest in form.interests_new.field.queryset %}
-                    <span data-askme-wrap data-interest-id="{{ interest.pk }}" class="{% if interest.pk not in selected_interest_ids %}hidden {% endif %}inline-block">
+                    <span data-askme-wrap data-interest-id="{{ interest.pk }}" {% if interest.pk not in selected_interest_ids %}class="hidden"{% endif %}>
                         <label class="cursor-pointer block">
                             <input type="checkbox" name="ask_me_about" value="{{ interest.pk }}" class="peer sr-only"
                                    @change="onAskMeChange"

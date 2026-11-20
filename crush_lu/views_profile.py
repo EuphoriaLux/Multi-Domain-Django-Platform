@@ -186,6 +186,22 @@ def save_profile_step1(request):
             if location not in valid_locations:
                 errors["location"] = _("Invalid location selection")
 
+        # Event languages moved into step 1 (required). Older cached wizard JS
+        # does not send the key; then step 3 keeps validating them as before.
+        event_languages = None
+        if "event_languages" in data:
+            valid_languages = {code for code, _label in CrushProfile.EVENT_LANGUAGE_CHOICES}
+            raw_languages = data.get("event_languages") or []
+            if not isinstance(raw_languages, list):
+                raw_languages = []
+            event_languages = [
+                code for code in dict.fromkeys(raw_languages) if code in valid_languages
+            ]
+            if not event_languages:
+                errors["event_languages"] = _(
+                    "Please select at least one event language."
+                )
+
         # Return validation errors if any
         if errors:
             # CRITICAL FIX: Preserve invalid data in draft for recovery
@@ -202,7 +218,11 @@ def save_profile_step1(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": _("Please fill in all required fields"),
+                    "error": (
+                        errors["event_languages"]
+                        if list(errors) == ["event_languages"]
+                        else _("Please fill in all required fields")
+                    ),
                     "errors": errors,
                 },
                 status=400,
@@ -227,6 +247,8 @@ def save_profile_step1(request):
         profile.date_of_birth = date_of_birth
         profile.gender = data.get("gender", "")
         profile.location = data.get("location", "")
+        if event_languages:
+            profile.event_languages = event_languages
 
         # Mark as incomplete until submitted — wizard_step property derives exact step
         profile.completion_status = (
