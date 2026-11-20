@@ -3,7 +3,8 @@
   The two ways to get verified on Crush.lu (come to an event, or LuxID) plus a
   soft Premium teaser. Self-contained (own centered container) so it can be
   dropped at the end of any pending-state page.
-  Expects (optional): luxid_connect_url.
+  Expects (optional): luxid_connect_url, next_entry_events (upcoming entry
+  events from services/verification_nudges.upcoming_entry_events).
   Optional explicit flags (both default off, so an include that passes neither
   keeps the two-card layout):
     luxid_connected — the member already linked LuxID: the LuxID card says so
@@ -103,8 +104,24 @@
         <p class="mb-4 flex-1 text-xs text-gray-500 dark:text-gray-400">
           {% trans "Prefer real life? No problem — come to an event and a Coach will verify you face to face. On your marks, get set, go: you can then start meeting the person who'll become your Crush." %}
         </p>
-        <a href="{% url 'crush_lu:event_list' %}" class="inline-flex w-full items-center justify-center rounded-lg bg-crush-purple px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-crush-purple/90">
-          {% trans "Browse Events" %}
+        {% if next_entry_events %}
+        {# The next entry events, one tap from registering (open to submitted, not yet verified profiles). #}
+        <ul data-entry-events class="mb-3 space-y-2">
+          {% for event in next_entry_events %}
+          <li>
+            <a href="{% url 'crush_lu:event_detail' event.id %}" class="flex items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 text-left no-underline transition-colors hover:border-crush-purple/50 hover:bg-crush-purple/5 dark:border-gray-700">
+              <span class="min-w-0">
+                <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ event.title }}</span>
+                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ event.date_time|date:"D j M, H:i" }}{% if event.location %} · {{ event.location }}{% endif %}</span>
+              </span>
+              <span class="flex-shrink-0 text-xs font-semibold text-crush-purple">{% trans "Join" %} →</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <a href="{% url 'crush_lu:event_list' %}{% if next_entry_events %}?entry=1{% endif %}" class="inline-flex w-full items-center justify-center rounded-lg bg-crush-purple px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-crush-purple/90">
+          {% if next_entry_events %}{% trans "See all entry events" %}{% else %}{% trans "Browse Events" %}{% endif %}
         </a>
       </div>
 

@@ -43062,7 +43062,7 @@ msgstr "Lire la suite"
 #: templates/crush_lu/event_detail.html:631
 #: templates/crush_lu/event_detail.html:676
 msgid "See entry events"
-msgstr "Voir les événements d'entrée"
+msgstr "Voir les événements d'accueil"
 
 #: templates/crush_lu/includes/event_card.html
 msgid "Entry event"
@@ -43070,7 +43070,7 @@ msgstr "Événement d'entrée"
 
 #: templates/crush_lu/event_list.html
 msgid "Showing entry events only"
-msgstr "Seuls les événements d'entrée sont affichés"
+msgstr "Seuls les événements d'accueil sont affichés"
 
 #: templates/crush_lu/event_list.html
 msgid "Show all events"
@@ -48552,3 +48552,67 @@ msgstr "Pas de WhatsApp ?"
 #: crush_lu/templates/crush_lu/onboarding/phone.html
 msgid "Get the code by SMS"
 msgstr "Recevoir le code par SMS"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Still not verified?"
+msgstr "Toujours pas vérifié ?"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "One last step"
+msgstr "Plus qu'une étape"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your Crush.lu profile is complete. One last step and you're in: get verified, so other members know you're real."
+msgstr "Votre profil Crush.lu est complet. Plus qu'une étape : faites-vous vérifier, pour que les autres membres sachent que vous êtes bien réel."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your profile is ready, but other members can't see you until you're verified. It takes two minutes with LuxID, or one evening at an event."
+msgstr "Votre profil est prêt, mais les autres membres ne vous voient qu'une fois vérifié. Cela prend deux minutes avec LuxID, ou une soirée lors d'un événement."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your profile has been waiting for a week. This is our last reminder: verify now and start meeting people."
+msgstr "Votre profil attend depuis une semaine. C'est notre dernier rappel : faites-vous vérifier maintenant et commencez à faire des rencontres."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "You built your Crush.lu profile a while ago, but it was never verified. We've made it easier: pick whichever way suits you below."
+msgstr "Vous avez créé votre profil Crush.lu il y a quelque temps, mais il n'a jamais été vérifié. Nous avons simplifié les choses : choisissez ci-dessous ce qui vous convient."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Fastest: LuxID"
+msgstr "Le plus rapide : LuxID"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "LuxID is POST Luxembourg's free login app. It checks your mobile number in a few taps, Luxembourg or abroad, and your profile is verified right away."
+msgstr "LuxID est l'application de connexion gratuite de POST Luxembourg. Elle vérifie votre numéro de mobile en quelques clics, au Luxembourg ou à l'étranger, et votre profil est vérifié immédiatement."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Get verified now"
+msgstr "Me faire vérifier maintenant"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Prefer to meet in person?"
+msgstr "Vous préférez en personne ?"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Come to an entry event: a Coach verifies you on the spot and you meet people the same evening."
+msgstr "Venez à un événement d'accueil : un Coach vous vérifie sur place et vous rencontrez du monde le soir même."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "See all entry events"
+msgstr "Voir tous les événements d'accueil"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "One last step: get verified on Crush.lu"
+msgstr "Plus qu'une étape : faites-vous vérifier sur Crush.lu"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your Crush.lu profile is ready — it just needs verifying"
+msgstr "Votre profil Crush.lu est prêt — il ne manque que la vérification"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Still not verified? Here's the quickest way"
+msgstr "Toujours pas vérifié ? Voici le moyen le plus rapide"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your Crush.lu profile is waiting to be verified"
+msgstr "Votre profil Crush.lu attend d'être vérifié"

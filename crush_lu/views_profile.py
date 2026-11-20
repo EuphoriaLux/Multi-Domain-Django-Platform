@@ -817,6 +817,8 @@ def complete_profile_submission(request):
                     "submitted"  # legacy field; remove after migration cleanup
                 )
                 profile.verification_status = "pending"
+                # Starts the verification reminders (services/verification_nudges.py).
+                profile.submitted_for_verification_at = timezone.now()
 
                 # Clear ALL draft data on successful submission
                 profile.draft_data = {}
