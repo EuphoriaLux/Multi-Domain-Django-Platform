@@ -48506,6 +48506,18 @@ msgstr "Noch nicht verifiziert? So geht es am schnellsten"
 msgid "Your Crush.lu profile is waiting to be verified"
 msgstr "Dein Crush.lu-Profil wartet auf die Verifizierung"
 
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "WhatsApp codes aren't available for this country. Please verify by SMS instead."
+msgstr "WhatsApp-Codes sind für dieses Land nicht verfügbar. Bitte verifiziere dich per SMS."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "We'll send a 6-digit code by SMS."
+msgstr "Wir schicken dir einen 6-stelligen Code per SMS."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "Get my code by SMS"
+msgstr "Code per SMS erhalten"
+
 
 msgid "Swipe"
 msgstr "Swipen"

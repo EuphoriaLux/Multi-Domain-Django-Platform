@@ -89,6 +89,39 @@ class WhatsAppOTPTests(SiteTestMixin, TestCase):
 
     @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
     @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_rejects_country_outside_allowlist_before_meta(self, mock_send, _cfg):
+        # Default allowlist: LU, DE, FR, BE. A US number never reaches Meta.
+        resp = self._post(self.send_url, {"phone_number": "+12025550123"})
+        self.assertEqual(resp.status_code, 422)
+        self.assertEqual(resp.json()["error_code"], "whatsapp_country_not_supported")
+        mock_send.assert_not_called()
+        self.assertFalse(PhoneOTP.objects.filter(user=self.user).exists())
+
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_send_allows_each_default_country(self, mock_send, _cfg):
+        mock_send.return_value = WhatsAppSendResult(ok=True, wa_message_id="wamid.X")
+        for number in (
+            "+352621123456",
+            "+4915112345678",
+            "+33612345678",
+            "+32470123456",
+        ):
+            cache.clear()
+            PhoneOTP.objects.all().delete()
+            resp = self._post(self.send_url, {"phone_number": number})
+            self.assertEqual(resp.status_code, 200, number)
+
+    @override_settings(WHATSAPP_OTP_ALLOWED_COUNTRY_CODES=[])
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
+    def test_empty_allowlist_allows_every_country(self, mock_send, _cfg):
+        mock_send.return_value = WhatsAppSendResult(ok=True, wa_message_id="wamid.X")
+        resp = self._post(self.send_url, {"phone_number": "+12025550123"})
+        self.assertEqual(resp.status_code, 200)
+
+    @patch("crush_lu.services.whatsapp.is_configured", return_value=True)
+    @patch("crush_lu.services.whatsapp.send_otp")
     def test_send_not_on_whatsapp_signals_fallback(self, mock_send, _cfg):
         mock_send.return_value = WhatsAppSendResult(
             ok=False, error_code=ERROR_NOT_ON_WHATSAPP, error_message="undeliverable"
