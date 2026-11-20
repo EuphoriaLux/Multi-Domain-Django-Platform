@@ -48751,3 +48751,14 @@ msgstr[1] "%(count)s messages"
 #: templates/crush_lu/create_profile.html
 msgid "Add a few playful flaws"
 msgstr "Ajoutez quelques petits défauts attachants"
+
+# Signup bot traps (2026-11)
+#: crush_lu/views_account.py
+msgid ""
+"Sorry, we couldn't create your account just now. Please check your details "
+"and press Create Account again."
+msgstr "Désolé, nous n'avons pas pu créer votre compte pour le moment. Veuillez vérifier vos informations et cliquer à nouveau sur Créer un compte."
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Leave this field empty"
+msgstr "Laissez ce champ vide"
