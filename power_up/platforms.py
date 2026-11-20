@@ -115,4 +115,22 @@ PLATFORMS = [
             _("Staff access with Microsoft sign-in"),
         ],
     },
+    {
+        "slug": "pixel-war",
+        "name": "Lux Pixel War",
+        "tagline": _("Collaborative 100×100 pixel canvas"),
+        "description": _(
+            "An interactive shared pixel art canvas where visitors place pixels, "
+            "explore live contributions and build art together."
+        ),
+        "url": "/pixel-war/",
+        "icon": "palette",
+        "status": "live",
+        "status_label": _("Interactive experiment · Live"),
+        "group": "other",
+        "launched": "2025",
+        "highlights": [
+            _("Live 100×100 collaborative canvas"),
+        ],
+    },
 ]
