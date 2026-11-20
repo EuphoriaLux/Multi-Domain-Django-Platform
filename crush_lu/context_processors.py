@@ -416,6 +416,11 @@ def firebase_config(request):
         # Gates the "Verify via WhatsApp" button so we never show an option that
         # the send endpoint would only reject with a 503.
         "whatsapp_otp_enabled": whatsapp.is_configured(),
+        # Calling codes (no "+") that may get a WhatsApp code; the phone step
+        # hides the WhatsApp button for other countries.
+        "whatsapp_otp_country_codes": ",".join(
+            getattr(settings, "WHATSAPP_OTP_ALLOWED_COUNTRY_CODES", None) or []
+        ),
     }
 
 

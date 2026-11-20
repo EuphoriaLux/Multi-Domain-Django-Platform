@@ -181,9 +181,7 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         self.assertNotIn('href="/accounts/luxid/login/', html)
         self.assertIn("csrfmiddlewaretoken", html)
 
-    @override_settings(
-        META_WHATSAPP_ACCESS_TOKEN="token", META_PHONE_NUMBER_ID="12345"
-    )
+    @override_settings(META_WHATSAPP_ACCESS_TOKEN="token", META_PHONE_NUMBER_ID="12345")
     def test_whatsapp_is_primary_with_sms_fallback_when_configured(self):
         CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
         response = self.client.get("/en/onboarding/phone/")
@@ -193,9 +191,11 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         self.assertIn("Get the code by SMS", html)
         self.assertIn("or with a code to your phone", html)
         self.assertNotIn("or verify by SMS", html)
+        self.assertIn('data-whatsapp-country-codes="352,49,33,32"', html)
+        self.assertIn("Get my code by SMS", html)
         # WhatsApp button comes before the SMS fallback.
         self.assertLess(
-            html.index("startWhatsAppVerification"), html.index("startVerification\"")
+            html.index("startWhatsAppVerification"), html.index('startVerification"')
         )
 
     def test_sms_only_layout_without_whatsapp(self):

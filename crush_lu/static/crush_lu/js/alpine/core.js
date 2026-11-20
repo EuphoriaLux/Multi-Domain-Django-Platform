@@ -6269,6 +6269,8 @@ document.addEventListener("alpine:init", function () {
             iti: null,
             phoneInputId: "",
             failureCount: 0,
+            dialCode: "352",
+            whatsAppCountryCodes: [],
 
             // Computed getters for CSP compatibility
             get notVerified() {
@@ -6299,9 +6301,28 @@ document.addEventListener("alpine:init", function () {
             get phoneHintClass() {
                 return !this.verified ? "text-purple-600 font-medium" : "text-gray-500";
             },
+            // WhatsApp codes only go to the countries in data-whatsapp-country-codes
+            // (WHATSAPP_OTP_ALLOWED_COUNTRY_CODES); no attribute = no restriction.
+            get whatsAppAllowed() {
+                if (!this.whatsAppCountryCodes.length) return true;
+                return this.whatsAppCountryCodes.indexOf(this.dialCode) !== -1;
+            },
+            get showWhatsAppOption() {
+                return !this.verified && this.whatsAppAllowed;
+            },
+            get showSmsPrimary() {
+                return !this.verified && !this.whatsAppAllowed;
+            },
 
             init: function () {
                 var self = this;
+
+                var codesAttr = this.$el.getAttribute("data-whatsapp-country-codes");
+                this.whatsAppCountryCodes = codesAttr
+                    ? codesAttr.split(",").filter(function (c) {
+                          return c;
+                      })
+                    : [];
 
                 // Read initial state from data attributes
                 var verifiedAttr = this.$el.getAttribute("data-verified");
@@ -6355,6 +6376,13 @@ document.addEventListener("alpine:init", function () {
                         });
 
                         window.itiInstance = this.iti;
+
+                        var syncDialCode = function () {
+                            var data = self.iti && self.iti.getSelectedCountryData();
+                            self.dialCode = (data && data.dialCode) || "";
+                        };
+                        syncDialCode();
+                        phoneInput.addEventListener("countrychange", syncDialCode);
 
                         this.iti.promise
                             .then(function () {
@@ -6558,6 +6586,10 @@ document.addEventListener("alpine:init", function () {
             // there is no Firebase pre-flight or reCAPTCHA — the backend send
             // already rejects in-use numbers (409), so no check-available call.
             startWhatsAppVerification: function () {
+                if (!this.whatsAppAllowed) {
+                    this.startVerification();
+                    return;
+                }
                 if (this.iti && !this.iti.isValidNumber()) {
                     this.errorMessage = gettext("Please enter a valid phone number");
                     return;
