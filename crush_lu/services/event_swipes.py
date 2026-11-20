@@ -248,13 +248,20 @@ def _create_match(*, first_liker, second_liker, event):
         )
         .first()
     )
+    details = {}
     if connection is None:
         connection = EventConnection(
             requester=first_liker, recipient=second_liker, event=event
         )
-        previous = None
     else:
-        previous = f"{connection.flow}/{connection.status}"
+        details["replaced"] = f"{connection.flow}/{connection.status}"
+        if connection.requester_note:
+            # A crush note was promised to the coach alone ("never your
+            # crush"), and member surfaces only redact it on flow='crush'
+            # rows. Move it into the audit log (staff/admin only) rather
+            # than let the recipient read it on the swipe match.
+            details["coach_only_note"] = connection.requester_note
+            connection.requester_note = ""
 
     connection.flow = EventConnection.FLOW_SWIPE
     connection.status = "shared"
@@ -262,9 +269,7 @@ def _create_match(*, first_liker, second_liker, event):
     connection.recipient_consents_to_share = True
     connection.responded_at = connection.responded_at or now
     connection.shared_at = connection.shared_at or now
-    connection.log_system_action(
-        "swipe_match", **({"replaced": previous} if previous else {})
-    )
+    connection.log_system_action("swipe_match", **details)
     connection.save()
     return connection
 
@@ -294,9 +299,15 @@ def _notify_match(connection, request=None):
 
 def matches_for_user(user, event):
     """The member's swipe matches at ``event``, newest first."""
+    hidden = _hidden_ids(user)
     return (
         EventConnection.objects.filter(event=event, flow=EventConnection.FLOW_SWIPE)
         .for_user(user)
+        # Same symmetric hiding as the deck, my_connections and
+        # connection_detail: a block or encounter removal after the match
+        # hides the counterpart here too.
+        .exclude(requester_id__in=hidden)
+        .exclude(recipient_id__in=hidden)
         .select_related("requester__crushprofile", "recipient__crushprofile")
         .order_by("-shared_at")
     )

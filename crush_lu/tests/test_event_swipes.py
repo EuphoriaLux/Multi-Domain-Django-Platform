@@ -232,6 +232,31 @@ class TestMatching:
         assert EventConnection.objects.count() == 1
         assert not EventConnection.objects.open_crush_leads().exists()
 
+    def test_upgrade_keeps_the_crush_note_away_from_the_recipient(self, room):
+        EventConnection.objects.create(
+            requester=room["carl"],
+            recipient=room["anna"],
+            event=room["event"],
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="Only my coach may read this",
+        )
+        event_swipes.record_swipe(room["anna"], room["event"], room["carl"], liked=True)
+        conn = event_swipes.record_swipe(
+            room["carl"], room["event"], room["anna"], liked=True
+        )["connection"]
+        conn.refresh_from_db()
+        assert conn.requester_note == ""
+        assert conn.system_actions[-1]["details"]["coach_only_note"] == (
+            "Only my coach may read this"
+        )
+
+    def test_match_hidden_after_a_block(self, room):
+        event_swipes.record_swipe(room["anna"], room["event"], room["carl"], liked=True)
+        event_swipes.record_swipe(room["carl"], room["event"], room["anna"], liked=True)
+        UserBlock.objects.create(blocker=room["carl"], blocked=room["anna"])
+        assert not event_swipes.matches_for_user(room["anna"], room["event"]).exists()
+        assert not event_swipes.matches_for_user(room["carl"], room["event"]).exists()
+
     def test_match_notifies_both_after_commit(
         self, room, monkeypatch, django_capture_on_commit_callbacks
     ):
@@ -383,6 +408,17 @@ class TestCoachMatches:
         _login(client, coach.user)
         response = client.get(reverse("crush_lu:coach_event_matches"))
         assert list(response.context["matches"]) == []
+
+    def test_stats_only_for_events_the_coach_coaches(self, client, room):
+        coach = _coach("outsider")
+        self._match(room)
+        _login(client, coach.user)
+        response = client.get(
+            reverse("crush_lu:coach_event_matches") + f"?event={room['event'].pk}"
+        )
+        assert response.status_code == 200
+        assert response.context["event"] is None
+        assert response.context["event_stats"] is None
 
     def test_matches_stay_out_of_the_connection_queue(self, client, room):
         coach = _coach()

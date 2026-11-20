@@ -5294,7 +5294,12 @@ def coach_event_matches(request):
     event = None
     if event_id and event_id.isdigit():
         matches = matches.filter(event_id=int(event_id))
-        event = MeetupEvent.objects.filter(pk=int(event_id)).first()
+        # Same scope as the rows: a coach only gets stats for events they
+        # coach; staff only in the explicit all-events view.
+        events = MeetupEvent.objects.all()
+        if not show_all:
+            events = events.filter(coaches=coach)
+        event = events.filter(pk=int(event_id)).first()
 
     context = {
         "matches": matches[:300],
