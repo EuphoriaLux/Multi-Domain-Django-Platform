@@ -12,6 +12,13 @@ from django.db import models
 from django.contrib.auth.models import User
 
 # Import submodule models so Django migrations can find them
+from .vibe.models import (  # noqa: F401
+    Pixel,
+    PixelCanvas,
+    PixelHistory,
+    UserPixelCooldown,
+    UserPixelStats,
+)
 
 
 class Industry(models.Model):

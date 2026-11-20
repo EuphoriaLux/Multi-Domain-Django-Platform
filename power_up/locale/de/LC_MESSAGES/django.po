@@ -2208,3 +2208,230 @@ msgstr ""
 
 msgid "Your desired timing"
 msgstr "Ihr gewünschter Zeitplan"
+
+msgid "Ready"
+msgstr "Bereit"
+
+msgid "Wait %(seconds)ss"
+msgstr "Wartezeit %(seconds)ss"
+
+msgid "%(count)s left"
+msgstr "Noch %(count)s"
+
+msgid "Place pixel"
+msgstr "Pixel setzen"
+
+msgid "Select a cell"
+msgstr "Feld auswählen"
+
+msgid "Pixel placed at (%(x)s, %(y)s)"
+msgstr "Pixel bei (%(x)s, %(y)s) gesetzt"
+
+msgid "Cooldown active — please wait %(seconds)s seconds."
+msgstr "Abklingzeit aktiv — bitte %(seconds)s Sekunden warten."
+
+msgid "Could not reach the server. Please try again."
+msgstr "Server nicht erreichbar. Bitte versuchen Sie es erneut."
+
+msgid "This canvas is currently paused."
+msgstr "Diese Leinwand ist derzeit pausiert."
+
+msgid "No pixels placed yet. Be the first!"
+msgstr "Noch keine Pixel gesetzt. Seien Sie der Erste!"
+
+msgid "Instant tap"
+msgstr "Direkt setzen"
+
+msgid "Preview & place"
+msgstr "Vorschau & setzen"
+
+msgid "Grid on"
+msgstr "Raster an"
+
+msgid "Grid off"
+msgstr "Raster aus"
+
+msgid "Fullscreen"
+msgstr "Vollbild"
+
+msgid "Exit fullscreen"
+msgstr "Vollbild beenden"
+
+msgid "Guest"
+msgstr "Gast"
+
+msgid "Lux Pixel War | Power-Up"
+msgstr "Lux Pixel War | Power-Up"
+
+msgid ""
+"Collaborative pixel art canvas hosted on Power-Up. Place pixels, explore the"
+" grid and build together in real time."
+msgstr ""
+"Kollaborative Pixel-Art-Leinwand auf Power-Up. Setzen Sie Pixel, erkunden "
+"Sie das Raster und gestalten Sie gemeinsam in Echtzeit."
+
+msgid "Power-Up Interactive Canvas"
+msgstr "Interaktive Power-Up-Leinwand"
+
+msgid "Collaborate or compete — place pixels on the shared grid in real time."
+msgstr ""
+"Gemeinsam oder im Wettbewerb — setzen Sie Pixel in Echtzeit auf dem "
+"gemeinsamen Raster."
+
+msgid "Grid"
+msgstr "Raster"
+
+msgid "Pixels painted"
+msgstr "Gesetzte Pixel"
+
+msgid "Paused"
+msgstr "Pausiert"
+
+msgid "Pixel canvas workspace"
+msgstr "Pixel-Leinwand-Arbeitsbereich"
+
+msgid "Canvas controls"
+msgstr "Leinwand-Steuerung"
+
+msgid "Zoom out"
+msgstr "Verkleinern"
+
+msgid "Zoom level"
+msgstr "Zoomstufe"
+
+msgid "Zoom in"
+msgstr "Vergrößern"
+
+msgid "Fit"
+msgstr "Anpassen"
+
+msgid "Hover or focus a cell"
+msgstr "Feld mit Maus oder Tastatur auswählen"
+
+msgid "Interactive pixel art canvas"
+msgstr "Interaktive Pixel-Art-Leinwand"
+
+msgid ""
+"Click or tap to paint. Drag to pan, scroll or pinch to zoom. Keyboard: arrow"
+" keys move cell, Shift+arrows pan, + / - / 0 zoom, Enter or Space places "
+"pixel."
+msgstr ""
+"Klicken oder tippen Sie zum Malen. Ziehen zum Verschieben, Scrollen oder "
+"Aufziehen zum Zoomen. Tastatur: Pfeiltasten bewegen das Feld, "
+"Umschalt+Pfeile verschieben die Ansicht, + / - / 0 zoomen, Eingabe oder "
+"Leertaste setzt ein Pixel."
+
+msgid "Selected cell"
+msgstr "Ausgewähltes Feld"
+
+msgid "Palette, limits and recent activity"
+msgstr "Palette, Limits und letzte Aktivitäten"
+
+msgid "Color Palette"
+msgstr "Farbpalette"
+
+msgid "Power-Up Orange"
+msgstr "Power-Up-Orange"
+
+msgid "Crimson Red"
+msgstr "Karmesinrot"
+
+msgid "Amber Gold"
+msgstr "Bernsteingold"
+
+msgid "Bright Yellow"
+msgstr "Leuchtendes Gelb"
+
+msgid "Emerald Green"
+msgstr "Smaragdgrün"
+
+msgid "Teal"
+msgstr "Blaugrün"
+
+msgid "Cyan"
+msgstr "Cyan"
+
+msgid "Royal Blue"
+msgstr "Königsblau"
+
+msgid "Indigo"
+msgstr "Indigo"
+
+msgid "Purple"
+msgstr "Violett"
+
+msgid "Pink"
+msgstr "Rosa"
+
+msgid "Brown"
+msgstr "Braun"
+
+msgid "White"
+msgstr "Weiß"
+
+msgid "Light Slate"
+msgstr "Hellgrau"
+
+msgid "Dark Slate"
+msgstr "Dunkelgrau"
+
+msgid "Midnight Blue"
+msgstr "Mitternachtsblau"
+
+msgid "Custom color"
+msgstr "Eigene Farbe"
+
+msgid "Recent colors"
+msgstr "Zuletzt verwendete Farben"
+
+msgid "Canvas & Limits"
+msgstr "Leinwand & Limits"
+
+msgid "Selected color"
+msgstr "Ausgewählte Farbe"
+
+msgid "Rate limit"
+msgstr "Limit"
+
+msgid "%(ppm)s px/min · %(cooldown)ss cooldown"
+msgstr "%(ppm)s Px/Min · %(cooldown)ss Abklingzeit"
+
+msgid "Cooldown"
+msgstr "Abklingzeit"
+
+msgid "Remaining this min"
+msgstr "Verbleibend (Min.)"
+
+msgid "Your pixels"
+msgstr "Ihre Pixel"
+
+msgid "Recent Activity"
+msgstr "Letzte Aktivitäten"
+
+msgid "Loading recent pixels…"
+msgstr "Letzte Pixel werden geladen…"
+
+msgid "Collaborative 100×100 pixel canvas"
+msgstr "Kollaborative 100×100-Pixelleinwand"
+
+msgid ""
+"An interactive shared pixel art canvas where visitors place pixels, explore "
+"live contributions and build art together."
+msgstr ""
+"Eine interaktive gemeinsame Pixel-Art-Leinwand, auf der Besucher Pixel "
+"setzen, Live-Beiträge entdecken und gemeinsam gestalten können."
+
+msgid "Interactive experiment · Live"
+msgstr "Interaktives Experiment · Live"
+
+msgid "Live 100×100 collaborative canvas"
+msgstr "Gemeinsame 100×100-Live-Leinwand"
+
+msgid "Pixel War"
+msgstr "Pixel War"
+
+msgid "Open project"
+msgstr "Projekt öffnen"
+
+msgid "Open Platform"
+msgstr "Plattform öffnen"
