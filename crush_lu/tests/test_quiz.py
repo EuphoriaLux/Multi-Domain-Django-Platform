@@ -5445,3 +5445,40 @@ class TestScoreTableHttpBroadcast:
         assert TableRoundScore.objects.filter(
             quiz=quiz_event, table=tables[0], question=question
         ).exists()
+
+    def test_hidden_word_reveal_ignores_the_host_language(self, quiz_event, coach_user):
+        """The base ``revealed_segments`` key is what a guest whose language
+        has no text falls back to. The socket builds it in the default
+        language, so a host browsing in French must not turn it French."""
+        from unittest.mock import patch
+
+        from crush_lu.services.quiz_blanks import reveal_segments
+
+        question, tables = self._setup(quiz_event)
+        question.text_en = "Sing the {{chorus}} now"
+        question.text_fr = "Chantez le {{refrain}} maintenant"
+        question.save()
+        TableRoundScore.objects.create(
+            quiz=quiz_event, table=tables[0], question=question, is_correct=True
+        )
+        client, layer = self._client_and_layer(coach_user)
+
+        with patch("channels.layers.get_channel_layer", return_value=layer):
+            r = client.post(
+                f"/api/quiz/{quiz_event.id}/score-table/",
+                data=json.dumps(
+                    {
+                        "table_id": tables[1].id,
+                        "question_id": question.id,
+                        "is_correct": True,
+                    }
+                ),
+                content_type="application/json",
+                HTTP_ACCEPT_LANGUAGE="fr",
+            )
+        assert r.status_code == 200, r.content
+
+        reveal = self._sent(layer)[1][1]["data"]
+        assert reveal["revealed_segments"] == reveal_segments(question.text_en)
+        assert reveal["revealed_segments_en"][1] == "chorus"
+        assert reveal["revealed_segments_fr"][1] == "refrain"

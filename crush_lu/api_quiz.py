@@ -362,6 +362,8 @@ def _broadcast_table_scored(quiz, table, question, scored_count, total_tables):
     try:
         from asgiref.sync import async_to_sync
         from channels.layers import get_channel_layer
+        from django.conf import settings
+        from django.utils import translation
 
         from crush_lu.consumers import build_leaderboard, build_reveal_results
         from crush_lu.services.quiz_blanks import revealed_segments_payload
@@ -388,21 +390,20 @@ def _broadcast_table_scored(quiz, table, question, scored_count, total_tables):
         )
 
         if scored_count >= total_tables:
-            send(
-                group,
-                {
-                    "type": "quiz.reveal_scores",
-                    "data": {
-                        "question_id": question.id,
-                        "results": build_reveal_results(quiz, question),
-                        **revealed_segments_payload(question),
-                    },
-                },
-            )
-            send(
-                group,
-                {"type": "quiz.leaderboard", "data": build_leaderboard(quiz.id)},
-            )
+            # The socket builds these with no language active, i.e. in the
+            # default language. The base ``revealed_segments`` key is the
+            # fallback for a guest whose language has no text, so it has to
+            # match the question text that guest was shown, not the language
+            # of the host's browser.
+            with translation.override(settings.LANGUAGE_CODE):
+                reveal = {
+                    "question_id": question.id,
+                    "results": build_reveal_results(quiz, question),
+                    **revealed_segments_payload(question),
+                }
+                leaderboard = build_leaderboard(quiz.id)
+            send(group, {"type": "quiz.reveal_scores", "data": reveal})
+            send(group, {"type": "quiz.leaderboard", "data": leaderboard})
     except Exception:
         logger.exception(
             "score_table: WS broadcast failed for quiz %s question %s",
