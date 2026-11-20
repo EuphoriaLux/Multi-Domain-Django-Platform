@@ -4568,11 +4568,21 @@ document.addEventListener("alpine:init", function () {
                     phoneNumber = phoneEl.value || "";
                 }
 
+                // Event languages live in section 1 now (they used to sit at the
+                // bottom of the Photos section, easy to miss though required).
+                var eventLanguages = [];
+                document
+                    .querySelectorAll('[name="event_languages"]:checked')
+                    .forEach(function (b) {
+                        eventLanguages.push(b.value);
+                    });
+
                 return {
                     phone_number: phoneNumber,
                     date_of_birth: dobEl ? dobEl.value : "",
                     gender: genderEl ? genderEl.value : "",
                     location: locationEl ? locationEl.value : "",
+                    event_languages: eventLanguages,
                 };
             },
 
@@ -4977,6 +4987,11 @@ document.addEventListener("alpine:init", function () {
 
                     // Handle checkbox arrays (like event_languages)
                     if (Array.isArray(value)) {
+                        // An empty saved language list must not clear the
+                        // server-side pre-selection (the site language).
+                        if (key === "event_languages" && value.length === 0) {
+                            continue;
+                        }
                         var checkboxes = form.querySelectorAll('[name="' + key + '"]');
 
                         for (var i = 0; i < checkboxes.length; i++) {

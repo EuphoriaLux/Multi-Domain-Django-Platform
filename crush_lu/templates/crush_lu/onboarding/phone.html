@@ -11,6 +11,9 @@
 <link rel="stylesheet" href="{% static 'crush_lu/css/components/intl-tel-input.css' %}">
 {% endblock %}
 
+{# Focused onboarding flow: no bottom menu bar. #}
+{% block bottom_nav %}{% endblock %}
+
 {% block content %}
 {% ga4_event "onboarding_phone" %}
 <div class="min-h-screen bg-crush-light dark:bg-gray-900">

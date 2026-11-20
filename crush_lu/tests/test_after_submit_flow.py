@@ -331,7 +331,7 @@ class SignupLuxidPromiseTests(TestCase):
     """2-06: the signup promise matches the buttons actually rendered."""
 
     LUXID_PROMISE = "Get verified instantly with LuxID"
-    FALLBACK = "≈ 15 min to set up · Get verified at your first event"
+    FALLBACK = "≈ 12 min to set up · Get verified at your first event"
 
     def setUp(self):
         cache.clear()

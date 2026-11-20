@@ -15117,9 +15117,9 @@ msgid "Privacy-first"
 msgstr "Confidentialité d'abord"
 
 #: templates/crush_lu/auth.html:43
-msgid "≈ 15 min to set up · Get verified instantly with LuxID, or at an event"
+msgid "≈ 12 min to set up · Get verified instantly with LuxID, or at an event"
 msgstr ""
-"≈ 15 min pour créer votre profil · Vérification instantanée avec LuxID, ou "
+"≈ 12 min pour créer votre profil · Vérification instantanée avec LuxID, ou "
 "lors d'un événement"
 
 #: templates/crush_lu/auth.html:58
@@ -42638,9 +42638,9 @@ msgid "Delete my profile and data"
 msgstr "Supprimer mon profil et mes données"
 
 #: templates/crush_lu/auth.html
-msgid "≈ 15 min to set up · Get verified at your first event"
+msgid "≈ 12 min to set up · Get verified at your first event"
 msgstr ""
-"≈ 15 min pour créer votre profil · Vérification lors de votre premier "
+"≈ 12 min pour créer votre profil · Vérification lors de votre premier "
 "événement"
 
 #: crush_lu/templates/crush_lu/event_cancel.html
@@ -48628,3 +48628,7 @@ msgstr "Nous vous envoyons un code à 6 chiffres par SMS."
 #: crush_lu/templates/crush_lu/onboarding/phone.html
 msgid "Get my code by SMS"
 msgstr "Recevoir mon code par SMS"
+
+#: templates/crush_lu/create_profile.html
+msgid "Add a few playful flaws"
+msgstr "Ajoutez quelques petits défauts attachants"

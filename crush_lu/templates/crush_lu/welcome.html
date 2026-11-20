@@ -4,6 +4,9 @@
 {% block title %}{% trans "Welcome to Crush.lu" %}{% endblock %}
 {% block meta_description %}{% trans "One quick question to help us guide you, and a preview of the road ahead." %}{% endblock %}
 
+{# Focused onboarding flow: no bottom menu bar. #}
+{% block bottom_nav %}{% endblock %}
+
 {% block content %}
 {% ga4_event "onboarding_welcome" %}
 <div class="min-h-screen bg-crush-light dark:bg-gray-900">
