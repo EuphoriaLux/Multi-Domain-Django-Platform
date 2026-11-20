@@ -508,6 +508,10 @@ def _connect_url(event, user_id):
     return f"/en/events/{event.id}/connect/{user_id}/"
 
 
+def _swipe_url(event, user_id):
+    return f"/en/events/{event.id}/swipe/{user_id}/"
+
+
 def _verified_attendee(event, name):
     """An attended + verified member (the post-rejection revocation baseline)."""
     profile, reg, submission = _attendee(event, name)
@@ -537,7 +541,13 @@ class TestRejectionRevokesConnectionAccess:
         assert resp.status_code == 200
 
         peer = User.objects.get(email="verified_peer@t.test")
-        resp = client.get(_connect_url(past_event, peer.id))
+        # The swipe deck pairs compatible genders; make the peer a woman.
+        CrushProfile.objects.filter(user=peer).update(gender="F")
+        resp = client.post(
+            _swipe_url(past_event, peer.id),
+            {"decision": "pass"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
         assert resp.status_code == 200
 
     def test_door_rejected_member_loses_access(self, client, past_event, coach):
@@ -548,7 +558,6 @@ class TestRejectionRevokesConnectionAccess:
         # Baseline: while verified, both surfaces are reachable.
         client.force_login(profile.user)
         assert client.get(_attendees_url(past_event)).status_code == 200
-        assert client.get(_connect_url(past_event, peer.id)).status_code == 200
 
         # Coach door-rejects the member (photo mismatch).
         client.force_login(coach.user)
@@ -567,13 +576,12 @@ class TestRejectionRevokesConnectionAccess:
         assert attendees_resp.status_code == 302
         assert f"/events/{past_event.id}/" in attendees_resp.url
 
-        connect_resp = client.get(_connect_url(past_event, peer.id))
-        assert connect_resp.status_code == 302
-        assert f"/events/{past_event.id}/" in connect_resp.url
-
-        connect_post = client.post(_connect_url(past_event, peer.id), {"note": "hello"})
-        assert connect_post.status_code == 302
-        assert f"/events/{past_event.id}/" in connect_post.url
+        swipe_resp = client.post(
+            _swipe_url(past_event, peer.id),
+            {"decision": "like"},
+            HTTP_X_REQUESTED_WITH="XMLHttpRequest",
+        )
+        assert swipe_resp.status_code == 400
 
     def test_attended_member_without_profile_denied_not_500(self, client, past_event):
         user = User.objects.create_user(

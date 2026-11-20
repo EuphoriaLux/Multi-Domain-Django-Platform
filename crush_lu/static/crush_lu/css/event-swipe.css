@@ -1,0 +1,137 @@
+/* Post-event swipe deck (templates/crush_lu/event_attendees.html). */
+
+.swipe-deck-wrap {
+    max-width: 24rem;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.swipe-stack {
+    position: relative;
+}
+
+.swipe-card {
+    position: relative;
+    touch-action: pan-y;
+    user-select: none;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    will-change: transform;
+}
+
+.swipe-card--queued {
+    display: none;
+}
+
+.swipe-card--dragging {
+    transition: none;
+}
+
+.swipe-card--gone-like {
+    transform: translateX(140%) rotate(18deg);
+    opacity: 0;
+}
+
+.swipe-card--gone-pass {
+    transform: translateX(-140%) rotate(-18deg);
+    opacity: 0;
+}
+
+.swipe-card__photo {
+    position: relative;
+    aspect-ratio: 4 / 5;
+    /* Keep the like/pass buttons on screen on a phone. */
+    max-height: 42vh;
+    width: 100%;
+    background: #f3f4f6;
+}
+
+.swipe-stamp {
+    position: absolute;
+    top: 1.25rem;
+    padding: 0.25rem 0.75rem;
+    border: 3px solid currentColor;
+    border-radius: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.swipe-stamp--like {
+    left: 1.25rem;
+    color: #10b981;
+    transform: rotate(-12deg);
+}
+
+.swipe-stamp--pass {
+    right: 1.25rem;
+    color: #ef4444;
+    transform: rotate(12deg);
+}
+
+.swipe-btn {
+    width: 4rem;
+    height: 4rem;
+    border-radius: 9999px;
+    font-size: 1.75rem;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    transition: transform 0.15s ease;
+}
+
+.swipe-btn:hover,
+.swipe-btn:focus-visible {
+    transform: scale(1.08);
+}
+
+.swipe-btn:disabled {
+    opacity: 0.5;
+}
+
+.swipe-btn--pass {
+    color: #ef4444;
+}
+
+.swipe-btn--like {
+    color: #ec4899;
+}
+
+.swipe-match {
+    position: fixed;
+    inset: 0;
+    /* Above the bottom nav and the cookie banner (z-index 9999/10000). */
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(17, 24, 39, 0.7);
+}
+
+.swipe-match.hidden {
+    display: none;
+}
+
+.swipe-match__panel {
+    width: 100%;
+    max-width: 22rem;
+}
+
+.dark .swipe-btn {
+    background: #1f2937;
+}
+
+.dark .swipe-card__photo {
+    background: #374151;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .swipe-card {
+        transition: none;
+    }
+}

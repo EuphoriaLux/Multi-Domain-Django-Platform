@@ -86,6 +86,7 @@ from .events import (
 from .connections import (
     EventConnectionAdmin,
     ConnectionMessageAdmin,
+    EventSwipeAdmin,
 )
 
 from .activities import (
@@ -275,6 +276,7 @@ from .crush_cache import (
 
 # Import all models for registration
 from crush_lu.models import (
+    EventSwipe,
     PatchRelease,
     PatchNote,
     SpecialUserExperience,
@@ -441,6 +443,7 @@ crush_admin_site.register(CrushSpark, CrushSparkAdmin)
 
 # Connection System
 crush_admin_site.register(EventConnection, EventConnectionAdmin)
+crush_admin_site.register(EventSwipe, EventSwipeAdmin)
 crush_admin_site.register(ConnectionMessage, ConnectionMessageAdmin)
 
 # Activity Voting System

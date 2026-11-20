@@ -114,6 +114,7 @@ from .views_events import (  # noqa: F401
 # Connections
 from .views_connections import (  # noqa: F401
     event_attendees,
+    event_swipe,
     request_connection,
     request_connection_inline,
     connection_actions,
@@ -127,6 +128,7 @@ from .views_connections import (  # noqa: F401
 from .views_notifications import notifications_page  # noqa: F401
 
 from .views_coach import (  # noqa: F401
+    coach_event_matches,
     coach_dashboard,
     coach_action_queue,
     coach_mark_review_call_complete,

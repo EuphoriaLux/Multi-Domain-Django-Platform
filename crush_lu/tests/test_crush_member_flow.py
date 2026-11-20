@@ -102,6 +102,22 @@ def _inline_url(event, user):
     )
 
 
+def _declare(event, requester, target, note=""):
+    """Create a "My Crush!" lead the way the retired endpoint did."""
+    from crush_lu.models import EventRegistration
+    from crush_lu.services.crush_leads import declare_crush
+
+    return declare_crush(
+        requester=requester,
+        recipient=target,
+        event=event,
+        requester_registration=EventRegistration.objects.get(
+            event=event, user=requester
+        ),
+        note=note,
+    )
+
+
 def _lobby_url(event):
     return reverse("crush_lu:event_lobby", kwargs={"event_id": event.pk})
 
@@ -118,464 +134,11 @@ def _plain(username, **kwargs):
     return _make_member(username, **kwargs)
 
 
-class TestCrushDeclaration:
-    """§5/§7: declarations create flow='crush' coach leads — privately."""
-
-    def test_declaration_creates_crush_lead_with_routed_coach(self, client):
-        coach = _make_coach()
-        crusher = _plain("dec_a", gender="M")
-        target = _plain("dec_b", gender="F")
-        event = _ended_event()
-        _attend(crusher, event)
-        _attend(target, event)
-        _login(client, crusher)
-
-        response = client.post(_declare_url(event, target), {"note": "great chat"})
-
-        assert response.status_code == 302
-        assert response.url == reverse(
-            "crush_lu:event_attendees", kwargs={"event_id": event.pk}
-        )
-        lead = EventConnection.objects.get(
-            requester=crusher, recipient=target, event=event
-        )
-        assert lead.flow == EventConnection.FLOW_CRUSH
-        assert lead.status == "pending"
-        assert lead.requester_note == "great chat"
-        # Routed via the Phase B tiers (no assigned/event coach -> active pool).
-        assert lead.assigned_coach == coach
-        assert lead.call_by is not None
-
-    def test_declaration_never_notifies_recipient(self, client):
-        _make_coach()
-        crusher = _plain("dec_c", gender="M")
-        target = _plain("dec_d", gender="F")
-        event = _ended_event()
-        _attend(crusher, event)
-        _attend(target, event)
-        _login(client, crusher)
-
-        client.post(_declare_url(event, target), {"note": ""})
-
-        assert not Notification.objects.filter(user=target).exists()
-        assert not Notification.objects.filter(user=crusher).exists()
-        assert len(mail.outbox) == 0
-
-    def test_reciprocal_declarations_create_independent_leads(self, client):
-        """A declares A->B; B's independent B->A succeeds silently. The first
-        lead is never touched (§5: no auto-accept, no notification)."""
-        coach = _make_coach()
-        user_a = _plain("rec_a", gender="M")
-        user_b = _plain("rec_b", gender="F")
-        event = _ended_event()
-        _attend(user_a, event)
-        _attend(user_b, event)
-
-        _login(client, user_a)
-        client.post(_declare_url(event, user_b), {"note": ""})
-        lead_ab = EventConnection.objects.get(requester=user_a, recipient=user_b)
-
-        _login(client, user_b)
-        response = client.post(_declare_url(event, user_a), {"note": ""})
-
-        assert response.status_code == 302
-        lead_ba = EventConnection.objects.get(requester=user_b, recipient=user_a)
-        assert lead_ba.flow == EventConnection.FLOW_CRUSH
-        assert lead_ba.status == "pending"
-        # Independence: the reverse lead is byte-for-byte untouched.
-        lead_ab.refresh_from_db()
-        assert lead_ab.status == "pending"
-        assert lead_ab.assigned_coach == coach
-        for lead in (lead_ab, lead_ba):
-            assert lead.requester_consents_to_share is False
-            assert lead.recipient_consents_to_share is False
-            assert lead.shared_at is None
-        assert not Notification.objects.exists()
-
-    def test_reciprocal_same_gender_never_auto_shares(self, client):
-        """The legacy same-gender auto-share branch is dead for crush rows."""
-        _make_coach()
-        user_a = _plain("sg_a", gender="F")
-        user_b = _plain("sg_b", gender="F")
-        event = _ended_event()
-        _attend(user_a, event)
-        _attend(user_b, event)
-
-        _login(client, user_a)
-        client.post(_declare_url(event, user_b), {"note": ""})
-        _login(client, user_b)
-        client.post(_declare_url(event, user_a), {"note": ""})
-
-        leads = EventConnection.objects.filter(event=event)
-        assert leads.count() == 2
-        for lead in leads:
-            assert lead.status == "pending"
-            assert lead.shared_at is None
-            assert lead.requester_consents_to_share is False
-        assert not Notification.objects.exists()
-
-    def test_same_direction_duplicate_rejected(self, client):
-        _make_coach()
-        crusher = _plain("dup_a", gender="M")
-        target = _plain("dup_b", gender="F")
-        event = _ended_event()
-        _attend(crusher, event)
-        _attend(target, event)
-        _login(client, crusher)
-
-        client.post(_declare_url(event, target), {"note": ""})
-        response = client.post(_declare_url(event, target), {"note": ""})
-
-        assert response.status_code == 302
-        assert (
-            EventConnection.objects.filter(
-                requester=crusher, recipient=target, event=event
-            ).count()
-            == 1
-        )
-
-    def test_reverse_declaration_response_byte_identical(self, client):
-        """B's first declaration response is identical whether or not A has
-        already privately declared — the reverse row's existence never leaks."""
-        _make_coach()
-        # Scenario 1: no prior row.
-        a1 = _plain("bi_a1", gender="M")
-        b1 = _plain("bi_b1", gender="F")
-        event1 = _ended_event()
-        _attend(a1, event1)
-        _attend(b1, event1)
-        _login(client, b1)
-        r1 = client.post(_inline_url(event1, a1), {"note": ""})
-
-        # Scenario 2: A already declared (direct ORM row, as the endpoint would).
-        a2 = _plain("bi_a2", gender="M")
-        b2 = _plain("bi_b2", gender="F")
-        event2 = _ended_event()
-        _attend(a2, event2)
-        _attend(b2, event2)
-        EventConnection.objects.create(
-            requester=a2,
-            recipient=b2,
-            event=event2,
-            flow=EventConnection.FLOW_CRUSH,
-        )
-        _login(client, b2)
-        r2 = client.post(_inline_url(event2, a2), {"note": ""})
-
-        assert r1.status_code == r2.status_code == 200
-        # Normalize only the per-user element id — everything else must be
-        # byte-identical whether or not the reverse row exists.
-        normalized1 = r1.content.replace(
-            b"connection-actions-" + str(a1.pk).encode(), b"connection-actions-UID"
-        )
-        normalized2 = r2.content.replace(
-            b"connection-actions-" + str(a2.pk).encode(), b"connection-actions-UID"
-        )
-        assert normalized1 == normalized2
-
-
-class TestCrushLimit:
-    """O9: 1 crush per event per member, gender-independent, all tiers."""
-
-    def test_second_crush_blocked_for_free_member(self, client):
-        _make_coach()
-        crusher = _plain("lim_a", gender="M")
-        target1 = _plain("lim_b", gender="F")
-        target2 = _plain("lim_c", gender="F")
-        event = _ended_event()
-        for user in (crusher, target1, target2):
-            _attend(user, event)
-        _login(client, crusher)
-
-        client.post(_declare_url(event, target1), {"note": ""})
-        response = client.post(_declare_url(event, target2), {"note": ""})
-
-        assert response.status_code == 302
-        assert (
-            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
-        )
-
-    def test_second_crush_blocked_for_connect_member(self, client):
-        """No unlimited tier — Connect members get exactly 1 crush too (O9)."""
-        _make_coach()
-        crusher = _make_member("lim_d", gender="M")  # full Connect member
-        target1 = _plain("lim_e", gender="F")
-        target2 = _plain("lim_f", gender="F")
-        event = _ended_event()
-        for user in (crusher, target1, target2):
-            _attend(user, event)
-        _login(client, crusher)
-
-        r1 = client.post(_inline_url(event, target1), {"note": ""})
-        assert r1.status_code == 200
-        r2 = client.post(_inline_url(event, target2), {"note": ""})
-
-        assert b"already declared your crush for this event" in r2.content
-        assert (
-            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
-        )
-
-    def test_same_gender_crush_counts_against_limit(self, client):
-        """The legacy cross-gender counter is NOT reused: a same-gender crush
-        consumes the one per-event slot exactly like a cross-gender one."""
-        _make_coach()
-        crusher = _plain("lim_g", gender="F")
-        target1 = _plain("lim_h", gender="F")  # same gender
-        target2 = _plain("lim_i", gender="M")
-        event = _ended_event()
-        for user in (crusher, target1, target2):
-            _attend(user, event)
-        _login(client, crusher)
-
-        client.post(_declare_url(event, target1), {"note": ""})
-        client.post(_declare_url(event, target2), {"note": ""})
-
-        assert (
-            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
-        )
-
-    def test_limit_is_per_event(self, client):
-        _make_coach()
-        crusher = _plain("lim_j", gender="M")
-        target = _plain("lim_k", gender="F")
-        event1 = _ended_event()
-        event2 = _ended_event()
-        for event in (event1, event2):
-            _attend(crusher, event)
-            _attend(target, event)
-        _login(client, crusher)
-
-        client.post(_declare_url(event1, target), {"note": ""})
-        response = client.post(_declare_url(event2, target), {"note": ""})
-
-        assert response.status_code == 302
-        assert EventConnection.objects.filter(requester=crusher).count() == 2
-
-    @pytest.mark.skipif(
-        not db_connection.features.has_select_for_update,
-        reason="row locking requires a backend with SELECT ... FOR UPDATE",
-    )
-    @pytest.mark.django_db(transaction=True)
-    def test_concurrent_declarations_never_exceed_limit(self):
-        """§7/§13: two simultaneous same-requester declarations to different
-        recipients — the per-(requester, event) lock serializes the count."""
-        _make_coach()
-        crusher = _plain("race_a", gender="M")
-        target1 = _plain("race_b", gender="F")
-        target2 = _plain("race_c", gender="F")
-        event = _ended_event()
-        for user in (crusher, target1, target2):
-            _attend(user, event)
-        # Granted once here, before the threads start, so both of them see a
-        # committed row and neither races the other writing it.
-        _grant_consent(crusher)
-
-        barrier = threading.Barrier(2)
-        results = []
-
-        def post(target):
-            client = Client()
-            client.force_login(crusher)
-            barrier.wait(timeout=10)
-            results.append(client.post(_declare_url(event, target), {"note": ""}))
-
-        threads = [
-            threading.Thread(target=post, args=(target1,)),
-            threading.Thread(target=post, args=(target2,)),
-        ]
-        for thread in threads:
-            thread.start()
-        for thread in threads:
-            thread.join(timeout=30)
-
-        assert len(results) == 2
-        assert (
-            EventConnection.objects.filter(requester=crusher, event=event).count() == 1
-        )
-
-
-class TestOnePairOneFlow:
-    """§9.1/O7: recap-eligible Connect pairs redirect to the recap — enforced
-    in BOTH write endpoints, not just the button."""
-
-    def _eligible_pair(self):
-        user_a = _make_member("pf_a", gender="M")
-        user_b = _make_member("pf_b", gender="F")
-        event = _make_event()  # still live: participation requires pre-end join
-        _join(user_a, event)
-        _join(user_b, event)
-        _end_event(event)  # recap phase now open
-        return user_a, user_b, event
-
-    def test_direct_post_full_endpoint_redirects_eligible_pair(self, client):
-        user_a, user_b, event = self._eligible_pair()
-        _login(client, user_a)
-
-        response = client.post(_declare_url(event, user_b), {"note": "hi"})
-
-        assert response.status_code == 302
-        assert response.url == _lobby_url(event)
-        assert not EventConnection.objects.filter(event=event).exists()
-
-    def test_direct_post_inline_endpoint_redirects_eligible_pair(self, client):
-        user_a, user_b, event = self._eligible_pair()
-        _login(client, user_a)
-
-        response = client.post(_inline_url(event, user_b), {"note": "hi"})
-
-        assert response.status_code == 200
-        assert response["HX-Redirect"] == _lobby_url(event)
-        assert not EventConnection.objects.filter(event=event).exists()
-
-    def test_attendees_page_shows_recap_cta_not_crush_button(self, client):
-        user_a, user_b, event = self._eligible_pair()
-        _login(client, user_a)
-
-        response = client.get(
-            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
-        )
-
-        assert response.status_code == 200
-        assert b"Find them in your event recap" in response.content
-        # No My Crush! button for this pair (one pair, one flow).
-        assert (
-            f"/events/{event.pk}/connect-inline/{user_b.pk}/".encode()
-            not in response.content
-        )
-
-    def test_fallback_when_target_lost_eligibility(self, client):
-        """Participation rows outlive eligibility: a target who dropped out of
-        the read-time roster gets My Crush, not a dead-end recap redirect."""
-        user_a, user_b, event = self._eligible_pair()
-        membership = user_b.crush_connect_membership
-        membership.excluded_by_coach = True
-        membership.save(update_fields=["excluded_by_coach"])
-        _login(client, user_a)
-
-        response = client.post(_declare_url(event, user_b), {"note": ""})
-
-        assert response.status_code == 302
-        assert response.url != _lobby_url(event)
-        assert EventConnection.objects.filter(
-            requester=user_a, recipient=user_b, event=event
-        ).exists()
-
-    def test_fallback_when_recap_closed_but_connection_window_open(self, client):
-        """connection_window_hours can exceed the fixed 48h recap: the pair is
-        still eligible but the recap is closed — My Crush applies."""
-        user_a = _make_member("pf_c", gender="M")
-        user_b = _make_member("pf_d", gender="F")
-        event = _make_event()
-        _join(user_a, event)
-        _join(user_b, event)
-        _end_event(event, hours_ago=49)  # recap closed
-        event.connection_window_hours = 168  # crush window still open
-        event.save(update_fields=["connection_window_hours"])
-        _login(client, user_a)
-
-        response = client.post(_declare_url(event, user_b), {"note": ""})
-
-        assert response.status_code == 302
-        assert response.url != _lobby_url(event)
-        assert EventConnection.objects.filter(
-            requester=user_a, recipient=user_b, event=event
-        ).exists()
-
-    def test_fallback_when_lobby_flag_off(self, client, settings):
-        settings.CRUSH_EVENT_LOBBY_ENABLED = False
-        user_a = _make_member("pf_e", gender="M")
-        user_b = _make_member("pf_f", gender="F")
-        event = _ended_event()
-        _attend(user_a, event)
-        _attend(user_b, event)
-        _login(client, user_a)
-
-        response = client.post(_declare_url(event, user_b), {"note": ""})
-
-        assert response.status_code == 302
-        assert response.url != _lobby_url(event)
-        assert EventConnection.objects.filter(
-            requester=user_a, recipient=user_b, event=event
-        ).exists()
-
-    def test_removal_pair_gets_neither_flow(self, client):
-        """A pair hidden by a pending/approved encounter removal: the target
-        is absent from the attendee list and a direct POST is rejected
-        without a recap redirect and without creating a row (§9.1)."""
-        user_a, user_b, event = self._eligible_pair()
-        low, high = ConfirmedEncounter.canonical_pair(user_a, user_b)
-        ConfirmedEncounter.objects.create(
-            user_low=low,
-            user_high=high,
-            status="removal_pending",
-        )
-        _login(client, user_a)
-
-        # Absent from the attendee list (block semantics).
-        response = client.get(
-            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
-        )
-        assert user_b.crushprofile.display_name.encode() not in response.content
-
-        # Direct POST rejected — no row, no recap redirect, reason not disclosed.
-        response = client.post(_declare_url(event, user_b), {"note": ""})
-        assert response.status_code == 302
-        assert response.url != _lobby_url(event)
-        assert not EventConnection.objects.filter(event=event).exists()
-
-        response = client.post(_inline_url(event, user_b), {"note": ""})
-        assert "HX-Redirect" not in response
-        assert not EventConnection.objects.filter(event=event).exists()
-
-    def test_removal_pair_gets_neither_flow_when_recap_closed(self, client):
-        """The pair-level removal check is independent of the recap phase: a
-        phase failure must not fall back to My Crush for a hidden pair
-        (§9.1 — only phase/feature failures fall back)."""
-        user_a = _make_member("pf_g", gender="M")
-        user_b = _make_member("pf_h", gender="F")
-        event = _make_event()
-        _join(user_a, event)
-        _join(user_b, event)
-        _end_event(event, hours_ago=49)  # recap closed
-        event.connection_window_hours = 168  # crush window still open
-        event.save(update_fields=["connection_window_hours"])
-        low, high = ConfirmedEncounter.canonical_pair(user_a, user_b)
-        ConfirmedEncounter.objects.create(
-            user_low=low, user_high=high, status="removal_pending"
-        )
-        _login(client, user_a)
-
-        response = client.post(_declare_url(event, user_b), {"note": ""})
-        assert response.status_code == 302
-        assert response.url != _lobby_url(event)
-        assert not EventConnection.objects.filter(event=event).exists()
-
-        response = client.post(_inline_url(event, user_b), {"note": ""})
-        assert "HX-Redirect" not in response
-        assert not EventConnection.objects.filter(event=event).exists()
-
-    def test_removal_pair_gets_neither_flow_when_lobby_flag_off(self, client, settings):
-        """A flag-off must not fall back to My Crush for a removal pair."""
-        settings.CRUSH_EVENT_LOBBY_ENABLED = False
-        user_a = _make_member("pf_i", gender="M")
-        user_b = _make_member("pf_j", gender="F")
-        event = _ended_event()
-        _attend(user_a, event)
-        _attend(user_b, event)
-        low, high = ConfirmedEncounter.canonical_pair(user_a, user_b)
-        ConfirmedEncounter.objects.create(
-            user_low=low, user_high=high, status="removed"
-        )
-        _login(client, user_a)
-
-        response = client.post(_declare_url(event, user_b), {"note": ""})
-        assert response.status_code == 302
-        assert response.url != _lobby_url(event)
-        assert not EventConnection.objects.filter(event=event).exists()
-
-        response = client.post(_inline_url(event, user_b), {"note": ""})
-        assert "HX-Redirect" not in response
-        assert not EventConnection.objects.filter(event=event).exists()
+# The declaration endpoint, its per-event limit and the one-pair-one-flow
+# redirect were retired when post-event swiping replaced "My Crush!"
+# (decision 2026-11-20); see test_event_swipes.py. Existing crush leads keep
+# their coach workflow, which the classes below still cover — their leads are
+# created through the ``declare_crush`` service directly.
 
 
 class TestRecipientPrivacy:
@@ -595,20 +158,6 @@ class TestRecipientPrivacy:
             flow=EventConnection.FLOW_CRUSH,
         )
         return crusher, target, event, lead
-
-    def test_attendee_hint_suppressed_for_crush_recipient(self, client):
-        _crusher, target, event, _lead = self._declared()
-        _login(client, target)
-
-        response = client.get(
-            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
-        )
-
-        assert response.status_code == 200
-        assert response.context["incoming_pending_count"] == 0
-        assert b"Someone here wants to connect with you" not in response.content
-        # No Accept/Decline card either.
-        assert b"respond_connection" not in response.content
 
     def test_recipient_inbox_shows_nothing(self, client):
         crusher, target, _event, _lead = self._declared()
@@ -710,21 +259,6 @@ class TestRecipientPrivacy:
         assert b"with your coach" in response.content
         assert b"Declined" not in response.content
         assert b"Coach Facilitation" not in response.content
-
-    def test_connection_actions_byte_identical_no_connection(self, client):
-        """The recipient's connection_actions endpoint yields the
-        no-connection representation for a pre-shared incoming crush."""
-        crusher, target, event, _lead = self._declared()
-        _login(client, target)
-        response = client.get(
-            reverse(
-                "crush_lu:connection_actions",
-                kwargs={"event_id": event.pk, "user_id": crusher.pk},
-            )
-        )
-        assert response.status_code == 200
-        assert b"Accept" not in response.content
-        assert b"Decline" not in response.content
 
     def test_export_suppresses_incoming_and_normalizes_outgoing(self):
         """GDPR export: the recipient's export has no trace of the row; the
@@ -839,10 +373,7 @@ class TestCoachLeadPrivacy:
         event = _ended_event()
         _attend(crusher, event)
         _attend(target, event)
-        client = Client()
-        _login(client, crusher)
-        client.post(_declare_url(event, target), {"note": note})
-        lead = EventConnection.objects.get(event=event, requester=crusher)
+        lead = _declare(event, crusher, target, note=note)
         assert lead.assigned_coach == coach
         return lead
 

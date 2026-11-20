@@ -12,7 +12,14 @@
     {% blocktrans with name=other_name title=event_title %}You and <strong>{{ name }}</strong> both wanted to stay in touch after <strong>{{ title }}</strong>.{% endblocktrans %}
 </p>
 
-{% if is_same_gender %}
+{% if is_swipe_match %}
+<div class="info-box">
+    <strong>{% trans "Your chat is open." %}</strong>
+    <p style="margin: 10px 0 0 0;">
+        {% blocktrans with name=other_name %}You both swiped right. Say hi to {{ name }} — the first message is all it takes.{% endblocktrans %}
+    </p>
+</div>
+{% elif is_same_gender %}
 <div class="info-box">
     <strong>{% trans "Contact information has been shared." %}</strong>
     <p style="margin: 10px 0 0 0;">
