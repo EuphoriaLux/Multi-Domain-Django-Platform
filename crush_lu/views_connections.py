@@ -146,7 +146,11 @@ def event_swipe(request, event_id, user_id):
     """Record a like/pass from the deck; JSON for the card UI, redirect otherwise."""
     from django.http import JsonResponse
 
-    from .services.event_swipes import SwipeNotAllowed, record_swipe
+    from .services.event_swipes import (
+        SwipeNotAllowed,
+        record_swipe,
+        swipe_error_message,
+    )
 
     event = get_object_or_404(MeetupEvent, id=event_id)
     target_profile = (
@@ -170,7 +174,7 @@ def event_swipe(request, event_id, user_id):
                 request=request,
             )
         except SwipeNotAllowed as exc:
-            error = str(exc)
+            error = swipe_error_message(exc.code)
 
     if _wants_json(request):
         if error:

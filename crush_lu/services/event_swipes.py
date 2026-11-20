@@ -18,7 +18,7 @@ import random
 from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _lazy
 
 from crush_lu.models.connections import EventConnection
 from crush_lu.models.event_swipes import EventSwipe
@@ -28,7 +28,28 @@ logger = logging.getLogger(__name__)
 
 
 class SwipeNotAllowed(Exception):
-    """The swipe was refused; ``str(exc)`` is safe to show the member."""
+    """The swipe was refused. ``code`` is one of ``SWIPE_ERROR_MESSAGES``.
+
+    Views show the member the fixed message for the code, never the
+    exception text itself.
+    """
+
+    def __init__(self, code):
+        super().__init__(code)
+        self.code = code
+
+
+SWIPE_ERROR_MESSAGES = {
+    "self": _lazy("You cannot swipe on yourself."),
+    "closed": _lazy("Swiping is closed for this event."),
+    "not_attendee": _lazy("You must attend this event to swipe."),
+    "unavailable": _lazy("This person is not available."),
+}
+
+
+def swipe_error_message(code):
+    """The member-facing text for a ``SwipeNotAllowed`` code."""
+    return SWIPE_ERROR_MESSAGES.get(code, SWIPE_ERROR_MESSAGES["unavailable"])
 
 
 # ---------------------------------------------------------------------------
@@ -168,13 +189,13 @@ def record_swipe(swiper, event, target, liked: bool, request=None) -> dict:
     other and leave a mutual pair without a match.
     """
     if swiper.pk == target.pk:
-        raise SwipeNotAllowed(_("You cannot swipe on yourself."))
+        raise SwipeNotAllowed("self")
     if not swipe_window_open(event):
-        raise SwipeNotAllowed(_("Swiping is closed for this event."))
+        raise SwipeNotAllowed("closed")
 
     swiper_reg = _registration(swiper, event)
     if not (swiper_reg and swiper_reg.can_make_connections):
-        raise SwipeNotAllowed(_("You must attend this event to swipe."))
+        raise SwipeNotAllowed("not_attendee")
 
     target_reg = _candidate_registrations(swiper, event).filter(user=target).first()
     if target_reg is None or not is_compatible(
@@ -182,7 +203,7 @@ def record_swipe(swiper, event, target, liked: bool, request=None) -> dict:
     ):
         # One message for "not an attendee", "blocked" and "not compatible"
         # so the endpoint cannot be used to probe any of them.
-        raise SwipeNotAllowed(_("This person is not available."))
+        raise SwipeNotAllowed("unavailable")
 
     with transaction.atomic():
         list(
