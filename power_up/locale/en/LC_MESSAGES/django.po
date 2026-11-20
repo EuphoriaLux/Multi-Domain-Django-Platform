@@ -314,7 +314,7 @@ msgstr ""
 
 #: .\power_up\templates\finops\anomalies.html:65
 msgid "Status"
-msgstr ""
+msgstr "Status"
 
 #: .\power_up\templates\finops\anomalies.html:69
 #: .\power_up\templates\finops\anomalies.html:103
@@ -1021,7 +1021,7 @@ msgstr ""
 
 #: .\power_up\templates\power_up\partials\platform_card.html:46
 msgid "Live"
-msgstr ""
+msgstr "Live"
 
 #: .\power_up\templates\power_up\partials\platform_card.html:48
 msgid "Coming Soon"
@@ -1935,3 +1935,228 @@ msgstr ""
 
 msgid "Your desired timing"
 msgstr "Your desired timing"
+
+msgid "Ready"
+msgstr "Ready"
+
+msgid "Wait %(seconds)ss"
+msgstr "Wait %(seconds)ss"
+
+msgid "%(count)s left"
+msgstr "%(count)s left"
+
+msgid "Place pixel"
+msgstr "Place pixel"
+
+msgid "Select a cell"
+msgstr "Select a cell"
+
+msgid "Pixel placed at (%(x)s, %(y)s)"
+msgstr "Pixel placed at (%(x)s, %(y)s)"
+
+msgid "Cooldown active — please wait %(seconds)s seconds."
+msgstr "Cooldown active — please wait %(seconds)s seconds."
+
+msgid "Could not reach the server. Please try again."
+msgstr "Could not reach the server. Please try again."
+
+msgid "This canvas is currently paused."
+msgstr "This canvas is currently paused."
+
+msgid "No pixels placed yet. Be the first!"
+msgstr "No pixels placed yet. Be the first!"
+
+msgid "Instant tap"
+msgstr "Instant tap"
+
+msgid "Preview & place"
+msgstr "Preview & place"
+
+msgid "Grid on"
+msgstr "Grid on"
+
+msgid "Grid off"
+msgstr "Grid off"
+
+msgid "Fullscreen"
+msgstr "Fullscreen"
+
+msgid "Exit fullscreen"
+msgstr "Exit fullscreen"
+
+msgid "Guest"
+msgstr "Guest"
+
+msgid "Lux Pixel War | Power-Up"
+msgstr "Lux Pixel War | Power-Up"
+
+msgid ""
+"Collaborative pixel art canvas hosted on Power-Up. Place pixels, explore the"
+" grid and build together in real time."
+msgstr ""
+"Collaborative pixel art canvas hosted on Power-Up. Place pixels, explore the"
+" grid and build together in real time."
+
+msgid "Power-Up Interactive Canvas"
+msgstr "Power-Up Interactive Canvas"
+
+msgid "Collaborate or compete — place pixels on the shared grid in real time."
+msgstr ""
+"Collaborate or compete — place pixels on the shared grid in real time."
+
+msgid "Grid"
+msgstr "Grid"
+
+msgid "Pixels painted"
+msgstr "Pixels painted"
+
+msgid "Paused"
+msgstr "Paused"
+
+msgid "Pixel canvas workspace"
+msgstr "Pixel canvas workspace"
+
+msgid "Canvas controls"
+msgstr "Canvas controls"
+
+msgid "Zoom out"
+msgstr "Zoom out"
+
+msgid "Zoom level"
+msgstr "Zoom level"
+
+msgid "Zoom in"
+msgstr "Zoom in"
+
+msgid "Fit"
+msgstr "Fit"
+
+msgid "Hover or focus a cell"
+msgstr "Hover or focus a cell"
+
+msgid "Interactive pixel art canvas"
+msgstr "Interactive pixel art canvas"
+
+msgid ""
+"Click or tap to paint. Drag to pan, scroll or pinch to zoom. Keyboard: arrow"
+" keys move cell, Shift+arrows pan, + / - / 0 zoom, Enter or Space places "
+"pixel."
+msgstr ""
+"Click or tap to paint. Drag to pan, scroll or pinch to zoom. Keyboard: arrow"
+" keys move cell, Shift+arrows pan, + / - / 0 zoom, Enter or Space places "
+"pixel."
+
+msgid "Selected cell"
+msgstr "Selected cell"
+
+msgid "Palette, limits and recent activity"
+msgstr "Palette, limits and recent activity"
+
+msgid "Color Palette"
+msgstr "Color Palette"
+
+msgid "Power-Up Orange"
+msgstr "Power-Up Orange"
+
+msgid "Crimson Red"
+msgstr "Crimson Red"
+
+msgid "Amber Gold"
+msgstr "Amber Gold"
+
+msgid "Bright Yellow"
+msgstr "Bright Yellow"
+
+msgid "Emerald Green"
+msgstr "Emerald Green"
+
+msgid "Teal"
+msgstr "Teal"
+
+msgid "Cyan"
+msgstr "Cyan"
+
+msgid "Royal Blue"
+msgstr "Royal Blue"
+
+msgid "Indigo"
+msgstr "Indigo"
+
+msgid "Purple"
+msgstr "Purple"
+
+msgid "Pink"
+msgstr "Pink"
+
+msgid "Brown"
+msgstr "Brown"
+
+msgid "White"
+msgstr "White"
+
+msgid "Light Slate"
+msgstr "Light Slate"
+
+msgid "Dark Slate"
+msgstr "Dark Slate"
+
+msgid "Midnight Blue"
+msgstr "Midnight Blue"
+
+msgid "Custom color"
+msgstr "Custom color"
+
+msgid "Recent colors"
+msgstr "Recent colors"
+
+msgid "Canvas & Limits"
+msgstr "Canvas & Limits"
+
+msgid "Selected color"
+msgstr "Selected color"
+
+msgid "Rate limit"
+msgstr "Rate limit"
+
+msgid "%(ppm)s px/min · %(cooldown)ss cooldown"
+msgstr "%(ppm)s px/min · %(cooldown)ss cooldown"
+
+msgid "Cooldown"
+msgstr "Cooldown"
+
+msgid "Remaining this min"
+msgstr "Remaining this min"
+
+msgid "Your pixels"
+msgstr "Your pixels"
+
+msgid "Recent Activity"
+msgstr "Recent Activity"
+
+msgid "Loading recent pixels…"
+msgstr "Loading recent pixels…"
+
+msgid "Collaborative 100×100 pixel canvas"
+msgstr "Collaborative 100×100 pixel canvas"
+
+msgid ""
+"An interactive shared pixel art canvas where visitors place pixels, explore "
+"live contributions and build art together."
+msgstr ""
+"An interactive shared pixel art canvas where visitors place pixels, explore "
+"live contributions and build art together."
+
+msgid "Interactive experiment · Live"
+msgstr "Interactive experiment · Live"
+
+msgid "Live 100×100 collaborative canvas"
+msgstr "Live 100×100 collaborative canvas"
+
+msgid "Pixel War"
+msgstr "Pixel War"
+
+msgid "Open project"
+msgstr "Open project"
+
+msgid "Open Platform"
+msgstr "Open Platform"

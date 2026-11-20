@@ -12,7 +12,6 @@ from django.conf.urls.static import static
 
 from .urls_shared import base_patterns
 from .views_seo import robots_txt_vinsdelux
-from entreprinder.vibe import views as vibe_views
 
 urlpatterns = base_patterns + [
     # SEO - robots.txt
@@ -23,8 +22,6 @@ urlpatterns = base_patterns + [
     path("crush/", include("crush_lu.urls", namespace="crush_lu")),
     # VinsDelux app URLs (root)
     path("", include("vinsdelux.urls", namespace="vinsdelux")),
-    # Vibe Coding game (merged into entreprinder)
-    path("vibe/", vibe_views.index, name="vinsdelux_vibe"),
 ]
 
 if settings.DEBUG:

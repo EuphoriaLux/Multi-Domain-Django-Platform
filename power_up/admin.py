@@ -89,6 +89,12 @@ class PowerUpAdminSite(admin.AdminSite):
             "retailpricesyncrun": {"order": 7, "icon": "🔄", "group": "FinOps Hub"},
             "retailpricerawpage": {"order": 8, "icon": "🗄️", "group": "FinOps Hub"},
             "retailpricesnapshot": {"order": 9, "icon": "🧾", "group": "FinOps Hub"},
+            # GROUP 8: Pixel War
+            "pixelcanvas": {"order": 0, "icon": "🎨", "group": "Pixel War"},
+            "pixel": {"order": 1, "icon": "🔲", "group": "Pixel War"},
+            "pixelhistory": {"order": 2, "icon": "📜", "group": "Pixel War"},
+            "userpixelcooldown": {"order": 3, "icon": "⏱️", "group": "Pixel War"},
+            "userpixelstats": {"order": 4, "icon": "📊", "group": "Pixel War"},
         }
 
         # Ordered display groups
@@ -100,10 +106,11 @@ class PowerUpAdminSite(admin.AdminSite):
             ("🎫 Support Tickets", "Support Tickets"),
             ("🚀 Onboarding", "Onboarding"),
             ("📊 FinOps Hub", "FinOps Hub"),
+            ("🎨 Pixel War", "Pixel War"),
         ]
 
         new_app_list = []
-        grouped_labels = {"crm", "finops", "onboarding"}
+        grouped_labels = {"crm", "finops", "onboarding", "entreprinder"}
 
         for app in app_list:
             if app["app_label"] not in grouped_labels:
@@ -163,3 +170,4 @@ from power_up.finops import admin as finops_admin  # noqa: F401, E402
 from power_up.crm import admin as crm_admin  # noqa: F401, E402
 from power_up.onboarding import admin as onboarding_admin  # noqa: F401, E402
 from power_up.atmos import admin as atmos_admin  # noqa: F401, E402
+from power_up.pixel_war import admin as pixel_war_admin  # noqa: F401, E402
