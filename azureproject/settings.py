@@ -1038,6 +1038,17 @@ WHATSAPP_OTP_TEMPLATE_PREFIX = os.environ.get(
 # Minutes an OTP stays valid — keep in sync with the template's expiration
 # warning and message validity period configured in WhatsApp Manager (3 min).
 WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
+# Country calling codes allowed to receive a WhatsApp verification code
+# (comma list, with or without "+"). Other numbers verify by SMS or LuxID, and
+# the send endpoint rejects them before any billable Meta call. Default:
+# Luxembourg and its three neighbours, where nearly all members live.
+WHATSAPP_OTP_ALLOWED_COUNTRY_CODES = [
+    code.strip().lstrip("+")
+    for code in os.environ.get(
+        "WHATSAPP_OTP_ALLOWED_COUNTRY_CODES", "352,49,33,32"
+    ).split(",")
+    if code.strip().lstrip("+")
+]
 
 # Name of an APPROVED Meta *Utility* template (en/de/fr variants) used to tell
 # a member that someone sent them a Connect Week request. Empty = channel off.

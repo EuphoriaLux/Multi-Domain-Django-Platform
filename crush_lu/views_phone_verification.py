@@ -425,6 +425,20 @@ def send_whatsapp_otp(request):
             status=503,
         )
 
+    # WhatsApp codes only go to the allowed countries (cost and abuse control);
+    # everyone else verifies by SMS or LuxID. Rejected before the Meta call.
+    if not whatsapp.otp_country_allowed(phone_number):
+        return JsonResponse(
+            {
+                "success": False,
+                "error": _(
+                    "WhatsApp codes aren't available for this country. Please verify by SMS instead."
+                ),
+                "error_code": "whatsapp_country_not_supported",
+            },
+            status=422,
+        )
+
     lang = validate_language(getattr(request, "LANGUAGE_CODE", "en"), default="en")
     code = PhoneOTP.generate_code()
     result = whatsapp.send_otp(phone_number, code, language=lang)

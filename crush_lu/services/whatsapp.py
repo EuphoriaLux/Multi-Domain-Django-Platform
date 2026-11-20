@@ -78,6 +78,19 @@ def is_configured() -> bool:
     )
 
 
+def otp_country_allowed(phone_number: str) -> bool:
+    """True when this E.164 number's country may receive a WhatsApp OTP.
+
+    Country calling codes are prefix-free, so a plain prefix match on the
+    canonical ``+<digits>`` form is exact. An empty setting allows every country.
+    """
+    codes = getattr(settings, "WHATSAPP_OTP_ALLOWED_COUNTRY_CODES", None) or []
+    if not codes:
+        return True
+    digits = (phone_number or "").lstrip("+")
+    return any(digits.startswith(code) for code in codes)
+
+
 def otp_template_name() -> str:
     prefix = getattr(settings, "WHATSAPP_OTP_TEMPLATE_PREFIX", "crush_staging")
     return f"{prefix}_phone_verification"
