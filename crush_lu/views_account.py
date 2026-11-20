@@ -3538,6 +3538,9 @@ def _export_account(user):
             # form is submitted, so it is member-authored data.
             "draft_data": profile.draft_data or None,
             "verification_method": profile.verification_method,
+            "submitted_for_verification_at": _iso_or_none(
+                profile.submitted_for_verification_at
+            ),
             "intent_probe": profile.get_intent_probe_display() or None,
             "first_step_preference": profile.get_first_step_preference_display(),
             "astro_enabled": profile.astro_enabled,
