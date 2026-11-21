@@ -547,3 +547,53 @@ def test_campaign_end_date_uses_the_locale_day_month_format(old_room, lang, expe
     html = mail.outbox[-1].alternatives[0][0]
     # FR month names are capitalised by the site catalog ("Décembre").
     assert expected.lower() in html.lower()
+
+
+class TestCampaignSafety:
+    """Review findings on #1390: card photos and encounter removals."""
+
+    def test_campaign_card_photo_is_visible_while_the_campaign_runs(self, old_room):
+        from crush_lu.views_media import can_view_profile_photo
+
+        anna, carl = old_room["anna"], old_room["carl"]
+        assert not can_view_profile_photo(anna, carl.crushprofile)
+        _campaign()
+        assert can_view_profile_photo(anna, carl.crushprofile)
+        # Secondary photos stay Connect-only.
+        assert not can_view_profile_photo(anna, carl.crushprofile, "photo_2")
+
+    def test_hidden_members_photo_stays_private_in_the_campaign(self, old_room):
+        from crush_lu.views_media import can_view_profile_photo
+
+        _campaign()
+        anna, carl = old_room["anna"], old_room["carl"]
+        PastEventDeckOptOut.objects.create(user=carl)
+        assert not can_view_profile_photo(anna, carl.crushprofile)
+        assert not can_view_profile_photo(carl, anna.crushprofile)
+
+    def test_encounter_removal_closes_the_swipe_connect_chat(self, client):
+        from crush_lu.models import ConfirmedEncounter
+
+        event = _end_event(_make_event())
+        eva = _member("eva9", "F", connect=True)
+        finn = _member("finn9", "M", connect=True)
+        _attend(eva, event)
+        _attend(finn, event)
+        event_swipes.record_swipe(eva, event, finn, True)
+        connection = event_swipes.record_swipe(finn, event, eva, True)["connection"]
+        chat = connection.connect_chat
+        low, high = sorted((eva, finn), key=lambda u: u.pk)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removal_pending"
+        )
+
+        _login(client, eva)
+        detail = reverse(
+            "crush_lu:connect_week_chat_detail", kwargs={"chat_id": chat.pk}
+        )
+        assert client.get(detail).status_code == 404
+        send = reverse("crush_lu:connect_week_chat_send", kwargs={"chat_id": chat.pk})
+        assert client.post(send, {"body": "hi"}).status_code == 404
+        listing = client.get(reverse("crush_lu:connect_week_chats"))
+        assert detail not in listing.content.decode()
+        assert event_swipes.live_connect_chat(connection) is None

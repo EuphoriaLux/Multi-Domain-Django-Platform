@@ -628,6 +628,10 @@ def live_connect_chat(connection):
         # One of them left or paused Connect: the Connect chat would 404, so
         # the pair falls back to the chat on the connection page.
         return None
+    from crush_lu.services.event_lobby import hidden_encounter_user_ids
+
+    if chat.participant_2_id in hidden_encounter_user_ids(chat.participant_1):
+        return None
     chat = sync_chat_state(chat)
     return chat if chat_is_open(chat) else None
 
