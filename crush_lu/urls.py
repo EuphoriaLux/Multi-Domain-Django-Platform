@@ -817,6 +817,27 @@ urlpatterns = [
         views_quiz.quiz_rehearsal_entry,
         name="quiz_rehearsal",
     ),
+    # Staging only (404 elsewhere): Crush Cache field-test / daily rehearsal hub
+    path(
+        "coach/cache-rehearsal/",
+        views_crush_cache.cache_rehearsal_hub,
+        name="cache_rehearsal",
+    ),
+    path(
+        "coach/cache-rehearsal/<int:event_id>/play/",
+        views_crush_cache.cache_rehearsal_play,
+        name="cache_rehearsal_play",
+    ),
+    path(
+        "coach/cache-rehearsal/<int:event_id>/lobby/",
+        views_crush_cache.cache_rehearsal_lobby,
+        name="cache_rehearsal_lobby",
+    ),
+    path(
+        "coach/cache-rehearsal/<int:event_id>/reset/",
+        views_crush_cache.cache_rehearsal_reset,
+        name="cache_rehearsal_reset",
+    ),
     # Coach playground (staging only, 404 elsewhere): practice member,
     # scenarios, switch to the member and back, practice inbox.
     # Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md

@@ -61,6 +61,10 @@
          {% endif %}
          data-completed-stations="{{ completed_stations_json|default:'[]' }}">
 
+        {% if cache_rehearsal_toolbar %}
+            {% include "crush_lu/cache/_rehearsal_toolbar.html" %}
+        {% endif %}
+
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-2">
                 <span class="inline-block h-3.5 w-3.5 rounded-full ring-2 ring-white/50 dark:ring-gray-900/50 shadow-sm" style="background: {{ team.color }}" aria-hidden="true"></span>

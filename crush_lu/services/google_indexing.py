@@ -70,9 +70,10 @@ def should_index_event(event) -> bool:
         return False
     # Coach playground practice mixers (test.crush.lu) are published so the
     # real pages work, but they are never real events.
+    from crush_lu.services.cache_rehearsal import is_rehearsal_cache_event
     from crush_lu.services.playground_events import is_practice_mixer
 
-    if is_practice_mixer(event):
+    if is_practice_mixer(event) or is_rehearsal_cache_event(event):
         return False
     return True
 

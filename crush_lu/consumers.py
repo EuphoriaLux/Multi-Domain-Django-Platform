@@ -2390,6 +2390,10 @@ class CacheHuntConsumer(BaseCrushWebsocketConsumer):
             return False
         if hunt.created_by_id == user.id:
             return True
+        from crush_lu.services.cache_rehearsal import is_rehearsal_cache_host
+
+        if is_rehearsal_cache_host(hunt, user):
+            return True
         return CrushCoach.objects.filter(
             user=user, is_active=True, assigned_events=hunt.event_id
         ).exists()

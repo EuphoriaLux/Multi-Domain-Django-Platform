@@ -12,6 +12,7 @@ layer, mirroring views_checkin.py; CacheHuntConsumer is a read-only relay.
 import json
 import logging
 import uuid
+from functools import wraps
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -21,9 +22,10 @@ from django.db import IntegrityError, transaction
 from django.db.models import Sum
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.translation import gettext as _
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET, require_POST
 
 from .decorators import crush_login_required, ratelimit
 from .geo import bearing_deg, haversine_m
@@ -105,6 +107,10 @@ def _can_manage_hunt(user, hunt):
     if hunt.created_by_id == user.id:
         return True
     from .models import CrushCoach
+    from .services.cache_rehearsal import is_rehearsal_cache_host
+
+    if is_rehearsal_cache_host(hunt, user):
+        return True
 
     return CrushCoach.objects.filter(
         user=user, is_active=True, assigned_events=hunt.event_id
@@ -270,6 +276,15 @@ def cache_lobby(request, event_id):
         "members__registration__user__crushprofile"
     ).order_by("created_at")
 
+    from .services.cache_rehearsal import (
+        cache_rehearsal_enabled,
+        resolve_rehearsal_actor,
+    )
+
+    rehearsal_actor = (
+        resolve_rehearsal_actor(request) if cache_rehearsal_enabled() else None
+    )
+
     return render(
         request,
         "crush_lu/cache/lobby.html",
@@ -279,6 +294,7 @@ def cache_lobby(request, event_id):
             "registration": registration,
             "membership": membership,
             "teams": teams,
+            "cache_rehearsal_can_leave": rehearsal_actor is not None,
         },
     )
 
@@ -352,14 +368,22 @@ def cache_join_team(request, event_id):
 @crush_login_required
 @require_POST
 def cache_leave_team(request, event_id):
-    """Leave the current team — only while the hunt hasn't started."""
+    """Leave the current team — only while the hunt hasn't started (or staging rehearsal)."""
     hunt = _get_hunt_or_404(event_id, request=request)
+    from .services.cache_rehearsal import (
+        cache_rehearsal_enabled,
+        resolve_rehearsal_actor,
+    )
 
-    if hunt.status != "draft":
+    is_rehearsal_actor = (
+        cache_rehearsal_enabled() and resolve_rehearsal_actor(request) is not None
+    )
+
+    if hunt.status != "draft" and not is_rehearsal_actor:
         messages.error(request, _("Teams are locked once the hunt has started."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
-    if not hunt.allow_self_join:
+    if not hunt.allow_self_join and not is_rehearsal_actor:
         messages.error(request, _("Teams are formed by the coach for this hunt."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
@@ -393,7 +417,24 @@ def cache_play(request, event_id):
         messages.info(request, _("The hunt hasn't started yet."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
+    from .services.cache_rehearsal import (
+        cache_rehearsal_enabled,
+        maybe_daily_reset_team,
+        resolve_rehearsal_actor,
+    )
+
+    rehearsal_actor = (
+        resolve_rehearsal_actor(request) if cache_rehearsal_enabled() else None
+    )
+    if rehearsal_actor is not None:
+        _prog, did_reset = maybe_daily_reset_team(hunt, membership.team)
+        if did_reset:
+            messages.info(request, _("New day — your run was reset to Station 1."))
+
     context = _play_context(hunt, membership)
+    if rehearsal_actor is not None:
+        context["cache_rehearsal_toolbar"] = True
+        context["rehearsal_is_coach"] = rehearsal_actor[0].pk == rehearsal_actor[1].pk
     if context["progress"].is_finished or hunt.status == "finished":
         # Only the finish screen shows the leaderboard — the play screen
         # and its HTMX swaps don't, so _play_context skips the query.
@@ -495,60 +536,70 @@ def _process_station_scan(request, station):
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
     progress = _ensure_progress(hunt, membership.team)
-    if progress.is_finished:
-        return redirect("crush_lu:cache_play", event_id=event_id)
+    with transaction.atomic():
+        # Lock CacheTeamProgress before touching CacheStationAttempt to match
+        # reset_team_run / gameplay (progress -> attempts) and prevent races.
+        progress = (
+            CacheTeamProgress.objects.select_for_update().filter(pk=progress.pk).first()
+        )
+        if progress is None:
+            messages.error(request, _("Join a team first, then scan the code again."))
+            return redirect("crush_lu:cache_lobby", event_id=event_id)
+        if progress.is_finished:
+            return redirect("crush_lu:cache_play", event_id=event_id)
 
-    if progress.current_station_id != station.id:
-        already_done = CacheStationAttempt.objects.filter(
-            team=membership.team, station=station, completed_at__isnull=False
-        ).exists()
-        if already_done:
+        if progress.current_station_id != station.id:
+            already_done = CacheStationAttempt.objects.filter(
+                team=membership.team, station=station, completed_at__isnull=False
+            ).exists()
+            if already_done:
+                messages.info(
+                    request,
+                    _("Your team already completed %(station)s.")
+                    % {"station": station.name},
+                )
+            else:
+                messages.warning(
+                    request,
+                    _("That's not your current station — keep following your clue!"),
+                )
+            return redirect("crush_lu:cache_play", event_id=event_id)
+
+        attempt, _created = CacheStationAttempt.objects.get_or_create(
+            team=membership.team, station=station
+        )
+        if attempt.scanned_at is None:
+            now = timezone.now()
+            CacheStationAttempt.objects.filter(
+                pk=attempt.pk, scanned_at__isnull=True
+            ).update(scanned_at=now)
+            attempt.scanned_at = now  # reflect the write for the is_unlocked check
+            if attempt.is_unlocked:
+                messages.success(
+                    request,
+                    _("Code scanned — %(station)s unlocked!")
+                    % {"station": station.name},
+                )
+            else:
+                # A gps_qr station scanned before the team has arrived: the scan is
+                # recorded, but GPS arrival is still required — don't claim it's
+                # unlocked when it isn't.
+                messages.info(
+                    request,
+                    _("Code scanned — now reach the location to unlock %(station)s.")
+                    % {"station": station.name},
+                )
+        elif attempt.is_unlocked:
             messages.info(
                 request,
-                _("Your team already completed %(station)s.")
-                % {"station": station.name},
+                _("Already scanned — your challenges await below."),
             )
         else:
-            messages.warning(
-                request,
-                _("That's not your current station — keep following your clue!"),
-            )
-        return redirect("crush_lu:cache_play", event_id=event_id)
-
-    attempt, _created = CacheStationAttempt.objects.get_or_create(
-        team=membership.team, station=station
-    )
-    if attempt.scanned_at is None:
-        now = timezone.now()
-        CacheStationAttempt.objects.filter(
-            pk=attempt.pk, scanned_at__isnull=True
-        ).update(scanned_at=now)
-        attempt.scanned_at = now  # reflect the write for the is_unlocked check
-        if attempt.is_unlocked:
-            messages.success(
-                request,
-                _("Code scanned — %(station)s unlocked!") % {"station": station.name},
-            )
-        else:
-            # A gps_qr station scanned before the team has arrived: the scan is
-            # recorded, but GPS arrival is still required — don't claim it's
-            # unlocked when it isn't.
             messages.info(
                 request,
-                _("Code scanned — now reach the location to unlock %(station)s.")
+                _("Already scanned — now reach the location to unlock %(station)s.")
                 % {"station": station.name},
             )
-    elif attempt.is_unlocked:
-        messages.info(
-            request,
-            _("Already scanned — your challenges await below."),
-        )
-    else:
-        messages.info(
-            request,
-            _("Already scanned — now reach the location to unlock %(station)s.")
-            % {"station": station.name},
-        )
     return redirect("crush_lu:cache_play", event_id=event_id)
 
 
@@ -599,9 +650,64 @@ def cache_position_api(request, event_id):
         return JsonResponse({"ok": True, "accepted": False, "reason": "accuracy"})
 
     now = timezone.now()
-    CacheTeamProgress.objects.filter(pk=progress.pk).update(
-        last_lat=lat, last_lng=lng, last_accuracy=accuracy, last_position_at=now
-    )
+    response = {"ok": True, "accepted": True, "arrived": False, "unlocked": False}
+
+    with transaction.atomic():
+        # Serialize with reset_team_run / gameplay using the same
+        # CacheTeamProgress -> CacheStationAttempt lock order so a concurrent
+        # reset cannot delete the attempt mid-arrival or race with stale station state.
+        progress = (
+            CacheTeamProgress.objects.select_for_update().filter(pk=progress.pk).first()
+        )
+        if progress is None:
+            return JsonResponse({"ok": False, "error": "no_team"}, status=403)
+        if progress.is_finished:
+            return JsonResponse({"ok": False, "error": "finished"}, status=403)
+
+        CacheTeamProgress.objects.filter(pk=progress.pk).update(
+            last_lat=lat, last_lng=lng, last_accuracy=accuracy, last_position_at=now
+        )
+
+        station = progress.current_station
+        if station is not None:
+            attempt, _created = CacheStationAttempt.objects.get_or_create(
+                team=membership.team, station=station
+            )
+
+            if station.latitude is not None and station.longitude is not None:
+                distance = haversine_m(lat, lng, station.latitude, station.longitude)
+                if hunt.navigation_mode in ("map", "compass"):
+                    response["distance_m"] = round(distance)
+                    response["bearing"] = round(
+                        bearing_deg(lat, lng, station.latitude, station.longitude)
+                    )
+
+                if (
+                    station.requires_gps
+                    and attempt.arrived_at is None
+                    and distance
+                    <= station.radius_meters + min(accuracy, ACCURACY_TOLERANCE_CAP_M)
+                ):
+                    CacheStationAttempt.objects.filter(
+                        pk=attempt.pk, arrived_at__isnull=True
+                    ).update(arrived_at=now)
+                    try:
+                        attempt.refresh_from_db()
+                    except CacheStationAttempt.DoesNotExist:
+                        # Attempt was removed concurrently (e.g. reset on a
+                        # backend without row locks); treat as pre-arrival.
+                        return JsonResponse(
+                            {
+                                "ok": True,
+                                "accepted": True,
+                                "arrived": False,
+                                "unlocked": False,
+                            }
+                        )
+                    response["arrived"] = True
+
+            response["arrived"] = response["arrived"] or attempt.arrived_at is not None
+            response["unlocked"] = attempt.is_unlocked
 
     _broadcast_cache(
         hunt.id,
@@ -618,38 +724,6 @@ def cache_position_api(request, event_id):
         coach_only=True,
     )
 
-    response = {"ok": True, "accepted": True, "arrived": False, "unlocked": False}
-    station = progress.current_station
-
-    if progress.is_finished or not hunt.is_live or station is None:
-        return JsonResponse(response)
-
-    attempt, _created = CacheStationAttempt.objects.get_or_create(
-        team=membership.team, station=station
-    )
-
-    if station.latitude is not None and station.longitude is not None:
-        distance = haversine_m(lat, lng, station.latitude, station.longitude)
-        if hunt.navigation_mode in ("map", "compass"):
-            response["distance_m"] = round(distance)
-            response["bearing"] = round(
-                bearing_deg(lat, lng, station.latitude, station.longitude)
-            )
-
-        if (
-            station.requires_gps
-            and attempt.arrived_at is None
-            and distance
-            <= station.radius_meters + min(accuracy, ACCURACY_TOLERANCE_CAP_M)
-        ):
-            CacheStationAttempt.objects.filter(
-                pk=attempt.pk, arrived_at__isnull=True
-            ).update(arrived_at=now)
-            attempt.refresh_from_db()
-            response["arrived"] = True
-
-    response["arrived"] = response["arrived"] or attempt.arrived_at is not None
-    response["unlocked"] = attempt.is_unlocked
     return JsonResponse(response)
 
 
@@ -1179,3 +1253,174 @@ def cache_coach_qr_sheet(request, event_id):
         f'attachment; filename="crush-cache-{hunt.pk}-qr-sheet.pdf"'
     )
     return response
+
+
+# =============================================================================
+# Staging-only Field-Test / Rehearsal Hub (404 off staging & DEBUG=False)
+# =============================================================================
+
+
+def _cache_rehearsal_view(view_func):
+    """404 off staging before login redirect; then allow active coaches or active practice members."""
+    from .services.cache_rehearsal import (
+        cache_rehearsal_enabled,
+        resolve_rehearsal_actor,
+    )
+
+    @crush_login_required
+    def _login_gated(request, *args, **kwargs):
+        actor = resolve_rehearsal_actor(request)
+        if actor is None:
+            messages.error(
+                request, _("Crush Cache field-test is only open to active coaches.")
+            )
+            return redirect("crush_lu:dashboard")
+        request.rehearsal_coach_user = actor[1]
+        request.rehearsal_is_practice = actor[0].pk != actor[1].pk
+        return view_func(request, *args, **kwargs)
+
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not cache_rehearsal_enabled():
+            raise Http404
+        return _login_gated(request, *args, **kwargs)
+
+    return wrapper
+
+
+def _rehearsal_unlock_label(stations):
+    modes = {s.unlock_mode for s in stations}
+    if not modes:
+        return _("Open")
+    if modes == {"gps"}:
+        return "GPS"
+    if modes == {"gps_qr"}:
+        return "GPS + QR"
+    if modes == {"qr"}:
+        return "QR"
+    if "gps_qr" in modes or ({"gps", "qr"} <= modes):
+        return "GPS + QR"
+    if "gps" in modes:
+        return "GPS"
+    if "qr" in modes:
+        return "QR"
+    return _("Open")
+
+
+def _rehearsal_hunt_card(hunt, user, subtitle=None):
+    stations = list(hunt.ordered_stations())
+    membership = (
+        CacheTeamMember.objects.filter(hunt=hunt, registration__user=user)
+        .select_related("team", "team__progress", "team__progress__current_station")
+        .first()
+    )
+    progress = None
+    is_stale_day = False
+    if membership:
+        try:
+            progress = membership.team.progress
+        except CacheTeamProgress.DoesNotExist:
+            progress = None
+        if progress and progress.started_at is not None:
+            is_stale_day = timezone.localdate(progress.started_at) < timezone.localdate(
+                timezone.now()
+            )
+    return {
+        "hunt": hunt,
+        "event": hunt.event,
+        "subtitle": subtitle or hunt.event.location,
+        "station_count": len(stations),
+        "has_qr": any(s.requires_qr for s in stations),
+        "unlock_label": _rehearsal_unlock_label(stations),
+        "membership": membership,
+        "team": membership.team if membership else None,
+        "progress": progress,
+        "is_stale_day": is_stale_day,
+    }
+
+
+@_cache_rehearsal_view
+@require_GET
+def cache_rehearsal_hub(request):
+    """Staging-only hub listing all preset & existing Crush Caches ready to test today."""
+    from .services.cache_rehearsal import (
+        ensure_all_preset_rehearsal_hunts,
+        list_existing_staging_hunts,
+    )
+
+    seeded = ensure_all_preset_rehearsal_hunts(request.rehearsal_coach_user)
+    preset_cards = [
+        _rehearsal_hunt_card(
+            hunt,
+            request.user,
+            subtitle=f"{preset['location']} — {preset['address']}",
+        )
+        for _key, preset, hunt in seeded
+    ]
+    preset_event_ids = {hunt.event_id for _key, _preset, hunt in seeded}
+    existing_cards = [
+        _rehearsal_hunt_card(hunt, request.user)
+        for hunt in list_existing_staging_hunts(preset_event_ids)
+    ]
+
+    return render(
+        request,
+        "crush_lu/cache/rehearsal.html",
+        {
+            "preset_cards": preset_cards,
+            "existing_cards": existing_cards,
+            "cache_flag_enabled": getattr(settings, "CRUSH_CACHE_ENABLED", False),
+            "ios_suppressed": ios_cache_suppressed(request),
+            "rehearsal_is_practice": request.rehearsal_is_practice,
+            "rehearsal_is_coach": not request.rehearsal_is_practice,
+        },
+    )
+
+
+@_cache_rehearsal_view
+@require_POST
+def cache_rehearsal_play(request, event_id):
+    """Ensure live state + daily reset + personal team, then jump straight into play."""
+    from .services.cache_rehearsal import enter_solo_play
+
+    hunt = _get_hunt_or_404(event_id, request=request)
+    _team, did_reset = enter_solo_play(hunt, request.user)
+    if did_reset:
+        messages.info(request, _("New day — your run was reset to Station 1."))
+    return redirect("crush_lu:cache_play", event_id=event_id)
+
+
+@_cache_rehearsal_view
+@require_POST
+def cache_rehearsal_lobby(request, event_id):
+    """Prepare the user to join or create a multi-coach team in the Lobby."""
+    from .services.cache_rehearsal import enter_lobby_mode
+
+    hunt = _get_hunt_or_404(event_id, request=request)
+    enter_lobby_mode(hunt, request.user, leave_solo=True)
+    return redirect(f"{reverse('crush_lu:cache_lobby', args=[event_id])}?view=lobby")
+
+
+@_cache_rehearsal_view
+@require_POST
+def cache_rehearsal_reset(request, event_id):
+    """Reset only the requesting user's team progress back to Station 1."""
+    from .services.cache_rehearsal import keep_hunt_daily_active, reset_team_run
+
+    hunt = _get_hunt_or_404(event_id, request=request)
+    keep_hunt_daily_active(hunt)
+    membership = (
+        CacheTeamMember.objects.filter(hunt=hunt, registration__user=request.user)
+        .select_related("team")
+        .first()
+    )
+    if membership is not None:
+        reset_team_run(hunt, membership.team)
+        messages.success(request, _("Your run has been reset to Station 1."))
+    else:
+        messages.info(
+            request, _("You have not joined this hunt yet — press Play to start.")
+        )
+    if request.POST.get("next") == "play" and membership is not None:
+        return redirect("crush_lu:cache_play", event_id=event_id)
+    return redirect("crush_lu:cache_rehearsal")

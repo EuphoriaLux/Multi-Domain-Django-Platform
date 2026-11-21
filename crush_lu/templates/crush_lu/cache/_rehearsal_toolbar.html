@@ -1,0 +1,19 @@
+{% load i18n %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-100">
+    <span class="font-semibold uppercase tracking-wider">{% trans "Field-test" %}</span>
+    <div class="flex flex-wrap items-center gap-2">
+        <a href="{% url 'crush_lu:cache_rehearsal' %}" class="font-semibold underline">
+            {% trans "All test caches" %}
+        </a>
+        <form method="post" action="{% url 'crush_lu:cache_rehearsal_reset' event.id %}" class="inline">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="play">
+            <button type="submit" class="font-semibold underline">{% trans "Reset my run" %}</button>
+        </form>
+        {% if rehearsal_is_coach %}
+        <a href="{% url 'crush_lu:cache_coach_dashboard' event.id %}" class="font-semibold underline">
+            {% trans "Coach Control" %}
+        </a>
+        {% endif %}
+    </div>
+</div>
