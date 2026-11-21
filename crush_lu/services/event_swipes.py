@@ -554,18 +554,6 @@ def matches_for_user(user, event):
     )
 
 
-def coach_matches(coach, *, all_events=False):
-    """Swipe matches a coach may see read-only: their events' (or all)."""
-    qs = EventConnection.objects.filter(flow=EventConnection.FLOW_SWIPE)
-    if not all_events:
-        qs = qs.filter(event__coaches=coach)
-    return (
-        qs.select_related("event", "requester__crushprofile", "recipient__crushprofile")
-        .order_by("-shared_at")
-        .distinct()
-    )
-
-
 def event_swipe_stats(event) -> dict:
     """Counts for coach/admin views: swipes, likes, matches."""
     swipes = EventSwipe.objects.filter(event=event)

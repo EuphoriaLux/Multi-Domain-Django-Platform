@@ -1,0 +1,151 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n crush_media %}
+
+{% block title %}{% trans "Matches" %} - {% trans "Coach" %} - Crush.lu{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+    <div class="mb-6">
+        <a href="{% url 'crush_lu:coach_dashboard' %}" class="text-purple-600 dark:text-purple-400 hover:underline text-sm">
+            &larr; {% trans "Back to Dashboard" %}
+        </a>
+    </div>
+
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold dark:text-white">{% trans "Matches" %}{% if event %} · {{ event.title }}{% endif %}</h2>
+        <p class="text-gray-500 dark:text-gray-400">
+            {% trans "Members who matched after an event, for all coaches. Read-only: you see who matched and how the conversation is going, never the messages." %}
+        </p>
+    </div>
+
+    {% if open_queue_count %}
+    <div class="mb-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm text-amber-800 dark:text-amber-200 mb-0">
+            {% blocktrans count counter=open_queue_count %}{{ counter }} older coach-led connection is still open.{% plural %}{{ counter }} older coach-led connections are still open.{% endblocktrans %}
+        </p>
+        <a href="{% url 'crush_lu:coach_connections' %}?status=all" class="text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">{% trans "Open coach queue" %} &rarr;</a>
+    </div>
+    {% endif %}
+
+    <!-- Counters: computed from exactly the matches listed below (before the chat filter) -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <p class="text-2xl font-bold text-pink-600 dark:text-pink-400">{{ counters.matches }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Matches" %}</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ counters.chatting }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Chatting" %}</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <p class="text-2xl font-bold text-gray-700 dark:text-gray-200">{{ counters.silent }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "No messages yet" %}</p>
+        </div>
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">
+            <p class="text-2xl font-bold text-purple-600 dark:text-purple-400">{{ counters.dates }}</p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{% trans "Date planned" %}</p>
+        </div>
+    </div>
+
+    {% if event_stats %}
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+        {% blocktrans with swipers=event_stats.swipers swipes=event_stats.swipes likes=event_stats.likes %}At this event: {{ swipers }} members swiped, {{ swipes }} swipes, {{ likes }} likes.{% endblocktrans %}
+    </p>
+    {% endif %}
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-3 sm:p-4 mb-6">
+        <div class="flex flex-col lg:flex-row lg:items-center gap-3">
+            <div class="flex flex-wrap gap-2">
+                <a href="?chat=all{% if event_id %}&event={{ event_id }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}"
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {% if chat_filter == 'all' %}bg-crush-purple text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">{% trans "All" %}</a>
+                <a href="?chat=chatting{% if event_id %}&event={{ event_id }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}"
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {% if chat_filter == 'chatting' %}bg-crush-purple text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">{% trans "Chatting" %}</a>
+                <a href="?chat=silent{% if event_id %}&event={{ event_id }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}"
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {% if chat_filter == 'silent' %}bg-crush-purple text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">{% trans "No messages yet" %}</a>
+                <a href="?chat=date{% if event_id %}&event={{ event_id }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}"
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors {% if chat_filter == 'date' %}bg-crush-purple text-white{% else %}bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600{% endif %}">{% trans "Date planned" %}</a>
+            </div>
+            <form method="get" class="flex flex-col sm:flex-row gap-2 lg:ml-auto">
+                <input type="hidden" name="chat" value="{{ chat_filter }}">
+                <input type="search" name="q" value="{{ query }}" placeholder="{% trans 'Search a name' %}"
+                       class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm dark:text-white">
+                <select name="event" onchange="this.form.submit()"
+                        class="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm dark:text-white">
+                    <option value="">{% trans "All events" %}</option>
+                    {% for ev in events_with_matches %}
+                        <option value="{{ ev.id }}" {% if event_id == ev.id|stringformat:"d" %}selected{% endif %}>
+                            {{ ev.title|truncatechars:30 }} ({{ ev.date_time|date:"M j" }})
+                        </option>
+                    {% endfor %}
+                </select>
+                <noscript><button type="submit" class="px-3 py-2 rounded-lg bg-crush-purple text-white text-sm">{% trans "Filter" %}</button></noscript>
+            </form>
+        </div>
+    </div>
+
+    <!-- Match list -->
+    <div class="space-y-3">
+        {% for match in page_obj %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 sm:p-5">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 flex-wrap">
+                        {% with person=match.requester name=match.requester_display_name onboarding=match.requester_onboarding_coach %}
+                            {% include "crush_lu/partials/coach_match_person.html" %}
+                        {% endwith %}
+                        <span class="text-pink-500 text-lg" aria-hidden="true">&hearts;</span>
+                        {% with person=match.recipient name=match.recipient_display_name onboarding=match.recipient_onboarding_coach %}
+                            {% include "crush_lu/partials/coach_match_person.html" %}
+                        {% endwith %}
+                    </div>
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                        <a href="?event={{ match.event_id }}" class="inline-flex items-center gap-1 hover:underline">
+                            {% include "shared/icons/calendar.html" with class="w-3 h-3" %}
+                            {{ match.event.title|truncatechars:30 }} &middot; {{ match.event.date_time|date:"M j" }}
+                        </a>
+                        <span>{% blocktrans with when=match.matched_at|timesince %}Matched {{ when }} ago{% endblocktrans %}</span>
+                        {% if match.flow != "swipe" %}
+                            <span class="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700">{% trans "Coach introduction" %}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="flex flex-wrap sm:flex-col sm:items-end gap-1.5 text-xs">
+                    {% if match.date_planned %}
+                        <span class="font-semibold px-2.5 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300">{% trans "Date planned" %}</span>
+                    {% elif match.chat_closed %}
+                        <span class="font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{% trans "Chat closed" %}</span>
+                    {% endif %}
+                    {% if match.message_count %}
+                        <span class="font-semibold px-2.5 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                            {% blocktrans count count=match.message_count %}{{ count }} message{% plural %}{{ count }} messages{% endblocktrans %}
+                        </span>
+                        <span class="text-gray-500 dark:text-gray-400">{% blocktrans with when=match.last_message_at|timesince %}Last message {{ when }} ago{% endblocktrans %}</span>
+                    {% else %}
+                        <span class="font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{% trans "No messages yet" %}</span>
+                    {% endif %}
+                    <span class="text-gray-400 dark:text-gray-500">{% if match.chat_place == "connect" %}{% trans "Crush Connect chat" %}{% else %}{% trans "Connection chat" %}{% endif %}</span>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 text-center text-gray-500 dark:text-gray-400">
+            {% if query or event or chat_filter != 'all' %}{% trans "No matches for these filters." %}{% else %}{% trans "No matches yet." %}{% endif %}
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="mt-6 flex items-center justify-center gap-3 text-sm">
+        {% if page_obj.has_previous %}
+            <a href="?chat={{ chat_filter }}&page={{ page_obj.previous_page_number }}{% if event_id %}&event={{ event_id }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}" class="text-crush-purple dark:text-purple-400 hover:underline">&larr; {% trans "Previous" %}</a>
+        {% endif %}
+        <span class="text-gray-500 dark:text-gray-400">{% blocktrans with page=page_obj.number pages=page_obj.paginator.num_pages %}Page {{ page }} of {{ pages }}{% endblocktrans %}</span>
+        {% if page_obj.has_next %}
+            <a href="?chat={{ chat_filter }}&page={{ page_obj.next_page_number }}{% if event_id %}&event={{ event_id }}{% endif %}{% if query %}&q={{ query|urlencode }}{% endif %}" class="text-crush-purple dark:text-purple-400 hover:underline">{% trans "Next" %} &rarr;</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

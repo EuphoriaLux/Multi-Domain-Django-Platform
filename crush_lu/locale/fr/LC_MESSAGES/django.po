@@ -48888,3 +48888,63 @@ msgstr "La localisation est bloquée. Autorisez l'accès à la position (avec «
 #: crush_lu/templates/crush_lu/cache/scanner.html
 msgid "Not a Crush Cache QR code — keep looking!"
 msgstr "Ce n'est pas un code QR Crush Cache — continuez à chercher !"
+
+# Coach Matches page (2026-11-21)
+msgid "Members who matched after an event, for all coaches. Read-only: you see who matched and how the conversation is going, never the messages."
+msgstr "Membres qui ont matché après un événement, pour tous les coachs. Lecture seule : on voit qui a matché et où en est la conversation, jamais les messages."
+
+msgid "Open coach queue"
+msgstr "Ouvrir la file des coachs"
+
+msgid "Chatting"
+msgstr "En conversation"
+
+msgid "Date planned"
+msgstr "Rendez-vous prévu"
+
+msgid "At this event: %(swipers)s members swiped, %(swipes)s swipes, %(likes)s likes."
+msgstr "À cet événement : %(swipers)s membres ont swipé, %(swipes)s swipes, %(likes)s likes."
+
+msgid "Search a name"
+msgstr "Rechercher un prénom"
+
+msgid "All events"
+msgstr "Tous les événements"
+
+msgid "Matched %(when)s ago"
+msgstr "Match il y a %(when)s"
+
+msgid "Coach introduction"
+msgstr "Présentation par le coach"
+
+msgid "Chat closed"
+msgstr "Discussion fermée"
+
+msgid "Last message %(when)s ago"
+msgstr "Dernier message il y a %(when)s"
+
+msgid "Crush Connect chat"
+msgstr "Discussion Crush Connect"
+
+msgid "Connection chat"
+msgstr "Discussion de connexion"
+
+msgid "No matches for these filters."
+msgstr "Aucun match pour ces filtres."
+
+msgid "Page %(page)s of %(pages)s"
+msgstr "Page %(page)s sur %(pages)s"
+
+msgid "Coach queue (older connections)"
+msgstr "File des coachs (anciennes connexions)"
+
+msgid "See matches"
+msgstr "Voir les matchs"
+
+msgid "New matches from post-event swiping are on the Matches page"
+msgstr "Les nouveaux matchs issus du swipe après les événements sont sur la page Matchs"
+
+msgid "%(counter)s older coach-led connection is still open."
+msgid_plural "%(counter)s older coach-led connections are still open."
+msgstr[0] "%(counter)s ancienne connexion gérée par un coach est encore ouverte."
+msgstr[1] "%(counter)s anciennes connexions gérées par un coach sont encore ouvertes."

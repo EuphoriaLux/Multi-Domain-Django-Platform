@@ -1367,7 +1367,15 @@ urlpatterns = [
         name="coach_quiz_question_delete",
     ),
     # Coach connection management
-    path("coach/connections/", views.coach_connections, name="coach_connections"),
+    # Matches overview for every coach (2026-11-21). The old action queue for
+    # coach-led connections moved under it; the old event-matches URL
+    # redirects here.
+    path("coach/connections/", views.coach_matches, name="coach_matches"),
+    path(
+        "coach/connections/queue/",
+        views.coach_connections,
+        name="coach_connections",
+    ),
     path(
         "coach/event-matches/",
         views.coach_event_matches,

@@ -48777,3 +48777,63 @@ msgstr "Standort ist blockiert. Erlaube den Standortzugriff (mit „Genauer Stan
 #: crush_lu/templates/crush_lu/cache/scanner.html
 msgid "Not a Crush Cache QR code — keep looking!"
 msgstr "Kein Crush-Cache-QR-Code — such weiter!"
+
+# Coach Matches page (2026-11-21)
+msgid "Members who matched after an event, for all coaches. Read-only: you see who matched and how the conversation is going, never the messages."
+msgstr "Mitglieder, die nach einem Event ein Match hatten, für alle Coaches. Nur Lesen: Du siehst, wer ein Match hat und wie das Gespräch läuft, aber nie die Nachrichten."
+
+msgid "Open coach queue"
+msgstr "Coach-Warteschlange öffnen"
+
+msgid "Chatting"
+msgstr "Im Gespräch"
+
+msgid "Date planned"
+msgstr "Date geplant"
+
+msgid "At this event: %(swipers)s members swiped, %(swipes)s swipes, %(likes)s likes."
+msgstr "Bei diesem Event: %(swipers)s Mitglieder haben geswipt, %(swipes)s Swipes, %(likes)s Likes."
+
+msgid "Search a name"
+msgstr "Namen suchen"
+
+msgid "All events"
+msgstr "Alle Events"
+
+msgid "Matched %(when)s ago"
+msgstr "Match vor %(when)s"
+
+msgid "Coach introduction"
+msgstr "Vorstellung durch Coach"
+
+msgid "Chat closed"
+msgstr "Chat geschlossen"
+
+msgid "Last message %(when)s ago"
+msgstr "Letzte Nachricht vor %(when)s"
+
+msgid "Crush Connect chat"
+msgstr "Crush-Connect-Chat"
+
+msgid "Connection chat"
+msgstr "Verbindungs-Chat"
+
+msgid "No matches for these filters."
+msgstr "Keine Matches für diese Filter."
+
+msgid "Page %(page)s of %(pages)s"
+msgstr "Seite %(page)s von %(pages)s"
+
+msgid "Coach queue (older connections)"
+msgstr "Coach-Warteschlange (ältere Verbindungen)"
+
+msgid "See matches"
+msgstr "Matches ansehen"
+
+msgid "New matches from post-event swiping are on the Matches page"
+msgstr "Neue Matches aus dem Swipen nach Events findest du auf der Seite Matches"
+
+msgid "%(counter)s older coach-led connection is still open."
+msgid_plural "%(counter)s older coach-led connections are still open."
+msgstr[0] "%(counter)s ältere Verbindung über Coaches ist noch offen."
+msgstr[1] "%(counter)s ältere Verbindungen über Coaches sind noch offen."

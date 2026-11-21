@@ -380,20 +380,26 @@ def _coach(username="coach"):
 
 
 class TestCoachMatches:
-    def _match(self, room):
-        event_swipes.record_swipe(room["anna"], room["event"], room["carl"], liked=True)
-        return event_swipes.record_swipe(
-            room["carl"], room["event"], room["anna"], liked=True
-        )["connection"]
+    """The coach Matches page (2026-11-21): every coach sees every match."""
+
+    def _match(self, room, a="anna", b="carl"):
+        event_swipes.record_swipe(room[a], room["event"], room[b], liked=True)
+        return event_swipes.record_swipe(room[b], room["event"], room[a], liked=True)[
+            "connection"
+        ]
+
+    def _rows(self, client, coach, **params):
+        _login(client, coach.user)
+        response = client.get(reverse("crush_lu:coach_matches"), params)
+        assert response.status_code == 200
+        return response, list(response.context["page_obj"].object_list)
 
     def test_event_coach_sees_match_read_only(self, client, room):
         coach = _coach()
         room["event"].coaches.add(coach)
         conn = self._match(room)
-        _login(client, coach.user)
-        response = client.get(reverse("crush_lu:coach_event_matches"))
-        assert response.status_code == 200
-        assert list(response.context["matches"]) == [conn]
+        _, rows = self._rows(client, coach)
+        assert rows == [conn]
         # The action page stays closed for swipe matches.
         review = client.get(
             reverse(
@@ -402,23 +408,108 @@ class TestCoachMatches:
         )
         assert review.status_code == 404
 
-    def test_other_coach_does_not_see_match(self, client, room):
-        coach = _coach("other")
-        self._match(room)
-        _login(client, coach.user)
-        response = client.get(reverse("crush_lu:coach_event_matches"))
-        assert list(response.context["matches"]) == []
+    def test_every_coach_sees_every_match(self, client, room):
+        coach = _coach("other")  # does not coach this event
+        conn = self._match(room)
+        response, rows = self._rows(client, coach, event=room["event"].pk)
+        assert rows == [conn]
+        assert response.context["event"] == room["event"]
+        assert response.context["event_stats"]["matches"] == 1
 
-    def test_stats_only_for_events_the_coach_coaches(self, client, room):
-        coach = _coach("outsider")
+    def test_non_coach_is_refused(self, client, room):
         self._match(room)
+        _login(client, room["anna"])
+        response = client.get(reverse("crush_lu:coach_matches"))
+        assert response.status_code == 302
+
+    def test_completed_older_connection_is_listed_open_lead_is_not(
+        self, client, room
+    ):
+        coach = _coach()
+        shared = EventConnection.objects.create(
+            requester=room["bea"],
+            recipient=room["dan"],
+            event=room["event"],
+            status="shared",
+            flow=EventConnection.FLOW_LEGACY,
+            shared_at=timezone.now(),
+        )
+        EventConnection.objects.create(
+            requester=room["anna"],
+            recipient=room["dan"],
+            event=room["event"],
+            status="coach_reviewing",
+            flow=EventConnection.FLOW_CRUSH,
+            requester_note="secret note",
+        )
+        response, rows = self._rows(client, coach)
+        assert rows == [shared]
+        assert response.context["counters"]["matches"] == 1
+        assert response.context["open_queue_count"] == 1
+        assert "secret note" not in response.content.decode()
+
+    def test_blocked_pair_is_hidden(self, client, room):
+        coach = _coach()
+        self._match(room)
+        UserBlock.objects.create(blocker=room["carl"], blocked=room["anna"])
+        response, rows = self._rows(client, coach)
+        assert rows == []
+        assert response.context["counters"]["matches"] == 0
+
+    def test_encounter_removal_hides_pair(self, client, room):
+        from crush_lu.models import ConfirmedEncounter
+
+        coach = _coach()
+        self._match(room)
+        low, high = sorted((room["anna"], room["carl"]), key=lambda u: u.pk)
+        ConfirmedEncounter.objects.create(
+            user_low=low, user_high=high, status="removal_pending"
+        )
+        _, rows = self._rows(client, coach)
+        assert rows == []
+
+    def test_chat_counters_and_filter_never_show_contents(self, client, room):
+        coach = _coach()
+        talking = self._match(room)
+        silent = self._match(room, "bea", "dan")
+        ConnectionMessage.objects.create(
+            connection=talking, sender=room["anna"], message="very private hello"
+        )
+        response, rows = self._rows(client, coach)
+        assert set(rows) == {talking, silent}
+        counters = response.context["counters"]
+        assert (counters["matches"], counters["chatting"], counters["silent"]) == (
+            2,
+            1,
+            1,
+        )
+        assert counters["members"] == 4
+        assert "very private hello" not in response.content.decode()
+
+        response, rows = self._rows(client, coach, chat="chatting")
+        assert rows == [talking]
+        # Counters describe the event/search scope, not the chat tab.
+        assert response.context["counters"]["matches"] == 2
+        _, rows = self._rows(client, coach, chat="silent")
+        assert rows == [silent]
+
+    def test_name_search(self, client, room):
+        coach = _coach()
+        self._match(room)
+        bea_dan = self._match(room, "bea", "dan")
+        _, rows = self._rows(client, coach, q="dan")
+        assert rows == [bea_dan]
+
+    def test_old_event_matches_url_redirects(self, client, room):
+        coach = _coach()
         _login(client, coach.user)
         response = client.get(
             reverse("crush_lu:coach_event_matches") + f"?event={room['event'].pk}"
         )
-        assert response.status_code == 200
-        assert response.context["event"] is None
-        assert response.context["event_stats"] is None
+        assert response.status_code == 302
+        assert response.url == (
+            reverse("crush_lu:coach_matches") + f"?event={room['event'].pk}"
+        )
 
     def test_matches_stay_out_of_the_connection_queue(self, client, room):
         coach = _coach()
@@ -431,6 +522,8 @@ class TestCoachMatches:
             c.flow == EventConnection.FLOW_SWIPE
             for c in response.context["page_obj"].object_list
         )
+        # Queue counters count only rows the queue can show (no swipe matches).
+        assert response.context["shared_count"] == 0
 
 
 # ---------------------------------------------------------------------------
