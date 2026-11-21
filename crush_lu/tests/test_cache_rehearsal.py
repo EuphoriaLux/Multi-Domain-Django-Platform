@@ -149,7 +149,7 @@ def test_rehearsal_routes_and_command_404_off_staging(monkeypatch, settings):
         ensure_all_preset_rehearsal_hunts(coach)
 
 
-def test_hub_creates_all_four_presets_idempotently_across_languages(staging):
+def test_hub_creates_all_presets_idempotently_across_languages(staging):
     coach = _make_coach("fieldcoach")
     client = Client()
     client.force_login(coach)
@@ -161,6 +161,8 @@ def test_hub_creates_all_four_presets_idempotently_across_languages(staging):
 
     assert MeetupEvent.objects.filter(event_type="crush_cache").count() == len(PRESETS)
     assert CacheHunt.objects.count() == len(PRESETS)
+    preset_titles = {card["hunt"].title for card in resp.context["preset_cards"]}
+    assert "Parc de Hesperange Hunt" in preset_titles
     for card in resp.context["preset_cards"]:
         assert card["hunt"].status == "live"
         assert card["event"].is_published is False
