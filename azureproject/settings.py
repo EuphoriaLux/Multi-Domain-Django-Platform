@@ -848,10 +848,10 @@ ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 # wave a bot logging in to the accounts it created kept mailing the same
 # strangers. The daily cap stops that; a send over the cap is skipped silently
 # (the earlier links stay valid). Everything else keeps allauth's defaults.
-ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN = 3 * 60
-ACCOUNT_RATE_LIMITS = {
-    "confirm_email": f"1/{ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN}s/key,3/d/key",
-}
+# (ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN is deprecated in allauth; the 180 s
+# here must stay in step with RESEND_VERIFICATION_COOLDOWN_SECONDS, which
+# test_ux_wave3_verify_email pins.)
+ACCOUNT_RATE_LIMITS = {"confirm_email": "1/180s/key,3/d/key"}
 
 # Where to send anonymous users after they click the confirmation link.
 # We deliberately do NOT enable ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION so users
