@@ -409,8 +409,9 @@ def send_new_connection_notification(user, connection):
     with user_language_context(user):
         if is_swipe_match:
             title = _("It's a match! 🎉")
-            body = _("You and %(name)s liked each other. Say hi!") % {
-                "name": display_name
+            body = _("You and %(name)s liked each other at %(event)s. Say hi!") % {
+                "name": display_name,
+                "event": connection.event.title,
             }
         else:
             title = _("New Connection Request!")
@@ -419,9 +420,10 @@ def send_new_connection_notification(user, connection):
     # Use helper for language-prefixed URL. A swipe match opens straight into
     # its chat.
     if is_swipe_match:
-        url = get_user_language_url(
-            user, "crush_lu:connection_detail", kwargs={"connection_id": connection.id}
-        )
+        from crush_lu.services.event_swipes import match_chat_route
+
+        url_name, url_kwargs = match_chat_route(connection)
+        url = get_user_language_url(user, url_name, kwargs=url_kwargs)
     else:
         url = get_user_language_url(user, "crush_lu:my_connections")
 

@@ -552,3 +552,50 @@ def crush_lead_reminders(request):
         },
         status=202,
     )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def swipe_campaign_dispatch(request):
+    """POST /api/admin/swipe-campaign/dispatch/
+
+    Send the due messages of the running past-event swipe campaign, one
+    bounded batch per call (``services.swipe_campaign_messages.dispatch``).
+    Driven hourly by the SwipeCampaignMessages Azure Function timer. With no
+    switched-on campaign inside its window it does nothing, so the campaign's
+    ``is_active`` flag is the on/off switch.
+    """
+    if not _authenticate_admin_request(request):
+        return _unauthorized(request)
+
+    from crush_lu.services.swipe_campaign_messages import dispatch
+
+    started = timezone.now()
+    try:
+        result = dispatch(now=started)
+    except Exception:  # noqa: BLE001
+        # CodeQL: never echo the raw exception to the caller.
+        logger.exception("[swipe_campaign] Unhandled error")
+        return JsonResponse({"error": "internal_error"}, status=500)
+
+    took_ms = int((timezone.now() - started).total_seconds() * 1000)
+    logger.info(
+        "[swipe_campaign] campaign=%s sent=%d skipped=%d failed=%d remaining=%d took_ms=%d",
+        result["campaign"],
+        result["sent"],
+        result["skipped"],
+        result["failed"],
+        result["remaining"],
+        took_ms,
+    )
+    return JsonResponse(
+        {
+            "campaign": result["campaign"],
+            "sent": result["sent"],
+            "skipped": result["skipped"],
+            "failed": result["failed"],
+            "remaining": result["remaining"],
+            "took_ms": took_ms,
+        },
+        status=202,
+    )

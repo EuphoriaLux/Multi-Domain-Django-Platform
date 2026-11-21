@@ -566,6 +566,8 @@ ACCOUNT_ERASURE_PURGE = (
     # Post-event swipes (2026-11-20): private per-member decisions, same
     # treatment as lobby signals — they go with the account.
     ("EventSwipe", ("swiper", "target")),
+    ("SwipeCampaignMessage", ("user",)),
+    ("PastEventDeckOptOut", ("user",)),
     ("EventMeetingConfirmation", ("confirmer", "other_user")),
     ("ConfirmedEncounter", ("user_low", "user_high")),
     # Devices, push endpoints, phone numbers and activity tracking.

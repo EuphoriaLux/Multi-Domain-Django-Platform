@@ -68,6 +68,14 @@ def _participants_available(chat):
             or membership.excluded_by_coach
         ):
             return False
+    if chat.event_connection_id:
+        # A swipe-match chat follows the match page's safety rule: a pending
+        # or approved removal of the pair's confirmed encounter hides it from
+        # both, exactly like ``connection_detail``.
+        from crush_lu.services.event_lobby import hidden_encounter_user_ids
+
+        if chat.participant_2_id in hidden_encounter_user_ids(chat.participant_1):
+            return False
     return True
 
 

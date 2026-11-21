@@ -52,6 +52,12 @@ Environment Variables Required:
         az functionapp config appsettings set -g django-app-rg
           -n crush-hybrid-maintenance --settings
           DJANGO_PREMIUM_LAPSE_SWEEP_URL=https://crush.lu/api/admin/premium-lapse-sweep/)
+    - DJANGO_SWIPE_CAMPAIGN_URL: e.g. https://crush.lu/api/admin/swipe-campaign/dispatch/
+      (ships dormant like PremiumLapseSweep: set it BY HAND after the slot
+      swap that puts the route on production:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_SWIPE_CAMPAIGN_URL=https://crush.lu/api/admin/swipe-campaign/dispatch/)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -602,6 +608,35 @@ def premium_lapse_sweep(timer: func.TimerRequest) -> None:
     _call_admin_endpoint(
         "PremiumLapseSweep",
         "DJANGO_PREMIUM_LAPSE_SWEEP_URL",
+        dormant_if_unset=True,
+    )
+
+
+@app.function_name(name="SwipeCampaignMessages")
+@app.timer_trigger(
+    # Hourly at :40. Clear of event reminders (:35), lead reminders (:45) and
+    # campaigns (:x2/:x7): the :37 tick's tail ends by :38:50, and this call's
+    # 110 s timeout ends by :41:50, before the :42 tick.
+    schedule="0 40 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def swipe_campaign_messages(timer: func.TimerRequest) -> None:
+    """Send the due messages of the running past-event swipe campaign.
+
+    One bounded batch per call (75 s budget on the Django side); the next
+    hour continues. Does nothing unless a campaign is switched on and inside
+    its window, so it is safe to leave running all year.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("SwipeCampaignMessages: timer past due at %s", ts)
+    logging.info("SwipeCampaignMessages: starting at %s", ts)
+    _call_admin_endpoint(
+        "SwipeCampaignMessages",
+        "DJANGO_SWIPE_CAMPAIGN_URL",
+        timeout=110,
         dormant_if_unset=True,
     )
 

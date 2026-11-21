@@ -58,6 +58,17 @@
 </div>
 {% endif %}
 
+{# ─── 2c. December swipe campaign (services/event_swipes.py) ─── #}
+{% if swipe_campaign %}
+<div class="alert alert-info mb-4 sm:mb-5 flex-row justify-between items-center gap-3" role="status" data-swipe-campaign-banner>
+    <div class="flex items-center min-w-0">
+        {% include "shared/icons/heart.html" with class="w-5 h-5 mr-2 flex-shrink-0" %}
+        <span class="text-xs sm:text-base">{% blocktrans with end=swipe_campaign.ends_at|date:"MONTH_DAY_FORMAT" %}Swipe the people from your past events, until {{ end }}.{% endblocktrans %}</span>
+    </div>
+    <a href="{% url 'crush_lu:past_event_swipes' %}" class="btn-crush-solid btn-sm flex-shrink-0">{% trans "Swipe" %}</a>
+</div>
+{% endif %}
+
 {# ─── 3. Verification Alerts & Journey ─── #}
 {% if profile and not profile.phone_verified %}
 <div class="alert alert-warning mb-4 sm:mb-5 flex-row justify-between items-center gap-3" role="alert">

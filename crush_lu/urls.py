@@ -1453,6 +1453,16 @@ urlpatterns = [
         name="event_swipe",
     ),
     path(
+        "events/swipe-past/",
+        views.past_event_swipes,
+        name="past_event_swipes",
+    ),
+    path(
+        "events/swipe-past/visibility/",
+        views.past_event_swipes_visibility,
+        name="past_event_swipes_visibility",
+    ),
+    path(
         "events/<int:event_id>/connect/<int:user_id>/",
         views.request_connection,
         name="request_connection",

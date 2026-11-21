@@ -35,4 +35,9 @@ from .real_person_check import *
 from .premium_recovery import PremiumPaymentRecoveryCase  # noqa: F401
 from .account_merge import AccountMerge  # noqa: F401
 from .playground import PlaygroundAccount, PlaygroundMail  # noqa: F401
-from .event_swipes import EventSwipe  # noqa: F401
+from .event_swipes import (  # noqa: F401
+    EventSwipe,
+    PastEventDeckOptOut,
+    SwipeCampaign,
+    SwipeCampaignMessage,
+)
