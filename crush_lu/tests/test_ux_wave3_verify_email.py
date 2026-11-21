@@ -728,8 +728,10 @@ class CooldownMatchesAllauthLimiterTests(TestCase):
 
         from crush_lu.views_account import RESEND_VERIFICATION_COOLDOWN_SECONDS
 
-        expected = allauth_settings.RATE_LIMITS["confirm_email"]
-        self.assertEqual(expected, f"1/{RESEND_VERIFICATION_COOLDOWN_SECONDS}s/key")
+        # The first rate is the per-address cooldown the countdown mirrors;
+        # a daily cap may follow it (2026-11 bot wave).
+        rates = allauth_settings.RATE_LIMITS["confirm_email"].split(",")
+        self.assertEqual(rates[0], f"1/{RESEND_VERIFICATION_COOLDOWN_SECONDS}s/key")
 
     def test_resend_starts_the_full_cooldown(self):
         from django.utils import timezone
