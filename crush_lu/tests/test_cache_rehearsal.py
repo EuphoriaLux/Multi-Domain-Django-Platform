@@ -599,3 +599,142 @@ def test_enter_solo_play_recovers_from_concurrent_membership_race(staging, monke
         CacheTeamMember.objects.get(hunt=hunt, registration=reg).team_id
         == winner_team.id
     )
+
+
+def test_position_api_locks_progress_before_attempt_and_survives_reset_race(
+    staging, monkeypatch
+):
+    import json
+
+    from django.core.cache import cache
+    from django.db.models.query import QuerySet
+
+    from crush_lu.services.cache_rehearsal import (
+        ensure_preset_rehearsal_hunt,
+        enter_solo_play,
+        reset_team_run,
+    )
+
+    cache.clear()
+    monkeypatch.setattr(
+        "crush_lu.views_crush_cache._broadcast_cache", lambda *a, **kw: None
+    )
+
+    coach = _make_coach("gpsracecoach")
+    hunt = ensure_preset_rehearsal_hunt("lux_city", coach)
+    team, _did_reset = enter_solo_play(hunt, coach)
+    s1 = hunt.ordered_stations().first()
+
+    events = []
+    orig_select_for_update = QuerySet.select_for_update
+    orig_get_or_create = QuerySet.get_or_create
+    orig_update = QuerySet.update
+
+    def tracked_select_for_update(self, *args, **kwargs):
+        if self.model is CacheTeamProgress:
+            events.append("lock_progress")
+        return orig_select_for_update(self, *args, **kwargs)
+
+    def tracked_get_or_create(self, *args, **kwargs):
+        if self.model is CacheStationAttempt:
+            events.append("attempt_op")
+        return orig_get_or_create(self, *args, **kwargs)
+
+    def tracked_update(self, *args, **kwargs):
+        if self.model is CacheStationAttempt:
+            events.append("attempt_op")
+        return orig_update(self, *args, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "select_for_update", tracked_select_for_update)
+    monkeypatch.setattr(QuerySet, "get_or_create", tracked_get_or_create)
+    monkeypatch.setattr(QuerySet, "update", tracked_update)
+
+    client = Client()
+    client.force_login(coach)
+    url = reverse("crush_lu:cache_position_api", args=[hunt.event_id])
+    payload = json.dumps(
+        {"lat": float(s1.latitude), "lng": float(s1.longitude), "accuracy": 5}
+    )
+
+    resp = client.post(url, payload, content_type="application/json")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ok"] is True
+    assert data["arrived"] is True
+    assert data["unlocked"] is True
+    assert "lock_progress" in events and "attempt_op" in events
+    assert events.index("lock_progress") < events.index("attempt_op")
+
+    # Even if an external reset deletes the attempt right before refresh_from_db,
+    # cache_position_api recovers cleanly instead of returning HTTP 500.
+    reset_team_run(hunt, team)
+    orig_refresh = CacheStationAttempt.refresh_from_db
+
+    def delete_then_refresh(self, *args, **kwargs):
+        CacheStationAttempt.objects.filter(team=team).delete()
+        return orig_refresh(self, *args, **kwargs)
+
+    monkeypatch.setattr(CacheStationAttempt, "refresh_from_db", delete_then_refresh)
+
+    race_resp = client.post(url, payload, content_type="application/json")
+    assert race_resp.status_code == 200
+    assert race_resp.json() == {
+        "ok": True,
+        "accepted": True,
+        "arrived": False,
+        "unlocked": False,
+    }
+
+
+def test_station_scan_locks_progress_before_attempt(staging, monkeypatch):
+    from django.core.cache import cache
+    from django.db.models.query import QuerySet
+
+    from crush_lu.services.cache_rehearsal import (
+        ensure_preset_rehearsal_hunt,
+        enter_solo_play,
+    )
+
+    cache.clear()
+    coach = _make_coach("scanlockcoach")
+    hunt = ensure_preset_rehearsal_hunt("echternach_lake", coach)
+    team, _did_reset = enter_solo_play(hunt, coach)
+    s1 = hunt.ordered_stations().first()
+
+    events = []
+    orig_select_for_update = QuerySet.select_for_update
+    orig_get_or_create = QuerySet.get_or_create
+    orig_update = QuerySet.update
+
+    def tracked_select_for_update(self, *args, **kwargs):
+        if self.model is CacheTeamProgress:
+            events.append("lock_progress")
+        return orig_select_for_update(self, *args, **kwargs)
+
+    def tracked_get_or_create(self, *args, **kwargs):
+        if self.model is CacheStationAttempt:
+            events.append("attempt_op")
+        return orig_get_or_create(self, *args, **kwargs)
+
+    def tracked_update(self, *args, **kwargs):
+        if self.model is CacheStationAttempt:
+            events.append("attempt_op")
+        return orig_update(self, *args, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "select_for_update", tracked_select_for_update)
+    monkeypatch.setattr(QuerySet, "get_or_create", tracked_get_or_create)
+    monkeypatch.setattr(QuerySet, "update", tracked_update)
+
+    client = Client()
+    client.force_login(coach)
+    resp = client.post(
+        reverse("crush_lu:cache_manual_code", args=[hunt.event_id]),
+        data={"code": s1.manual_code},
+    )
+    assert resp.status_code == 302
+    assert resp["Location"].endswith(
+        reverse("crush_lu:cache_play", args=[hunt.event_id])
+    )
+    assert "lock_progress" in events and "attempt_op" in events
+    assert events.index("lock_progress") < events.index("attempt_op")
+    assert CacheStationAttempt.objects.get(team=team, station=s1).scanned_at is not None

@@ -536,60 +536,70 @@ def _process_station_scan(request, station):
         return redirect("crush_lu:cache_lobby", event_id=event_id)
 
     progress = _ensure_progress(hunt, membership.team)
-    if progress.is_finished:
-        return redirect("crush_lu:cache_play", event_id=event_id)
+    with transaction.atomic():
+        # Lock CacheTeamProgress before touching CacheStationAttempt to match
+        # reset_team_run / gameplay (progress -> attempts) and prevent races.
+        progress = (
+            CacheTeamProgress.objects.select_for_update().filter(pk=progress.pk).first()
+        )
+        if progress is None:
+            messages.error(request, _("Join a team first, then scan the code again."))
+            return redirect("crush_lu:cache_lobby", event_id=event_id)
+        if progress.is_finished:
+            return redirect("crush_lu:cache_play", event_id=event_id)
 
-    if progress.current_station_id != station.id:
-        already_done = CacheStationAttempt.objects.filter(
-            team=membership.team, station=station, completed_at__isnull=False
-        ).exists()
-        if already_done:
+        if progress.current_station_id != station.id:
+            already_done = CacheStationAttempt.objects.filter(
+                team=membership.team, station=station, completed_at__isnull=False
+            ).exists()
+            if already_done:
+                messages.info(
+                    request,
+                    _("Your team already completed %(station)s.")
+                    % {"station": station.name},
+                )
+            else:
+                messages.warning(
+                    request,
+                    _("That's not your current station — keep following your clue!"),
+                )
+            return redirect("crush_lu:cache_play", event_id=event_id)
+
+        attempt, _created = CacheStationAttempt.objects.get_or_create(
+            team=membership.team, station=station
+        )
+        if attempt.scanned_at is None:
+            now = timezone.now()
+            CacheStationAttempt.objects.filter(
+                pk=attempt.pk, scanned_at__isnull=True
+            ).update(scanned_at=now)
+            attempt.scanned_at = now  # reflect the write for the is_unlocked check
+            if attempt.is_unlocked:
+                messages.success(
+                    request,
+                    _("Code scanned — %(station)s unlocked!")
+                    % {"station": station.name},
+                )
+            else:
+                # A gps_qr station scanned before the team has arrived: the scan is
+                # recorded, but GPS arrival is still required — don't claim it's
+                # unlocked when it isn't.
+                messages.info(
+                    request,
+                    _("Code scanned — now reach the location to unlock %(station)s.")
+                    % {"station": station.name},
+                )
+        elif attempt.is_unlocked:
             messages.info(
                 request,
-                _("Your team already completed %(station)s.")
-                % {"station": station.name},
+                _("Already scanned — your challenges await below."),
             )
         else:
-            messages.warning(
-                request,
-                _("That's not your current station — keep following your clue!"),
-            )
-        return redirect("crush_lu:cache_play", event_id=event_id)
-
-    attempt, _created = CacheStationAttempt.objects.get_or_create(
-        team=membership.team, station=station
-    )
-    if attempt.scanned_at is None:
-        now = timezone.now()
-        CacheStationAttempt.objects.filter(
-            pk=attempt.pk, scanned_at__isnull=True
-        ).update(scanned_at=now)
-        attempt.scanned_at = now  # reflect the write for the is_unlocked check
-        if attempt.is_unlocked:
-            messages.success(
-                request,
-                _("Code scanned — %(station)s unlocked!") % {"station": station.name},
-            )
-        else:
-            # A gps_qr station scanned before the team has arrived: the scan is
-            # recorded, but GPS arrival is still required — don't claim it's
-            # unlocked when it isn't.
             messages.info(
                 request,
-                _("Code scanned — now reach the location to unlock %(station)s.")
+                _("Already scanned — now reach the location to unlock %(station)s.")
                 % {"station": station.name},
             )
-    elif attempt.is_unlocked:
-        messages.info(
-            request,
-            _("Already scanned — your challenges await below."),
-        )
-    else:
-        messages.info(
-            request,
-            _("Already scanned — now reach the location to unlock %(station)s.")
-            % {"station": station.name},
-        )
     return redirect("crush_lu:cache_play", event_id=event_id)
 
 
@@ -640,9 +650,64 @@ def cache_position_api(request, event_id):
         return JsonResponse({"ok": True, "accepted": False, "reason": "accuracy"})
 
     now = timezone.now()
-    CacheTeamProgress.objects.filter(pk=progress.pk).update(
-        last_lat=lat, last_lng=lng, last_accuracy=accuracy, last_position_at=now
-    )
+    response = {"ok": True, "accepted": True, "arrived": False, "unlocked": False}
+
+    with transaction.atomic():
+        # Serialize with reset_team_run / gameplay using the same
+        # CacheTeamProgress -> CacheStationAttempt lock order so a concurrent
+        # reset cannot delete the attempt mid-arrival or race with stale station state.
+        progress = (
+            CacheTeamProgress.objects.select_for_update().filter(pk=progress.pk).first()
+        )
+        if progress is None:
+            return JsonResponse({"ok": False, "error": "no_team"}, status=403)
+        if progress.is_finished:
+            return JsonResponse({"ok": False, "error": "finished"}, status=403)
+
+        CacheTeamProgress.objects.filter(pk=progress.pk).update(
+            last_lat=lat, last_lng=lng, last_accuracy=accuracy, last_position_at=now
+        )
+
+        station = progress.current_station
+        if station is not None:
+            attempt, _created = CacheStationAttempt.objects.get_or_create(
+                team=membership.team, station=station
+            )
+
+            if station.latitude is not None and station.longitude is not None:
+                distance = haversine_m(lat, lng, station.latitude, station.longitude)
+                if hunt.navigation_mode in ("map", "compass"):
+                    response["distance_m"] = round(distance)
+                    response["bearing"] = round(
+                        bearing_deg(lat, lng, station.latitude, station.longitude)
+                    )
+
+                if (
+                    station.requires_gps
+                    and attempt.arrived_at is None
+                    and distance
+                    <= station.radius_meters + min(accuracy, ACCURACY_TOLERANCE_CAP_M)
+                ):
+                    CacheStationAttempt.objects.filter(
+                        pk=attempt.pk, arrived_at__isnull=True
+                    ).update(arrived_at=now)
+                    try:
+                        attempt.refresh_from_db()
+                    except CacheStationAttempt.DoesNotExist:
+                        # Attempt was removed concurrently (e.g. reset on a
+                        # backend without row locks); treat as pre-arrival.
+                        return JsonResponse(
+                            {
+                                "ok": True,
+                                "accepted": True,
+                                "arrived": False,
+                                "unlocked": False,
+                            }
+                        )
+                    response["arrived"] = True
+
+            response["arrived"] = response["arrived"] or attempt.arrived_at is not None
+            response["unlocked"] = attempt.is_unlocked
 
     _broadcast_cache(
         hunt.id,
@@ -659,38 +724,6 @@ def cache_position_api(request, event_id):
         coach_only=True,
     )
 
-    response = {"ok": True, "accepted": True, "arrived": False, "unlocked": False}
-    station = progress.current_station
-
-    if progress.is_finished or not hunt.is_live or station is None:
-        return JsonResponse(response)
-
-    attempt, _created = CacheStationAttempt.objects.get_or_create(
-        team=membership.team, station=station
-    )
-
-    if station.latitude is not None and station.longitude is not None:
-        distance = haversine_m(lat, lng, station.latitude, station.longitude)
-        if hunt.navigation_mode in ("map", "compass"):
-            response["distance_m"] = round(distance)
-            response["bearing"] = round(
-                bearing_deg(lat, lng, station.latitude, station.longitude)
-            )
-
-        if (
-            station.requires_gps
-            and attempt.arrived_at is None
-            and distance
-            <= station.radius_meters + min(accuracy, ACCURACY_TOLERANCE_CAP_M)
-        ):
-            CacheStationAttempt.objects.filter(
-                pk=attempt.pk, arrived_at__isnull=True
-            ).update(arrived_at=now)
-            attempt.refresh_from_db()
-            response["arrived"] = True
-
-    response["arrived"] = response["arrived"] or attempt.arrived_at is not None
-    response["unlocked"] = attempt.is_unlocked
     return JsonResponse(response)
 
 
