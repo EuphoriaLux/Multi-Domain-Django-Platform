@@ -5,6 +5,7 @@ Provides filtering options for coach workflow management.
 """
 
 from django.contrib import admin
+from django.utils.translation import gettext_lazy as _
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta, date
@@ -491,6 +492,61 @@ class EventParticipationFilter(admin.SimpleListFilter):
             return annotated.filter(event_count__gte=2)
         elif self.value() == "active":
             return annotated.filter(event_count__gte=5)
+        return queryset
+
+
+class LuxIDLinkedFilter(admin.SimpleListFilter):
+    """Profiles whose user has LuxID linked today.
+
+    ``verification_method`` only records how a profile was FIRST verified, so
+    a coach- or legacy-verified member who links LuxID later still shows that
+    method. This filter answers "does this member have LuxID now?".
+    """
+
+    title = _("LuxID linked")
+    parameter_name = "luxid_linked"
+
+    def lookups(self, request, model_admin):
+        return (("yes", _("Yes")), ("no", _("No")))
+
+    def queryset(self, request, queryset):
+        from crush_lu.models import CrushProfile
+
+        native, oidc_token = CrushProfile.luxid_account_querysets(OuterRef("user_id"))
+        linked = Exists(native) | Exists(oidc_token)
+        if self.value() == "yes":
+            return queryset.filter(linked)
+        if self.value() == "no":
+            return queryset.exclude(linked)
+        return queryset
+
+
+class AttendedEventFilter(admin.SimpleListFilter):
+    """Profiles with at least one attended event (checked in at the door).
+
+    Unlike "Event Participation", which counts bookings, this only counts
+    registrations marked attended. A LuxID-verified member who later attends
+    keeps ``verification_method="luxid"``; this filter shows them anyway.
+    """
+
+    title = _("Attended an event")
+    parameter_name = "attended_event"
+
+    def lookups(self, request, model_admin):
+        return (("yes", _("Yes")), ("no", _("No")))
+
+    def queryset(self, request, queryset):
+        from crush_lu.models import EventRegistration
+
+        attended = Exists(
+            EventRegistration.objects.filter(
+                user_id=OuterRef("user_id"), status="attended"
+            )
+        )
+        if self.value() == "yes":
+            return queryset.filter(attended)
+        if self.value() == "no":
+            return queryset.exclude(attended)
         return queryset
 
 

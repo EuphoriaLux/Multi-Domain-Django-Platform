@@ -63,6 +63,8 @@ from .filters import (
     ProfileCompletenessFilter,
     EventParticipationFilter,
     DoorBookingFilter,
+    LuxIDLinkedFilter,
+    AttendedEventFilter,
     # New production-informed filters
     EmailVerificationStatusFilter,
     PrivacySettingsFilter,
@@ -467,7 +469,7 @@ class CrushProfileAdminForm(forms.ModelForm):
 
 class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
     form = CrushProfileAdminForm
-    # Kept to the 10 highest-signal columns so the changelist stays fast and
+    # Kept to the 11 highest-signal columns so the changelist stays fast and
     # scannable. Everything removed is still one click away: location via
     # search, verification_method / is_active / language via list_filter,
     # consent / referrals / outlook sync in the detail fieldsets.
@@ -478,6 +480,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         "age",
         "gender",
         "verification_status",
+        "verification_method",
         "phone_verified_icon",
         "get_assigned_coach",
         "is_approved",
@@ -536,6 +539,8 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
         # Verification & Status
         "verification_status",
         "verification_method",
+        LuxIDLinkedFilter,
+        AttendedEventFilter,
         "is_approved",
         "is_active",
         DoorBookingFilter,  # Action Center: pending, booked vs not booked
