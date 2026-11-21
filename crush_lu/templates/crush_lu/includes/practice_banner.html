@@ -7,10 +7,15 @@
             <span class="font-normal">· {% trans "nothing here is real" %}</span>
         </p>
         {% if playground_can_go_back %}
-        <form method="post" action="{% url 'crush_lu:playground_back_to_coach' %}">
-            {% csrf_token %}
-            <button type="submit" class="btn-crush-outline btn-sm">{% trans "Back to coach" %}</button>
-        </form>
+        <div class="flex flex-wrap items-center gap-2">
+            {% if not is_ios_native_app or crush_cache_enabled %}
+            <a href="{% url 'crush_lu:cache_rehearsal' %}" class="btn-crush-outline btn-sm">{% trans "Crush Cache" %}</a>
+            {% endif %}
+            <form method="post" action="{% url 'crush_lu:playground_back_to_coach' %}">
+                {% csrf_token %}
+                <button type="submit" class="btn-crush-outline btn-sm">{% trans "Back to coach" %}</button>
+            </form>
+        </div>
         {% endif %}
     </div>
 </div>
