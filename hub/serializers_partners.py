@@ -22,6 +22,7 @@ from .models import (
     PartnerOnboardingStep,
 )
 from .serializers import MoneyField
+from .venue_import import _fold
 
 OFFER_LANGUAGES = ("en", "de", "fr")
 
@@ -404,9 +405,11 @@ class LocationSerializer(serializers.ModelSerializer):
             postcode = (attrs.get("address_postcode") or "").strip()
             city_val = (attrs.get("city") or attrs.get("address_town") or "").strip()
             if raw_name and (postcode or city_val):
-                dup_qs = Location.objects.select_related("claimed_by").filter(
-                    name__iexact=raw_name
-                )
+                # Names compare accent-, case- and spacing-folded ("De Gudde
+                # Wellen" matches "De Gudde Wëllen"), the way the importer
+                # matches communes. SQL cannot fold accents portably, so the
+                # address narrows the candidates and the name is compared here.
+                dup_qs = Location.objects.select_related("claimed_by")
                 if postcode:
                     dup_qs = dup_qs.filter(
                         models.Q(address_postcode=postcode)
@@ -414,7 +417,15 @@ class LocationSerializer(serializers.ModelSerializer):
                     )
                 else:
                     dup_qs = dup_qs.filter(city__iexact=city_val)
-                existing = dup_qs.first()
+                folded_name = _fold(raw_name)
+                existing = next(
+                    (
+                        loc
+                        for loc in dup_qs.order_by("pk").iterator()
+                        if _fold(loc.name) == folded_name
+                    ),
+                    None,
+                )
                 if existing is not None:
                     owner = (
                         (

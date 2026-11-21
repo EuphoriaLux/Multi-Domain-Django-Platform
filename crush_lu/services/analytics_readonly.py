@@ -46,6 +46,7 @@ from crush_lu.models import (
     CrushCredit,
     CrushProfile,
     EventRegistration,
+    EventSwipe,
     MeetupEvent,
     PaymentTransaction,
     PremiumMembership,
@@ -127,6 +128,16 @@ GRANTS: dict[str, tuple[str, ...]] = {
         "registered_at",
         "payment_confirmed",
         "checked_in_at",
+    ),
+    # Post-event swipes: who liked or passed whom at which event. Read only
+    # as per-gender aggregates; no member-level swipe rows leave the service.
+    "crush_lu_eventswipe": (
+        "id",
+        "event_id",
+        "swiper_id",
+        "target_id",
+        "liked",
+        "created_at",
     ),
     "crush_lu_paymenttransaction": (
         "id",
@@ -1244,6 +1255,15 @@ def definitions() -> dict:
                 "either no period end (never expires) or before its period end, "
                 "plus the renewal grace unless the member cancelled"
             ),
+            "swipes": (
+                "EventSwipe rows between two real members. A like is liked=true, a pass "
+                "liked=false; like_rate_pct = likes / swipes. A match is a pair who both "
+                "liked each other at the same event (counted once per pair, even if one "
+                "of them later hid or blocked the other). Genders are the generalized "
+                "member genders (see suppression); swipers_pct = swipers / checked-in "
+                "members of that gender. Only aggregates are returned, never "
+                "member-level swipes."
+            ),
             "kpi_weekly": (
                 "Persisted WeeklyMetricsSnapshot payloads from the Monday job; these are "
                 "NOT filtered to real members, so they can differ from the other tools."
@@ -1277,6 +1297,7 @@ def definitions() -> dict:
             "funnel": "from, to (YYYY-MM-DD), grain=week|month: signup cohorts and how far they got",
             "events": "from, to, event_type?, canton? (enums.event_canton): per-event fill, gender mix, check-ins, revenue",
             "event_detail": "event_id: the event plus one pseudonymized row per registration",
+            "swipes": "event_id? or from, to (event dates): post-event swipes, likes and matches by gender, per event",
             "payments": "from, to, grain: money by purpose/provider/status, credits, Premium",
             "connect": "from, to: Crush Connect onboarding, weekly sessions and requests",
             "retention": "from, to: repeat attendance of members who attended events in the window",
@@ -2095,4 +2116,199 @@ def members(
         "truncated": total > len(rows),
         "suppressed": False,
         "members": rows,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Post-event swipes (aggregates only)
+# ---------------------------------------------------------------------------
+
+
+def _pct(part: int, whole: int) -> float | None:
+    return round(100 * part / whole, 1) if whole else None
+
+
+def _swipe_summary(swipe_rows: list[dict], attendees: set[int], gender_of) -> dict:
+    """Swipe aggregates by gender for one set of swipes (pure; testable).
+
+    ``attendees`` are the checked-in real members the swipes are measured
+    against; ``gender_of`` maps a user id to its generalized gender.
+    """
+    likes = {(r["swiper_id"], r["target_id"]) for r in swipe_rows if r["liked"]}
+    matched_pairs = {
+        tuple(sorted(pair)) for pair in likes if (pair[1], pair[0]) in likes
+    }
+    matched_members = {uid for pair in matched_pairs for uid in pair}
+
+    def blank():
+        return {
+            "checked_in": 0,
+            "swipers": 0,
+            "swipes": 0,
+            "likes": 0,
+            "passes": 0,
+            "likes_received": 0,
+            "members_matched": 0,
+        }
+
+    by_gender: dict[str, dict] = defaultdict(blank)
+    for uid in attendees:
+        by_gender[gender_of(uid)]["checked_in"] += 1
+    swipers: dict[str, set] = defaultdict(set)
+    direction: dict[tuple, Counter] = defaultdict(Counter)
+    days: dict[str, Counter] = defaultdict(Counter)
+    for r in swipe_rows:
+        g_from, g_to = gender_of(r["swiper_id"]), gender_of(r["target_id"])
+        swipers[g_from].add(r["swiper_id"])
+        row = by_gender[g_from]
+        row["swipes"] += 1
+        kind = "likes" if r["liked"] else "passes"
+        row[kind] += 1
+        if r["liked"]:
+            by_gender[g_to]["likes_received"] += 1
+        direction[(g_from, g_to)]["swipes"] += 1
+        direction[(g_from, g_to)][kind] += 1
+        day = _day(r["created_at"])
+        days[day]["swipes"] += 1
+        days[day][kind] += 1
+    for g, members in swipers.items():
+        by_gender[g]["swipers"] = len(members)
+    for uid in matched_members:
+        by_gender[gender_of(uid)]["members_matched"] += 1
+    for row in by_gender.values():
+        row["swipers_pct"] = _pct(row["swipers"], row["checked_in"])
+        row["like_rate_pct"] = _pct(row["likes"], row["swipes"])
+
+    pair_counts = Counter(
+        "-".join(sorted((gender_of(a), gender_of(b)))) for a, b in matched_pairs
+    )
+    total_swipes = len(swipe_rows)
+    total_likes = sum(1 for r in swipe_rows if r["liked"])
+    return {
+        "checked_in": len(attendees),
+        "swipers": len({r["swiper_id"] for r in swipe_rows}),
+        "swipes": total_swipes,
+        "likes": total_likes,
+        "passes": total_swipes - total_likes,
+        "like_rate_pct": _pct(total_likes, total_swipes),
+        "matches": len(matched_pairs),
+        "matches_by_gender_pair": dict(sorted(pair_counts.items())),
+        "by_gender": {g: by_gender[g] for g in sorted(by_gender)},
+        "by_direction": [
+            {
+                "from": g_from,
+                "to": g_to,
+                "swipes": c["swipes"],
+                "likes": c["likes"],
+                "like_rate_pct": _pct(c["likes"], c["swipes"]),
+            }
+            for (g_from, g_to), c in sorted(direction.items())
+        ],
+        "by_day": [
+            {"day": day, "swipes": c["swipes"], "likes": c["likes"]}
+            for day, c in sorted(days.items())
+        ],
+    }
+
+
+def swipes(start: date, end: date, event_id: int | None = None) -> dict:
+    """Post-event swipe aggregates by gender, per event and overall.
+
+    With ``event_id``, that one event; otherwise every event dated in the
+    window that has at least one swipe.
+    """
+    alias = _alias()
+    excluded = excluded_user_ids(alias)
+    fields = ("id", "title", "event_type", "date_time")
+    qs = MeetupEvent.objects.using(alias)
+    if event_id is not None:
+        event_rows = list(qs.filter(id=event_id).order_by().values(*fields))
+        if not event_rows:
+            raise NotFound(f"event {event_id} does not exist")
+    else:
+        low, high = _window(start, end)
+        swiped = (
+            EventSwipe.objects.using(alias)
+            .order_by()
+            .values_list("event_id", flat=True)
+            .distinct()
+        )
+        event_rows = list(
+            qs.filter(date_time__gte=low, date_time__lt=high, id__in=swiped)
+            .order_by("date_time", "id")
+            .values(*fields)[: MAX_EVENTS + 1]
+        )
+    truncated = len(event_rows) > MAX_EVENTS
+    event_rows = event_rows[:MAX_EVENTS]
+    event_ids = [e["id"] for e in event_rows]
+
+    quasi = _generalized_quasi_identifiers(_real_member_profiles(alias, excluded))
+    unknown = dict.fromkeys(DEMOGRAPHIC_DIMENSIONS, SUPPRESSED)
+
+    def gender_of(uid):
+        return quasi.get(uid, unknown)["gender"]
+
+    attendees: dict[int, set] = defaultdict(set)
+    for row in (
+        EventRegistration.objects.using(alias)
+        .filter(_ATTENDED, event_id__in=event_ids)
+        .order_by()
+        .values("event_id", "user_id")
+    ):
+        if row["user_id"] in quasi:
+            attendees[row["event_id"]].add(row["user_id"])
+
+    rows_by_event: dict[int, list] = defaultdict(list)
+    excluded_swipes: Counter = Counter()
+    for row in (
+        EventSwipe.objects.using(alias)
+        .filter(event_id__in=event_ids)
+        .order_by()
+        .values("event_id", "swiper_id", "target_id", "liked", "created_at")
+    ):
+        if row["swiper_id"] in quasi and row["target_id"] in quasi:
+            rows_by_event[row["event_id"]].append(row)
+        else:
+            excluded_swipes[row["event_id"]] += 1
+
+    out = []
+    for event in event_rows:
+        eid = event["id"]
+        summary = _swipe_summary(rows_by_event[eid], attendees[eid], gender_of)
+        out.append(
+            {
+                "event_id": eid,
+                "title": event["title"],
+                "event_type": event["event_type"],
+                "date": _day(event["date_time"]),
+                **summary,
+                "excluded_account_swipes": excluded_swipes[eid],
+            }
+        )
+
+    # Overall: per-event results added up. A member who attended two events
+    # counts twice (checked_in, swipers and members_matched are per event).
+    overall: dict[str, Counter] = defaultdict(Counter)
+    for event in out:
+        for g, row in event["by_gender"].items():
+            overall[g].update({k: v for k, v in row.items() if not k.endswith("_pct")})
+    overall_by_gender = {}
+    for g in sorted(overall):
+        row = dict(overall[g])
+        row["swipers_pct"] = _pct(row.get("swipers", 0), row.get("checked_in", 0))
+        row["like_rate_pct"] = _pct(row.get("likes", 0), row.get("swipes", 0))
+        overall_by_gender[g] = row
+    total_swipes = sum(e["swipes"] for e in out)
+    total_likes = sum(e["likes"] for e in out)
+    return {
+        "count": len(out),
+        "truncated": truncated,
+        "overall": {
+            "swipes": total_swipes,
+            "likes": total_likes,
+            "like_rate_pct": _pct(total_likes, total_swipes),
+            "matches": sum(e["matches"] for e in out),
+            "by_gender": overall_by_gender,
+        },
+        "events": out,
     }
