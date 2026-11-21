@@ -3071,6 +3071,7 @@ def coach_event_detail(request, event_id):
     is_quiz_night = event.event_type == "quiz_night"
 
     from django.conf import settings as django_settings
+    from .ios_app_utils import ios_cache_suppressed
 
     # Crush Cache Control links (header button + Event Control card): only
     # render them for coaches who can actually open the hunt dashboard.
@@ -3078,9 +3079,11 @@ def coach_event_detail(request, event_id):
     # 404s without it), and cache_coach_dashboard denies coaches who
     # neither created the hunt nor are assigned to the event
     # (_can_manage_hunt) — anything less renders a dead link.
-    can_manage_cache_hunt = getattr(
-        django_settings, "CRUSH_CACHE_ENABLED", False
-    ) and hasattr(event, "cache_hunt")
+    can_manage_cache_hunt = (
+        getattr(django_settings, "CRUSH_CACHE_ENABLED", False)
+        and not ios_cache_suppressed(request)
+        and hasattr(event, "cache_hunt")
+    )
     if can_manage_cache_hunt:
         from .views_crush_cache import _can_manage_hunt
 

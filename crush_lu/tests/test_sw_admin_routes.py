@@ -144,3 +144,28 @@ def test_ordinary_form_posts_keep_background_sync():
         f"onSync replayed nothing for an ordinary queued POST (got {replayed}); "
         "the exclusion is now swallowing traffic it should retry."
     )
+
+
+def test_cache_posts_are_never_queued_for_background_sync():
+    results = _run_sw_route_probe()
+    for probe_name in ("cache_position_post", "cache_answer_post"):
+        probe = results[probe_name]
+        assert not probe["claimed"], (
+            f"the service worker claims POST {probe['url']} "
+            f"(route={probe['matchedRoute']}). Replaying stale GPS/answer POSTs "
+            "after poor signal would corrupt live hunt state."
+        )
+
+
+def test_cache_play_pages_are_never_cached():
+    probe = _run_sw_route_probe()["cache_play_navigation"]
+    assert probe["matchedRoute"] == "NetworkOnly", (
+        f"Crush Cache play navigations resolve to {probe['matchedRoute']}, "
+        "not NetworkOnly. Caching play HTML serves stale station state."
+    )
+
+
+def test_already_queued_cache_posts_are_dropped_not_replayed():
+    replay = _run_replay_probe()
+    assert not [url for url in replay["replayed"] if "/cache/" in url]
+    assert replay["drained"]

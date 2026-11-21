@@ -141,6 +141,7 @@
         "/cookies/",
         "/signup",
     ];
+    var QUEUE_EXCLUDED_SEGMENTS = ["/cache/"];
 
     // How long a sendError waits for the worker's "crush-queued" message.
     // The worker posts it before it rejects the fetch, but message delivery
@@ -291,6 +292,9 @@
         }
         for (var i = 0; i < QUEUE_EXCLUDED_PREFIXES.length; i++) {
             if (url.pathname.indexOf(QUEUE_EXCLUDED_PREFIXES[i]) === 0) return null;
+        }
+        for (var j = 0; j < QUEUE_EXCLUDED_SEGMENTS.length; j++) {
+            if (url.pathname.indexOf(QUEUE_EXCLUDED_SEGMENTS[j]) !== -1) return null;
         }
         return url.href;
     }
