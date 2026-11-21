@@ -38,6 +38,7 @@ from crush_lu.models import (
     CrushCredit,
     CrushProfile,
     EventRegistration,
+    EventSwipe,
     MeetupEvent,
     PaymentTransaction,
     PremiumMembership,
@@ -64,6 +65,7 @@ ALL_TOOLS = (
     "kpi_weekly",
     "funnel",
     "events",
+    "swipes",
     "payments",
     "connect",
     "retention",
@@ -424,6 +426,72 @@ class ToolTests(AnalyticsFixture):
         )
         self.assertFalse(carol["paid"])
         self.assertFalse(carol["paid_with_credit"])
+
+    def _swipe_night(self):
+        """alice (F) + 2 men and 1 more woman checked in at the night."""
+        frank = _make_member("frank@crush.lu", "M", date(1991, 2, 2))
+        gus = _make_member("gus@crush.lu", "M", date(1992, 3, 3))
+        hana = _make_member("hana@crush.lu", "F", date(1994, 4, 4))
+        for user in (frank, gus, hana):
+            EventRegistration.objects.create(
+                event=self.night, user=user, status="attended"
+            )
+        night = self.night
+        for swiper, target, liked in (
+            (self.alice, frank, True),
+            (frank, self.alice, True),  # match alice-frank
+            (self.alice, gus, False),
+            (gus, self.alice, True),
+            (gus, hana, True),
+            (frank, hana, False),
+            # Swipes with an excluded account never count.
+            (self.staff, self.alice, True),
+            (self.alice, self.staff, True),
+        ):
+            EventSwipe.objects.create(
+                event=night, swiper=swiper, target=target, liked=liked
+            )
+        return frank, gus, hana
+
+    def test_swipes_by_gender_for_one_event(self):
+        self._swipe_night()
+        data = self.data("swipes", event_id=str(self.night.id))
+        self.assertEqual(data["count"], 1)
+        event = data["events"][0]
+        self.assertEqual(event["checked_in"], 4)  # alice, frank, gus, hana
+        self.assertEqual(event["swipes"], 6)
+        self.assertEqual(event["likes"], 4)
+        self.assertEqual(event["swipers"], 3)
+        self.assertEqual(event["matches"], 1)
+        self.assertEqual(event["matches_by_gender_pair"], {"F-M": 1})
+        self.assertEqual(event["excluded_account_swipes"], 2)
+        women, men = event["by_gender"]["F"], event["by_gender"]["M"]
+        self.assertEqual(women["checked_in"], 2)
+        self.assertEqual(women["swipers"], 1)
+        self.assertEqual(women["swipers_pct"], 50.0)
+        self.assertEqual((women["swipes"], women["likes"]), (2, 1))
+        self.assertEqual(women["likes_received"], 3)
+        self.assertEqual(women["members_matched"], 1)
+        self.assertEqual(men["checked_in"], 2)
+        self.assertEqual(men["swipers"], 2)
+        self.assertEqual((men["swipes"], men["likes"]), (4, 3))
+        self.assertEqual(men["like_rate_pct"], 75.0)
+        self.assertEqual(men["likes_received"], 1)
+        directions = {(d["from"], d["to"]): d for d in event["by_direction"]}
+        self.assertEqual(directions[("M", "F")]["swipes"], 4)
+        self.assertEqual(directions[("F", "M")]["like_rate_pct"], 50.0)
+        self.assertEqual(sum(d["swipes"] for d in event["by_day"]), 6)
+        self.assertEqual(data["overall"]["by_gender"]["M"]["likes"], 3)
+
+    def test_swipes_window_lists_only_events_with_swipes(self):
+        self.assertEqual(self.data("swipes")["count"], 0)
+        self._swipe_night()
+        cache.clear()  # responses are cached for five minutes
+        events = self.data("swipes")["events"]
+        self.assertEqual([e["event_id"] for e in events], [self.night.id])
+
+    def test_swipes_unknown_event_is_404(self):
+        self.assertEqual(self.get("swipes", event_id="999999").status_code, 404)
 
     def test_event_detail_summary_ignores_the_event_list_cap(self):
         with mock.patch.object(analytics, "MAX_EVENTS", 0):
@@ -1305,6 +1373,8 @@ class SqlColumnAuditTests(AnalyticsFixture):
         analytics.funnel(start, today, "week")
         analytics.events(start, today)
         analytics.event_detail(self.night.id)
+        analytics.swipes(start, today)
+        analytics.swipes(start, today, event_id=self.night.id)
         analytics.payments(start, today, "month")
         analytics.connect(start, today)
         analytics.retention(start, today)

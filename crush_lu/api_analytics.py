@@ -190,6 +190,12 @@ def _parse_event_detail(p):
     return {"event_id": event_id}
 
 
+def _parse_swipes(p):
+    start, end = p.range()
+    event_id = p.int("event_id", None, 1, 2**31 - 1)
+    return {"start": start, "end": end, "event_id": event_id}
+
+
 def _parse_payments(p):
     start, end = p.range()
     return {"start": start, "end": end, "grain": p.grain("month")}
@@ -240,6 +246,7 @@ TOOLS = {
     "funnel": (analytics.funnel, _parse_funnel),
     "events": (analytics.events, _parse_events),
     "event_detail": (analytics.event_detail, _parse_event_detail),
+    "swipes": (analytics.swipes, _parse_swipes),
     "payments": (analytics.payments, _parse_payments),
     "connect": (analytics.connect, _parse_window),
     "retention": (analytics.retention, _parse_window),
