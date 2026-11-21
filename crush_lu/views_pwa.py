@@ -355,6 +355,10 @@ def apple_app_site_association_view(request):
     # universal link it would open the app instead. Same language prefixes as
     # above, because the route sits inside i18n_patterns.
     browser_only_globs = ["/crush-connect/real-person-call/*"]
+    if not getattr(settings, "IOS_NATIVE_CACHE_ENABLED", False):
+        # Keep Crush Cache QR scans and shared hunt links in Safari until the
+        # App Store build explicitly includes Crush Cache.
+        browser_only_globs += ["/cache/*", "/events/*/cache/*"]
     language_codes = [code for code, _name in getattr(settings, "LANGUAGES", [])]
 
     excluded = ["/admin/*", "/crush-admin/*", "/api/*"]

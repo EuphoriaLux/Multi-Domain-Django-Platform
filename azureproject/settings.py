@@ -761,6 +761,11 @@ PREMIUM_REDIRECTS_TO_BETA = _env_bool("PREMIUM_REDIRECTS_TO_BETA", default=True)
 # all cache routes 404 and the event page hides the hunt button.
 CRUSH_CACHE_ENABLED = _env_bool("CRUSH_CACHE_ENABLED", default=False)
 
+# Keep Crush Cache hidden inside the native iOS app shell until an App Store
+# version explicitly lists it; Safari and Android stay playable whenever
+# CRUSH_CACHE_ENABLED is True.
+IOS_NATIVE_CACHE_ENABLED = _env_bool("IOS_NATIVE_CACHE_ENABLED", default=False)
+
 # Crush Connect Event Lobby (Crush.lu) — the live "I'd like to meet you" photo
 # grid for checked-in Connect members (spec 2026-07-17). Global rollout flag
 # (§17 Phase A): it controls launch and never becomes a per-event switch. The

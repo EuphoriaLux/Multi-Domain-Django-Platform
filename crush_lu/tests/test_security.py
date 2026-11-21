@@ -317,6 +317,15 @@ class TestPermissionsPolicy(SiteTestCase):
         )
         self.assertNotIn("autoplay=()", pp)
 
+        # Screen Wake Lock is needed on same origin to keep GPS tracking alive
+        # while walking between Crush Cache stations on mobile Safari/Chrome.
+        self.assertIn(
+            "screen-wake-lock=(self)",
+            pp,
+            "screen-wake-lock should be allowed on same origin for Crush Cache",
+        )
+        self.assertNotIn("screen-wake-lock=()", pp)
+
 
 class TestPIIMasking(TestCase):
     """Tests for PII masking in logs."""

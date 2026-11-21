@@ -47,7 +47,7 @@ class PermissionsPolicyMiddleware:
             "picture-in-picture=()",
             "publickey-credentials-create=()",
             "publickey-credentials-get=()",
-            "screen-wake-lock=()",
+            "screen-wake-lock=(self)",  # Keep screen awake during Crush Cache GPS navigation
             "serial=()",
             "usb=()",
             "web-share=(self)",  # Allow Web Share API on same origin

@@ -498,6 +498,7 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // Native-app flags: unset on both slots today, pinned ahead of use so
       // the first per-slot value cannot ride a swap.
       'IOS_NATIVE_COMMERCE_ENABLED'
+      'IOS_NATIVE_CACHE_ENABLED'
       'ANDROID_NATIVE_COMMERCE_ENABLED'
       'IOS_APNS_USE_SANDBOX'
       // echo.lu listing defaults. Staging sets all three (to non-default

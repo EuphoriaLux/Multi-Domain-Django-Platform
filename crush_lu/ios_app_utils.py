@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs
+
 from django.conf import settings
 
 from .mobile_auth import SESSION_KEY as MOBILE_HANDOFF_SESSION_KEY
@@ -82,3 +84,37 @@ def android_commerce_suppressed(request):
 
 def native_commerce_suppressed(request):
     return ios_commerce_suppressed(request) or android_commerce_suppressed(request)
+
+
+def ios_cache_suppressed(request):
+    return is_ios_native_request(request) and not getattr(
+        settings, "IOS_NATIVE_CACHE_ENABLED", False
+    )
+
+
+def is_ios_native_scope(scope):
+    """Return True when an ASGI WebSocket scope comes from the native iOS shell."""
+    if not scope:
+        return False
+    session = scope.get("session")
+    if hasattr(session, "get") and session.get("crush_ios_app") is True:
+        return True
+    query_string = scope.get("query_string", b"")
+    if isinstance(query_string, (bytes, bytearray)):
+        query_string = query_string.decode("latin-1", errors="ignore")
+    if query_string and "ios_app" in parse_qs(query_string).get("source", []):
+        return True
+    for raw_name, raw_value in scope.get("headers") or ():
+        name = raw_name.decode("latin-1", errors="ignore").lower()
+        value = raw_value.decode("latin-1", errors="ignore")
+        if name == "x-crush-client" and value.lower() == "ios-app":
+            return True
+        if name == "user-agent" and "CrushLUApp/" in value:
+            return True
+    return False
+
+
+def ios_cache_suppressed_scope(scope):
+    return is_ios_native_scope(scope) and not getattr(
+        settings, "IOS_NATIVE_CACHE_ENABLED", False
+    )

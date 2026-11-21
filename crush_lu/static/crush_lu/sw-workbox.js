@@ -1,5 +1,7 @@
 // Crush.lu Service Worker with Workbox
 // Production-ready PWA implementation using local Workbox library
+// Version: v35 - Keep Crush Cache (/cache/) routes off the background-sync queue
+//                and page cache so poor-signal GPS fixes never replay stale locations.
 // Version: v34 - Leave multipart POSTs (file uploads) to the browser instead of
 //                the background-sync route. Its cloned re-send reached the server
 //                with an empty body on iOS WebKit, so the profile form failed its
@@ -163,7 +165,7 @@ if (workbox) {
         modulePathPrefix: "/static/crush_lu/workbox/",
     });
 
-    const CACHE_VERSION = "crush-v30-ios-tracking-off";
+    const CACHE_VERSION = "crush-v35-cache-no-queue";
 
     // Set cache name prefix - AFTER setConfig()
     workbox.core.setCacheNameDetails({
@@ -421,6 +423,7 @@ if (workbox) {
             "/oauth/popup-error", // Popup OAuth error - must never be cached
             "/api/auth/status", // Auth status API - must never be cached
             "/api/csrf-token", // CSRF token refresh - must never be cached
+            "/cache/", // Crush Cache gameplay - live DB state, must never be cached
         ];
 
         // Check with and without language prefix (en, fr, de)
@@ -681,7 +684,8 @@ if (workbox) {
             !pathname.startsWith("/logout") &&
             !pathname.startsWith("/accounts/") &&
             !pathname.startsWith("/cookies/") &&
-            !pathname.startsWith("/signup")
+            !pathname.startsWith("/signup") &&
+            !pathname.includes("/cache/")
         );
     }
 
