@@ -132,3 +132,22 @@ class PurgeUnverifiedSignupsTests(TestCase):
         self._user("bot@gmail.com")
         output = self._run("--until", "2026-11-19T18:00:00Z")
         self.assertIn("0 unverified signup(s)", output)
+
+    def test_account_verified_after_listing_is_kept(self):
+        user = self._user("late@gmail.com")
+        from crush_lu.management.commands import purge_unverified_signups as cmd
+
+        real = cmd.unverified_signups
+        calls = []
+
+        def verify_after_first_listing(since, until=None):
+            # The second call is the locked re-check: confirm the email first.
+            if calls:
+                EmailAddress.objects.filter(user=user).update(verified=True)
+            calls.append(1)
+            return real(since, until)
+
+        with patch.object(cmd, "unverified_signups", verify_after_first_listing):
+            output = self._run("--apply")
+        self.assertIn("Deleted 0 account(s).", output)
+        self.assertTrue(User.objects.filter(pk=user.pk).exists())

@@ -129,8 +129,23 @@ class Command(BaseCommand):
         for start in range(0, len(pks), BATCH_SIZE):
             chunk = pks[start : start + BATCH_SIZE]
             with transaction.atomic():
-                # Re-check inside the transaction: an account that confirmed
-                # its email or built a profile since the listing is kept.
+                # Lock the accounts and their email addresses before the
+                # re-check: confirming an email saves the EmailAddress row,
+                # so a confirmation that lands now waits for this transaction
+                # instead of slipping in between the check and the delete.
+                # (A profile or social login needs a login, and an unverified
+                # account cannot log in.) An account that confirmed before
+                # the lock is seen as verified below and kept.
+                list(
+                    User.objects.select_for_update()
+                    .filter(pk__in=chunk)
+                    .values_list("pk", flat=True)
+                )
+                list(
+                    EmailAddress.objects.select_for_update()
+                    .filter(user_id__in=chunk)
+                    .values_list("pk", flat=True)
+                )
                 still = unverified_signups(since, until).filter(pk__in=chunk)
                 ids = list(still.values_list("pk", flat=True))
                 User.objects.filter(pk__in=ids).delete()
