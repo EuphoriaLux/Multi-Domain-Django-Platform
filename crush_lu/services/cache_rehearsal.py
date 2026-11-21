@@ -15,7 +15,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -300,7 +300,7 @@ def ensure_preset_rehearsal_hunt(preset_key, owner):
 
 
 def ensure_all_preset_rehearsal_hunts(owner):
-    """Ensure all 4 presets exist as daily-active rehearsal hunts."""
+    """Ensure all configured presets exist as daily-active rehearsal hunts."""
     require_cache_rehearsal()
     from crush_lu.management.commands.seed_crush_cache import PRESETS
 
@@ -357,28 +357,50 @@ def ensure_rehearsal_registration(hunt, user):
     return registration
 
 
+def _reset_fields(first_station, now):
+    return {
+        "current_station": first_station,
+        "total_points": 0,
+        "is_finished": False,
+        "finished_at": None,
+        "last_lat": None,
+        "last_lng": None,
+        "last_accuracy": None,
+        "last_position_at": None,
+        "started_at": now,
+    }
+
+
+def _wipe_locked_team_progress(team, progress, reset_defaults, save_progress=True):
+    """Delete station attempts and reset fields while ``progress`` is locked."""
+    from crush_lu.models.crush_cache import CacheStationAttempt
+
+    CacheStationAttempt.objects.filter(team=team).delete()
+    if save_progress:
+        for field, value in reset_defaults.items():
+            setattr(progress, field, value)
+        progress.save(update_fields=list(reset_defaults.keys()))
+    return progress
+
+
 def reset_team_run(hunt, team):
     """Wipe ``team``'s station attempts & points back to Station 1 today."""
     require_cache_rehearsal()
-    from crush_lu.models.crush_cache import CacheStationAttempt, CacheTeamProgress
+    from crush_lu.models.crush_cache import CacheTeamProgress
 
     first_station = hunt.ordered_stations().first()
     now = timezone.now()
+    reset_defaults = _reset_fields(first_station, now)
     with transaction.atomic():
-        CacheStationAttempt.objects.filter(team=team).delete()
-        progress, _ = CacheTeamProgress.objects.update_or_create(
+        # Acquire CacheTeamProgress lock before deleting attempts to match
+        # cache_answer_api / cache_hint_api (progress -> attempts) and prevent
+        # PostgreSQL deadlocks when resetting a shared team during live play.
+        progress, created = CacheTeamProgress.objects.select_for_update().get_or_create(
             team=team,
-            defaults={
-                "current_station": first_station,
-                "total_points": 0,
-                "is_finished": False,
-                "finished_at": None,
-                "last_lat": None,
-                "last_lng": None,
-                "last_accuracy": None,
-                "last_position_at": None,
-                "started_at": now,
-            },
+            defaults=reset_defaults,
+        )
+        _wipe_locked_team_progress(
+            team, progress, reset_defaults, save_progress=not created
         )
     return progress
 
@@ -396,7 +418,25 @@ def maybe_daily_reset_team(hunt, team):
     )
     if not created and progress.started_at is not None:
         if timezone.localdate(progress.started_at) < timezone.localdate(now):
-            return reset_team_run(hunt, team), True
+            reset_defaults = _reset_fields(first_station, now)
+            with transaction.atomic():
+                (
+                    locked,
+                    locked_created,
+                ) = CacheTeamProgress.objects.select_for_update().get_or_create(
+                    team=team,
+                    defaults=reset_defaults,
+                )
+                if locked_created:
+                    return locked, True
+                if locked.started_at is not None and timezone.localdate(
+                    locked.started_at
+                ) < timezone.localdate(now):
+                    return (
+                        _wipe_locked_team_progress(team, locked, reset_defaults),
+                        True,
+                    )
+                return locked, False
 
     updates = []
     if progress.started_at is None:
@@ -424,28 +464,45 @@ def _personal_team_name(user):
 def enter_solo_play(hunt, user):
     """Put ``user`` into a ready-to-play solo team for ``hunt``, resetting if stale."""
     require_cache_rehearsal()
+    from crush_lu.models import EventRegistration
     from crush_lu.models.crush_cache import CacheTeam, CacheTeamMember
 
     keep_hunt_daily_active(hunt)
     registration = ensure_rehearsal_registration(hunt, user)
-    membership = (
-        CacheTeamMember.objects.filter(hunt=hunt, registration__user=user)
-        .select_related("team")
-        .first()
-    )
-    if membership:
-        team = membership.team
-    else:
+    try:
         with transaction.atomic():
-            color = CacheTeam.COLOR_CHOICES[
-                hunt.teams.count() % len(CacheTeam.COLOR_CHOICES)
-            ][0]
-            team = CacheTeam.objects.create(
-                hunt=hunt, name=_personal_team_name(user), color=color
+            # Lock the registration row first so overlapping Play solo requests
+            # for the same user serialize on PostgreSQL without creating extra teams.
+            EventRegistration.objects.select_for_update().get(pk=registration.pk)
+            membership = (
+                CacheTeamMember.objects.filter(hunt=hunt, registration=registration)
+                .select_related("team")
+                .first()
             )
-            CacheTeamMember.objects.create(
-                hunt=hunt, team=team, registration=registration
-            )
+            if membership:
+                team = membership.team
+            else:
+                color = CacheTeam.COLOR_CHOICES[
+                    hunt.teams.count() % len(CacheTeam.COLOR_CHOICES)
+                ][0]
+                team = CacheTeam.objects.create(
+                    hunt=hunt, name=_personal_team_name(user), color=color
+                )
+                CacheTeamMember.objects.create(
+                    hunt=hunt, team=team, registration=registration
+                )
+    except IntegrityError:
+        # Another concurrent request (e.g. cache_join_team or a race on a
+        # backend without row locks) inserted the membership first; our
+        # atomic block rolled back the unused CacheTeam, so reuse the winner.
+        membership = (
+            CacheTeamMember.objects.filter(hunt=hunt, registration=registration)
+            .select_related("team")
+            .first()
+        )
+        if membership is None:
+            raise
+        team = membership.team
     _progress, did_reset = maybe_daily_reset_team(hunt, team)
     return team, did_reset
 

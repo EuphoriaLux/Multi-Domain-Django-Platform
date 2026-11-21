@@ -474,3 +474,128 @@ def test_ensure_cache_rehearsals_command_works_on_staging(staging):
     # Second run is idempotent.
     call_command("ensure_cache_rehearsals")
     assert CacheHunt.objects.count() == len(PRESETS)
+
+
+def test_reset_team_run_locks_progress_before_deleting_attempts(staging, monkeypatch):
+    from django.db.models.query import QuerySet
+
+    from crush_lu.services.cache_rehearsal import (
+        ensure_preset_rehearsal_hunt,
+        enter_solo_play,
+        reset_team_run,
+    )
+
+    coach = _make_coach("lockordercoach")
+    hunt = ensure_preset_rehearsal_hunt("lux_city", coach)
+    team, _did_reset = enter_solo_play(hunt, coach)
+    stations = list(hunt.ordered_stations())
+
+    progress = CacheTeamProgress.objects.get(team=team)
+    progress.current_station = stations[1]
+    progress.total_points = 100
+    progress.is_finished = True
+    progress.save()
+    CacheStationAttempt.objects.create(
+        team=team,
+        station=stations[0],
+        arrived_at=timezone.now(),
+        points_earned=100,
+    )
+
+    events = []
+    orig_select_for_update = QuerySet.select_for_update
+    orig_delete = QuerySet.delete
+
+    def tracked_select_for_update(self, *args, **kwargs):
+        if self.model is CacheTeamProgress:
+            events.append("lock_progress")
+        return orig_select_for_update(self, *args, **kwargs)
+
+    def tracked_delete(self, *args, **kwargs):
+        if self.model is CacheStationAttempt:
+            events.append("delete_attempts")
+        return orig_delete(self, *args, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "select_for_update", tracked_select_for_update)
+    monkeypatch.setattr(QuerySet, "delete", tracked_delete)
+
+    reset_team_run(hunt, team)
+
+    assert "lock_progress" in events and "delete_attempts" in events
+    assert events.index("lock_progress") < events.index("delete_attempts")
+    assert CacheStationAttempt.objects.filter(team=team).count() == 0
+    progress.refresh_from_db()
+    assert progress.current_station_id == stations[0].id
+    assert progress.total_points == 0
+    assert progress.is_finished is False
+
+    # Missing progress row still acquires the CacheTeamProgress lock first before
+    # wiping attempts and recreating Station 1 progress.
+    CacheTeamProgress.objects.filter(team=team).delete()
+    CacheStationAttempt.objects.create(
+        team=team,
+        station=stations[0],
+        arrived_at=timezone.now(),
+        points_earned=50,
+    )
+    events.clear()
+
+    recreated = reset_team_run(hunt, team)
+
+    assert "lock_progress" in events and "delete_attempts" in events
+    assert events.index("lock_progress") < events.index("delete_attempts")
+    assert CacheStationAttempt.objects.filter(team=team).count() == 0
+    assert recreated.current_station_id == stations[0].id
+    assert recreated.total_points == 0
+
+
+def test_enter_solo_play_recovers_from_concurrent_membership_race(staging, monkeypatch):
+    from django.db.models.query import QuerySet
+
+    from crush_lu.services.cache_rehearsal import (
+        ensure_preset_rehearsal_hunt,
+        ensure_rehearsal_registration,
+    )
+
+    coach = _make_coach("racecoach")
+    hunt = ensure_preset_rehearsal_hunt("lux_city", coach)
+    reg = ensure_rehearsal_registration(hunt, coach)
+    winner_team = CacheTeam.objects.create(hunt=hunt, name="Winner Team")
+    CacheTeamMember.objects.create(hunt=hunt, team=winner_team, registration=reg)
+
+    locked_registration = False
+    membership_first_calls = 0
+    orig_select_for_update = QuerySet.select_for_update
+    orig_first = QuerySet.first
+
+    def tracked_select_for_update(self, *args, **kwargs):
+        nonlocal locked_registration
+        if self.model is EventRegistration:
+            locked_registration = True
+        return orig_select_for_update(self, *args, **kwargs)
+
+    def race_first(self, *args, **kwargs):
+        nonlocal membership_first_calls
+        if self.model is CacheTeamMember:
+            membership_first_calls += 1
+            if membership_first_calls == 1:
+                return None
+        return orig_first(self, *args, **kwargs)
+
+    monkeypatch.setattr(QuerySet, "select_for_update", tracked_select_for_update)
+    monkeypatch.setattr(QuerySet, "first", race_first)
+
+    client = Client()
+    client.force_login(coach)
+    resp = client.post(reverse("crush_lu:cache_rehearsal_play", args=[hunt.event_id]))
+
+    assert resp.status_code == 302
+    assert resp["Location"].endswith(
+        reverse("crush_lu:cache_play", args=[hunt.event_id])
+    )
+    assert locked_registration is True
+    assert CacheTeam.objects.filter(hunt=hunt).count() == 1
+    assert (
+        CacheTeamMember.objects.get(hunt=hunt, registration=reg).team_id
+        == winner_team.id
+    )
