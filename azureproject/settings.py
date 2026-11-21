@@ -104,6 +104,19 @@ HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
 # unsetting the function app's URL var, and the latter fails silently.
 CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 
+# Signup bot traps (crush_lu/forms.py CrushSignupForm.bot_signal). A signup
+# posted sooner than this many seconds after the form was rendered is sent
+# back with "please try again" instead of creating an account; the 2026-11
+# bot wave posted ~1.5 s after loading the page. 0 turns the timing check off
+# (the default under pytest, so existing signup tests need no token); the
+# hidden honeypot field is always checked.
+CRUSH_SIGNUP_MIN_FILL_SECONDS = float(
+    os.getenv("CRUSH_SIGNUP_MIN_FILL_SECONDS", "0" if IS_TESTING else "3")
+)
+# A rendered signup form stays valid this long (a tab left open overnight just
+# gets a "please try again" and a fresh form).
+CRUSH_SIGNUP_FORM_MAX_AGE_SECONDS = 24 * 3600
+
 # Multi-channel campaign dispatch (crush_lu campaign dashboard) — gate for the
 # /api/admin/campaigns/dispatch/ endpoint driven by the CampaignDispatch Azure
 # Function timer. Default OFF so scheduled campaigns never send until the

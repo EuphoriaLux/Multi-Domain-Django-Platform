@@ -2557,7 +2557,30 @@ def signup(request):
         status_code = 429
     elif request.method == "POST":
         signup_form = CrushSignupForm(request.POST)
-        if signup_form.is_valid():
+        bot_reason = signup_form.bot_signal()
+        if bot_reason:
+            email = (request.POST.get("email") or "").strip().lower()
+            logger.warning(
+                "[SIGNUP-BOT] blocked reason=%s email_domain=%s",
+                bot_reason,
+                email.rpartition("@")[2][:100] or "-",
+            )
+        if bot_reason == "honeypot":
+            # Look exactly like a successful signup, so the bot has nothing to
+            # learn from - but create no account and send no email.
+            return redirect("account_email_verification_sent")
+        if bot_reason:
+            # The timing check can catch a person too (a page opened before a
+            # deploy, a tab left open overnight): ask them to submit again on
+            # the re-rendered form, which carries a fresh token.
+            signup_form.add_error(
+                None,
+                _(
+                    "Sorry, we couldn't create your account just now. "
+                    "Please check your details and press Create Account again."
+                ),
+            )
+        elif signup_form.is_valid():
             try:
                 # Allauth's save() method handles EmailAddress creation automatically
                 # This will raise IntegrityError if email/username already exists

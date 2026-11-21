@@ -48857,3 +48857,14 @@ msgstr "Commencer à swiper"
 
 msgid "Rather not be shown to people from past events? <a href=\"%(hub_url)s\">Hide yourself here</a> with one click."
 msgstr "Vous préférez ne pas être visible des personnes des soirées passées ? <a href=\"%(hub_url)s\">Masquez-vous ici</a> en un clic."
+
+# Signup bot traps (2026-11)
+#: crush_lu/views_account.py
+msgid ""
+"Sorry, we couldn't create your account just now. Please check your details "
+"and press Create Account again."
+msgstr "Désolé, nous n'avons pas pu créer votre compte pour le moment. Veuillez vérifier vos informations et cliquer à nouveau sur Créer un compte."
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Leave this field empty"
+msgstr "Laissez ce champ vide"
