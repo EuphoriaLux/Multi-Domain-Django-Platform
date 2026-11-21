@@ -131,6 +131,7 @@ from .views_notifications import notifications_page  # noqa: F401
 
 from .views_coach import (  # noqa: F401
     coach_event_matches,
+    coach_matches,
     coach_dashboard,
     coach_action_queue,
     coach_mark_review_call_complete,

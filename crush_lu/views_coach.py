@@ -1,4 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.urls import reverse
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.utils import timezone
@@ -134,9 +135,13 @@ def coach_dashboard(request):
         + coach_stats["total_recontact"]
     )
 
-    pending_connections_count = EventConnection.objects.filter(
-        status__in=["accepted", "coach_reviewing"]
-    ).count()
+    # Same scope as the coach queue it links to: only rows this coach can open.
+    pending_connections_count = (
+        EventConnection.objects.visible_to_coach(request.coach)
+        .exclude(flow=EventConnection.FLOW_SWIPE)
+        .filter(status__in=["accepted", "coach_reviewing"])
+        .count()
+    )
 
     # --- Row 2: Demographics ---
     # Gender breakdown
@@ -5272,42 +5277,102 @@ def _compute_connection_stages(conn):
     ]
 
 
+def _onboarding_coaches(user_ids):
+    """Map user id -> coach who approved their most recent ProfileSubmission."""
+    by_user = {}
+    if not user_ids:
+        return by_user
+    approved_subs = (
+        ProfileSubmission.objects.filter(
+            profile__user_id__in=user_ids, status="approved"
+        )
+        .select_related("coach__user", "profile")
+        .order_by("-reviewed_at", "-id")
+    )
+    for sub in approved_subs:
+        by_user.setdefault(sub.profile.user_id, sub.coach)
+    return by_user
+
+
 @coach_required
-def coach_event_matches(request):
-    """Read-only list of post-event swipe matches (decision 2026-11-20).
+def coach_matches(request):
+    """Read-only overview of the matches between members (2026-11-21).
 
-    A coach sees the matches of the events they coach; staff see all. Only
-    the pair, the event, the match time and whether the chat has started are
-    shown — never the messages themselves.
+    Every active coach sees every match: post-event swipe matches plus the
+    older connections whose introduction was completed. Only the pair, the
+    event, when they matched and how the conversation is going are shown,
+    never the messages or private notes. Blocked pairs and encounter
+    removals are left out (see ``services.coach_matches``).
     """
-    from django.db.models import Count
-
-    from .services.event_swipes import coach_matches, event_swipe_stats
+    from .services import coach_matches as svc
+    from .services.event_swipes import event_swipe_stats
 
     coach = request.coach
-    show_all = request.user.is_staff and request.GET.get("scope") == "all"
-    matches = coach_matches(coach, all_events=show_all).annotate(
-        message_count=Count("messages")
+
+    event = None
+    event_id = request.GET.get("event", "")
+    if event_id.isdigit():
+        event = MeetupEvent.objects.filter(pk=int(event_id)).first()
+    if event is None:
+        event_id = ""
+
+    query = request.GET.get("q", "").strip()[:60]
+    chat_filter = request.GET.get("chat", svc.CHAT_ALL)
+    if chat_filter not in svc.CHAT_FILTERS:
+        chat_filter = svc.CHAT_ALL
+
+    rows = svc.visible_matches(event=event, query=query)
+    counters = svc.match_counters(rows)
+    rows = svc.filter_by_chat(rows, chat_filter)
+
+    paginator = Paginator(rows, 25)
+    page_obj = paginator.get_page(request.GET.get("page"))
+
+    user_ids = set()
+    for conn in page_obj.object_list:
+        user_ids.update((conn.requester_id, conn.recipient_id))
+    onboarding = _onboarding_coaches(user_ids)
+    for conn in page_obj.object_list:
+        conn.requester_display_name = _profile_display_name(conn.requester)
+        conn.recipient_display_name = _profile_display_name(conn.recipient)
+        conn.requester_onboarding_coach = onboarding.get(conn.requester_id)
+        conn.recipient_onboarding_coach = onboarding.get(conn.recipient_id)
+
+    events_with_matches = MeetupEvent.objects.filter(
+        id__in=EventConnection.objects.filter(status="shared").values("event_id")
+    ).order_by("-date_time")[:50]
+
+    # The old coach queue only matters while older leads are still open.
+    open_queue_count = (
+        EventConnection.objects.visible_to_coach(coach)
+        .exclude(flow=EventConnection.FLOW_SWIPE)
+        .filter(status__in=["pending", "accepted", "coach_reviewing", "coach_approved"])
+        .count()
     )
 
-    event_id = request.GET.get("event")
-    event = None
-    if event_id and event_id.isdigit():
-        matches = matches.filter(event_id=int(event_id))
-        # Same scope as the rows: a coach only gets stats for events they
-        # coach; staff only in the explicit all-events view.
-        events = MeetupEvent.objects.all()
-        if not show_all:
-            events = events.filter(coaches=coach)
-        event = events.filter(pk=int(event_id)).first()
-
     context = {
-        "matches": matches[:300],
+        "coach": coach,
+        "page_obj": page_obj,
+        "counters": counters,
+        "chat_filter": chat_filter,
+        "query": query,
         "event": event,
+        "event_id": event_id,
         "event_stats": event_swipe_stats(event) if event else None,
-        "show_all": show_all,
+        "events_with_matches": events_with_matches,
+        "open_queue_count": open_queue_count,
     }
-    return render(request, "crush_lu/coach_event_matches.html", context)
+    return render(request, "crush_lu/coach_matches.html", context)
+
+
+@coach_required
+def coach_event_matches(request):
+    """Old URL of the swipe matches list: now part of ``coach_matches``."""
+    url = reverse("crush_lu:coach_matches")
+    event_id = request.GET.get("event", "")
+    if event_id.isdigit():
+        url += f"?event={event_id}"
+    return redirect(url)
 
 
 @coach_required
@@ -5343,6 +5408,11 @@ def coach_connections(request):
         .order_by("-requested_at")
     )
 
+    # Header counters must count only rows this coach could open, so they
+    # are taken from the visibility-scoped queryset (after the event / mine
+    # filters below), not from the whole table.
+    counter_base = connections_qs
+
     # Status filter
     if status_filter == "pending":
         # One-way requests not yet reciprocated
@@ -5365,15 +5435,16 @@ def coach_connections(request):
         try:
             event = MeetupEvent.objects.get(id=event_id)
             connections_qs = connections_qs.filter(event=event)
+            counter_base = counter_base.filter(event=event)
         except (MeetupEvent.DoesNotExist, ValueError):
             pass
 
     # Coach filter - show connections assigned to this coach, plus unassigned
     my_connections_filter = request.GET.get("mine", "")
     if my_connections_filter == "1":
-        connections_qs = connections_qs.filter(
-            Q(assigned_coach=coach) | Q(assigned_coach__isnull=True)
-        )
+        mine_q = Q(assigned_coach=coach) | Q(assigned_coach__isnull=True)
+        connections_qs = connections_qs.filter(mine_q)
+        counter_base = counter_base.filter(mine_q)
 
     # Use mutual annotation to avoid N+1 queries, then push mutual matches to the
     # top of the list so coaches triage the most actionable rows first.
@@ -5440,7 +5511,7 @@ def coach_connections(request):
         conn.recipient_onboarding_coach = onboarding_by_user.get(conn.recipient_id)
 
     # Stats for the header (single query instead of 4)
-    stats = EventConnection.objects.aggregate(
+    stats = counter_base.order_by().aggregate(
         pending_count=Count(
             Case(
                 When(status="pending", then=Value(1)),
