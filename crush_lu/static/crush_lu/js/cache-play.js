@@ -1227,16 +1227,12 @@ document.addEventListener("alpine:init", function () {
                 L.control.zoom({ position: "bottomright" }).addTo(this.map);
                 L.control.attribution({ prefix: false }).addTo(this.map);
 
-                var isDark = document.documentElement.classList.contains("dark");
-                var tileUrl = isDark
-                    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-
-                L.tileLayer(tileUrl, {
+                // OpenStreetMap raster tiles (no API key required; matches cache-coach.js).
+                // Dark mode styling is handled purely in CSS on .leaflet-tile-pane so
+                // theme toggles adapt live without re-initializing the map layer.
+                L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
-                    subdomains: "abcd",
-                    detectRetina: true,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 }).addTo(this.map);
 
                 // Draw trail connecting completed stations

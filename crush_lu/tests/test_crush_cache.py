@@ -2619,3 +2619,20 @@ main().catch((err) => {
             timeout=15,
         )
         assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
+
+    def test_map_uses_keyless_osm_tiles_and_css_dark_mode(self):
+        from pathlib import Path
+
+        crush_dir = Path(__file__).resolve().parents[1]
+        js_source = (
+            crush_dir / "static" / "crush_lu" / "js" / "cache-play.js"
+        ).read_text(encoding="utf-8")
+        template_source = (
+            crush_dir / "templates" / "crush_lu" / "cache" / "play.html"
+        ).read_text(encoding="utf-8")
+
+        assert "basemaps.cartocdn.com" not in js_source
+        assert "carto.com/attributions" not in js_source
+        assert "https://tile.openstreetmap.org/{z}/{x}/{y}.png" in js_source
+        assert "detectRetina" not in js_source
+        assert ".dark #cache-map .leaflet-tile-pane" in template_source
