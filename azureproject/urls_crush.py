@@ -824,6 +824,11 @@ urlpatterns = (
             api_admin_hybrid.crush_lead_reminders,
             name="api_admin_crush_lead_reminders",
         ),
+        path(
+            "api/admin/swipe-campaign/dispatch/",
+            api_admin_hybrid.swipe_campaign_dispatch,
+            name="api_admin_swipe_campaign_dispatch",
+        ),
         # Weekly KPI digest (WeeklyKPIs Azure Function timer calls this on Mondays).
         # Language-neutral path so the Function App can hardcode it.
         path(

@@ -1,0 +1,34 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% comment %}
+Past-event swipe campaign (services/swipe_campaign_messages.py): the start
+mail and the last call. Context: first_name, event_title (the member's most
+recent past event), end_date, hub_url, is_last_call.
+{% endcomment %}
+
+{% block title %}{% trans "Swipe your past events" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% if is_last_call %}{% trans "Last weekend to swipe" %}{% else %}{% trans "Swipe your past events" %}{% endif %} 💜{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans %}Hey {{ first_name }},{% endblocktrans %}</h2>
+
+{% if is_last_call %}
+<p>{% blocktrans %}Swiping your past Crush.lu events closes on {{ end_date }}. You still have people left to swipe — maybe someone from {{ event_title }}.{% endblocktrans %}</p>
+{% else %}
+<p>{% blocktrans %}Remember {{ event_title }}? Until {{ end_date }} you can swipe the people from your Crush.lu events once more.{% endblocktrans %}</p>
+{% endif %}
+
+<div class="info-box">
+    <ul style="margin: 10px 0; padding-left: 20px;">
+        <li>{% trans "You only see people who were at the same event as you." %}</li>
+        <li>{% trans "If you both like each other, your chat opens straight away." %}</li>
+        <li>{% trans "Nobody ever sees a one-sided like." %}</li>
+    </ul>
+</div>
+
+<a href="{{ hub_url }}" class="button">{% trans "Start swiping" %}</a>
+
+<p style="margin-top: 24px; font-size: 13px;">{% blocktrans %}Rather not be shown to people from past events? <a href="{{ hub_url }}">Hide yourself here</a> with one click.{% endblocktrans %}</p>
+{% endblock %}

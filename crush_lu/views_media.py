@@ -105,7 +105,21 @@ def _share_open_attendee_list(viewer, owner):
     shared_events = MeetupEvent.objects.filter(
         eventregistration__user=viewer, eventregistration__status="attended"
     ).filter(eventregistration__user=owner, eventregistration__status="attended")
-    return any(event.connections_open for event in shared_events.distinct())
+    shared_events = list(shared_events.distinct())
+    if any(event.connections_open for event in shared_events):
+        return True
+    # The December swipe campaign reopens the decks of past events, so a card
+    # there needs its primary photo too. Members hidden from those decks
+    # (opt-out, break) stay hidden here as well.
+    from .services import event_swipes
+
+    campaign = event_swipes.active_campaign()
+    return bool(
+        campaign
+        and any(event_swipes.campaign_covers(campaign, e) for e in shared_events)
+        and not event_swipes.hidden_from_past_decks(viewer)
+        and not event_swipes.hidden_from_past_decks(owner)
+    )
 
 
 def _have_event_connection(viewer, owner):

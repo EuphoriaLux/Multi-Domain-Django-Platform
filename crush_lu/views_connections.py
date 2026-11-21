@@ -88,7 +88,8 @@ def event_attendees(request, event_id):
         )
         return redirect("crush_lu:event_detail", event_id=event_id)
 
-    if not event.connection_window_active:
+    mode, campaign = event_swipes.swipe_mode(event)
+    if mode is None:
         messages.info(
             request,
             _(
@@ -97,6 +98,10 @@ def event_attendees(request, event_id):
             ),
         )
         return redirect("crush_lu:my_connections")
+    if mode == event_swipes.MODE_CAMPAIGN and event_swipes.hidden_from_past_decks(
+        request.user
+    ):
+        return redirect("crush_lu:past_event_swipes")
 
     deck = event_swipes.swipe_deck(request.user, event)
     total = event_swipes.deck_size(request.user, event)
@@ -127,10 +132,63 @@ def event_attendees(request, event_id):
         "deck_done": total - len(deck),
         "matches": matches,
         "connection_window_active": True,
-        "connection_window_deadline": event.connection_window_deadline,
+        "connection_window_deadline": (
+            campaign.ends_at if campaign else event.connection_window_deadline
+        ),
+        "swipe_campaign": campaign,
         "own_profile": getattr(request.user, "crushprofile", None),
     }
     return render(request, "crush_lu/event_attendees.html", context)
+
+
+@crush_login_required
+def past_event_swipes(request):
+    """December campaign hub: the member's past events, each with its deck.
+
+    Also carries the "don't show me in past-event decks" switch, which the
+    campaign messages link to.
+    """
+    from .models import PastEventDeckOptOut
+    from .services import event_swipes
+
+    campaign = event_swipes.active_campaign()
+    hidden = PastEventDeckOptOut.objects.filter(user=request.user).exists()
+    on_break = bool(
+        getattr(getattr(request.user, "crushprofile", None), "on_break_at", None)
+    )
+    rows = []
+    if campaign is not None and not hidden and not on_break:
+        rows = event_swipes.past_event_decks(request.user, campaign)
+    return render(
+        request,
+        "crush_lu/past_event_swipes.html",
+        {
+            "campaign": campaign,
+            "rows": rows,
+            "hidden": hidden,
+            "on_break": on_break,
+            "remaining_total": sum(row["remaining"] for row in rows),
+        },
+    )
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+@ratelimit(key="user", rate="30/h", method="POST")
+def past_event_swipes_visibility(request):
+    """Show or hide the member in past-event (campaign) decks."""
+    from .models import PastEventDeckOptOut
+
+    if request.POST.get("visible") == "1":
+        PastEventDeckOptOut.objects.filter(user=request.user).delete()
+        messages.success(request, _("You appear in past-event decks again."))
+    else:
+        PastEventDeckOptOut.objects.get_or_create(user=request.user)
+        messages.success(
+            request,
+            _("Done. Nobody will see you in past-event decks any more."),
+        )
+    return redirect("crush_lu:past_event_swipes")
 
 
 def _wants_json(request):
@@ -146,6 +204,7 @@ def event_swipe(request, event_id, user_id):
     """Record a like/pass from the deck; JSON for the card UI, redirect otherwise."""
     from django.http import JsonResponse
 
+    from .services import event_swipes
     from .services.event_swipes import (
         SwipeNotAllowed,
         record_swipe,
@@ -182,10 +241,8 @@ def event_swipe(request, event_id, user_id):
         payload = {"ok": True, "match": result["match"]}
         if result["match"]:
             payload["match_name"] = target_profile.display_name
-            payload["chat_url"] = reverse(
-                "crush_lu:connection_detail",
-                kwargs={"connection_id": result["connection"].id},
-            )
+            url_name, url_kwargs = event_swipes.match_chat_route(result["connection"])
+            payload["chat_url"] = reverse(url_name, kwargs=url_kwargs)
         return JsonResponse(payload)
 
     if error:
@@ -499,6 +556,9 @@ def my_connections(request):
     sent = (
         EventConnection.objects.filter(requester=request.user)
         .exclude(recipient_id__in=blocked_ids)
+        # A closed "My Crush!" lead promises nothing any more ("your coach
+        # will call you"), so it leaves the list.
+        .exclude(flow=EventConnection.FLOW_CRUSH, status="declined")
         .select_related("recipient__crushprofile", "event", "assigned_coach")
         # has_public_photo / profile_photo read both per card.
         .prefetch_related(
@@ -687,6 +747,21 @@ def connection_detail(request, connection_id):
     ) or other_user.pk in hidden_encounter_user_ids(request.user):
         messages.error(request, _("This connection is no longer available."))
         return redirect("crush_lu:my_connections")
+
+    # A swipe match between two Crush Connect members chats in Connect
+    # (decision 2026-11-20). While that chat is open it is the only one, so
+    # the pair never splits a conversation across two pages.
+    connect_invite = False
+    if connection.flow == EventConnection.FLOW_SWIPE:
+        from .services.event_swipes import live_connect_chat
+
+        connect_chat = live_connect_chat(connection)
+        if connect_chat is not None and request.method != "POST":
+            return redirect(
+                "crush_lu:connect_week_chat_detail", chat_id=connect_chat.pk
+            )
+        membership = getattr(request.user, "crush_connect_membership", None)
+        connect_invite = not (membership and membership.is_onboarded)
 
     if request.method == "POST":
         # Crush leads: member-facing consent and chat stay closed in every
@@ -980,6 +1055,7 @@ def connection_detail(request, connection_id):
     context = {
         "connection": connection,
         "is_requester": is_requester,
+        "connect_invite": connect_invite,
         "other_user": other_user,
         "other_profile": other_profile,
         "messages": thread_messages,

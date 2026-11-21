@@ -393,6 +393,9 @@ class CrushLuAdminSite(admin.AdminSite):
             "eventconnection": {"order": 2, "icon": "🔗", "group": "Connections"},
             "connectionmessage": {"order": 3, "icon": "💬", "group": "Connections"},
             "eventswipe": {"order": 4, "icon": "👆", "group": "Connections"},
+            "swipecampaign": {"order": 5, "icon": "📣", "group": "Connections"},
+            "swipecampaignmessage": {"order": 6, "icon": "✉️", "group": "Connections"},
+            "pasteventdeckoptout": {"order": 7, "icon": "🙈", "group": "Connections"},
             # ═══════════════════════════════════════════════════════════════════
             # GROUP 5: Special Journey System (VIP personalized experiences)
             # ═══════════════════════════════════════════════════════════════════

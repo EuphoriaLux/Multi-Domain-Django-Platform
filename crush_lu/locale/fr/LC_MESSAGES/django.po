@@ -48707,8 +48707,8 @@ msgstr "Le swipe est fermé pour cet événement."
 msgid "You must attend this event to swipe."
 msgstr "Vous devez avoir participé à cet événement pour swiper."
 
-msgid "You and %(name)s liked each other. Say hi!"
-msgstr "%(name)s et vous vous êtes plu. Dites bonjour !"
+msgid "You and %(name)s liked each other at %(event)s. Say hi!"
+msgstr "%(name)s et vous vous êtes plu à %(event)s. Dites bonjour !"
 
 msgid "Your chat is open."
 msgstr "Votre chat est ouvert."
@@ -48751,6 +48751,112 @@ msgstr[1] "%(count)s messages"
 #: templates/crush_lu/create_profile.html
 msgid "Add a few playful flaws"
 msgstr "Ajoutez quelques petits défauts attachants"
+
+msgid "You chose not to appear in past-event decks. Turn that off to swipe your past events."
+msgstr "Vous avez choisi de ne pas apparaître dans les decks des soirées passées. Désactivez ce choix pour swiper vos soirées passées."
+
+msgid "You appear in past-event decks again."
+msgstr "Vous apparaissez de nouveau dans les decks des soirées passées."
+
+msgid "Done. Nobody will see you in past-event decks any more."
+msgstr "C'est fait. Plus personne ne vous verra dans les decks des soirées passées."
+
+msgid "Last weekend to swipe your past events"
+msgstr "Dernier week-end pour swiper vos soirées passées"
+
+msgid "Remember {title}?"
+msgstr "Vous vous souvenez de {title} ?"
+
+msgid "Swipe your past events"
+msgstr "Swipez vos soirées passées"
+
+msgid "Until %(end)s: swipe the people from %(event)s and your other Crush.lu events. A mutual like opens your chat."
+msgstr "Jusqu'au %(end)s : swipez les personnes de %(event)s et de vos autres soirées Crush.lu. Un like réciproque ouvre votre chat."
+
+msgid "Your weekend plan 💜"
+msgstr "Votre programme du week-end 💜"
+
+msgid "People from %(event)s are waiting for your swipe."
+msgstr "Des personnes de %(event)s attendent votre swipe."
+
+msgid "Profiles left to swipe"
+msgstr "Encore des profils à swiper"
+
+msgid "You still have people from your past events to swipe, until %(end)s."
+msgstr "Il vous reste des personnes de vos soirées passées à swiper, jusqu'au %(end)s."
+
+msgid "There is no past-event swiping right now. Your matches stay available in your connections."
+msgstr "Il n'y a pas de swipe des soirées passées en ce moment. Vos matchs restent disponibles dans vos connexions."
+
+msgid "You are taking a break, so past-event decks are closed for you. Resume from your dashboard to swipe."
+msgstr "Vous faites une pause, les decks des soirées passées sont donc fermés pour vous. Reprenez depuis votre tableau de bord pour swiper."
+
+msgid "You chose not to appear in past-event decks. Nobody sees you there, and you can't swipe them either."
+msgstr "Vous avez choisi de ne pas apparaître dans les decks des soirées passées. Personne ne vous y voit, et vous ne pouvez pas les swiper non plus."
+
+msgid "Until %(end)s you can swipe the people from your Crush.lu events once more. If you both like each other, your chat opens straight away. Nobody ever sees a one-sided like."
+msgstr "Jusqu'au %(end)s, vous pouvez à nouveau swiper les personnes de vos soirées Crush.lu. Si c'est réciproque, votre chat s'ouvre tout de suite. Personne ne voit jamais un like à sens unique."
+
+msgid "%(counter)s profile left"
+msgid_plural "%(counter)s profiles left"
+msgstr[0] "Encore %(counter)s profil"
+msgstr[1] "Encore %(counter)s profils"
+
+msgid "All swiped"
+msgstr "Tout est swipé"
+
+msgid "%(counter)s match"
+msgid_plural "%(counter)s matches"
+msgstr[0] "%(counter)s match"
+msgstr[1] "%(counter)s matchs"
+
+msgid "You haven't attended an event yet, so there is nothing to swipe."
+msgstr "Vous n'avez encore participé à aucune soirée, il n'y a donc rien à swiper."
+
+msgid "Visibility"
+msgstr "Visibilité"
+
+msgid "You are hidden from past-event decks."
+msgstr "Vous êtes masqué(e) des decks des soirées passées."
+
+msgid "Show me again"
+msgstr "Me montrer à nouveau"
+
+msgid "Don't want people from past events to see you here? Hide yourself from every past-event deck. Your normal swiping right after an event is not affected."
+msgstr "Vous ne voulez pas que les personnes des soirées passées vous voient ici ? Masquez-vous de tous les decks des soirées passées. Le swipe habituel juste après une soirée n'est pas concerné."
+
+msgid "Hide me from past-event decks"
+msgstr "Me masquer des decks des soirées passées"
+
+msgid "Swipe the people from your past events, until %(end)s."
+msgstr "Swipez les personnes de vos soirées passées, jusqu'au %(end)s."
+
+msgid "Matches between Crush Connect members chat in Crush Connect, with venue ideas and a coffee date. Join to get that for your next match."
+msgstr "Les matchs entre membres Crush Connect discutent dans Crush Connect, avec des idées de lieux et un café. Rejoignez-le pour en profiter lors de votre prochain match."
+
+msgid "Last weekend to swipe"
+msgstr "Dernier week-end pour swiper"
+
+msgid "Swiping your past Crush.lu events closes on %(end_date)s. You still have people left to swipe — maybe someone from %(event_title)s."
+msgstr "Le swipe de vos soirées Crush.lu passées se termine le %(end_date)s. Il vous reste des personnes à swiper, peut-être quelqu'un de %(event_title)s."
+
+msgid "Remember %(event_title)s? Until %(end_date)s you can swipe the people from your Crush.lu events once more."
+msgstr "Vous vous souvenez de %(event_title)s ? Jusqu'au %(end_date)s, vous pouvez à nouveau swiper les personnes de vos soirées Crush.lu."
+
+msgid "You only see people who were at the same event as you."
+msgstr "Vous ne voyez que des personnes présentes à la même soirée que vous."
+
+msgid "If you both like each other, your chat opens straight away."
+msgstr "Si c'est réciproque, votre chat s'ouvre tout de suite."
+
+msgid "Nobody ever sees a one-sided like."
+msgstr "Personne ne voit jamais un like à sens unique."
+
+msgid "Start swiping"
+msgstr "Commencer à swiper"
+
+msgid "Rather not be shown to people from past events? <a href=\"%(hub_url)s\">Hide yourself here</a> with one click."
+msgstr "Vous préférez ne pas être visible des personnes des soirées passées ? <a href=\"%(hub_url)s\">Masquez-vous ici</a> en un clic."
 
 # Signup bot traps (2026-11)
 #: crush_lu/views_account.py
