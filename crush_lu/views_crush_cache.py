@@ -27,6 +27,7 @@ from django.views.decorators.http import require_POST
 
 from .decorators import crush_login_required, ratelimit
 from .geo import bearing_deg, haversine_m
+from .ios_app_utils import ios_cache_suppressed
 from .models import EventRegistration
 from .models.crush_cache import (
     CacheChallenge,
@@ -57,12 +58,16 @@ ACCURACY_TOLERANCE_CAP_M = 50
 # =============================================================================
 
 
-def _cache_enabled():
-    return getattr(settings, "CRUSH_CACHE_ENABLED", False)
+def _cache_enabled(request=None):
+    if not getattr(settings, "CRUSH_CACHE_ENABLED", False):
+        return False
+    if request is not None and ios_cache_suppressed(request):
+        return False
+    return True
 
 
-def _get_hunt_or_404(event_id):
-    if not _cache_enabled():
+def _get_hunt_or_404(event_id, request=None):
+    if not _cache_enabled(request):
         raise Http404
     return get_object_or_404(
         CacheHunt.objects.select_related("event"), event_id=event_id
@@ -251,7 +256,7 @@ def _render_play_content(request, hunt, membership, extra=None):
 @crush_login_required
 def cache_lobby(request, event_id):
     """Team formation screen shown before (and during) the hunt."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     registration = _get_registration(hunt, request.user)
     membership = _get_membership(hunt, request.user) if registration else None
 
@@ -282,7 +287,7 @@ def cache_lobby(request, event_id):
 @require_POST
 def cache_join_team(request, event_id):
     """Join an existing team by code, or create a new one."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     registration = _get_registration(hunt, request.user)
 
     if registration is None:
@@ -348,7 +353,7 @@ def cache_join_team(request, event_id):
 @require_POST
 def cache_leave_team(request, event_id):
     """Leave the current team — only while the hunt hasn't started."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
 
     if hunt.status != "draft":
         messages.error(request, _("Teams are locked once the hunt has started."))
@@ -377,7 +382,7 @@ def cache_leave_team(request, event_id):
 @crush_login_required
 def cache_play(request, event_id):
     """The main play screen — a server-rendered state machine."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     membership = _get_membership(hunt, request.user)
 
     if membership is None:
@@ -409,7 +414,7 @@ def cache_play(request, event_id):
 @crush_login_required
 def cache_scanner(request, event_id):
     """Camera QR scanner (html5-qrcode), mirroring the Advent scanner."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if _get_membership(hunt, request.user) is None:
         messages.info(request, _("Join a team first."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -427,7 +432,7 @@ def cache_qr_scan(request, token):
     The token only identifies the station — authorization is the scanning
     user's team state. Many teams scan the same physical sticker.
     """
-    if not _cache_enabled():
+    if not _cache_enabled(request):
         raise Http404
     station = get_object_or_404(
         CacheStation.objects.select_related("hunt__event"), qr_token=token
@@ -441,7 +446,7 @@ def cache_qr_scan(request, token):
 def cache_manual_code(request, event_id):
     """Manual fallback for the QR scanner: type the short code printed
     under the QR (or paste a full token URL/UUID) instead of scanning."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if _get_membership(hunt, request.user) is None:
         messages.error(request, _("Join a team first, then enter the code again."))
         return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -567,7 +572,7 @@ def cache_position_api(request, event_id):
     if getattr(request, "limited", False):
         return JsonResponse({"ok": False, "error": "rate_limited"}, status=429)
 
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     membership = _get_membership(hunt, request.user)
     if membership is None:
         return JsonResponse({"ok": False, "error": "no_team"}, status=403)
@@ -668,7 +673,7 @@ def cache_answer_api(request, event_id, challenge_id):
     returning before the attempt row is touched, so a throttled post never
     counts against the team.
     """
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     membership = _get_membership(hunt, request.user)
     if membership is None:
         return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -695,6 +700,8 @@ def cache_answer_api(request, event_id, challenge_id):
 
         if progress.is_finished or progress.current_station_id != challenge.station_id:
             # Stale form — another member advanced the team meanwhile
+            if request.headers.get("HX-Request") == "true":
+                return HttpResponse(status=200, headers={"HX-Refresh": "true"})
             return _render_play_content(request, hunt, membership)
 
         attempt, _created = CacheStationAttempt.objects.get_or_create(
@@ -815,7 +822,7 @@ def cache_answer_api(request, event_id, challenge_id):
 def cache_hint_api(request, event_id, challenge_id, hint_number):
     """Reveal a hint. The cost is deducted at scoring time (Journey
     semantics), so peeking is free until the team actually answers."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     membership = _get_membership(hunt, request.user)
     if membership is None:
         return redirect("crush_lu:cache_lobby", event_id=event_id)
@@ -835,6 +842,8 @@ def cache_hint_api(request, event_id, challenge_id, hint_number):
             team=membership.team
         )
         if progress.is_finished or progress.current_station_id != challenge.station_id:
+            if request.headers.get("HX-Request") == "true":
+                return HttpResponse(status=200, headers={"HX-Refresh": "true"})
             return _render_play_content(request, hunt, membership)
 
         attempt, _created = CacheStationAttempt.objects.get_or_create(
@@ -856,13 +865,23 @@ def cache_hint_api(request, event_id, challenge_id, hint_number):
 @crush_login_required
 def cache_state_api(request, event_id):
     """Polling fallback for clients whose WebSocket won't connect."""
-    hunt = _get_hunt_or_404(event_id)
-    if _get_membership(hunt, request.user) is None:
+    hunt = _get_hunt_or_404(event_id, request=request)
+    membership = _get_membership(hunt, request.user)
+    if membership is None:
         return JsonResponse({"ok": False, "error": "no_team"}, status=403)
+    if hunt.status != "draft":
+        progress = _ensure_progress(hunt, membership.team)
+        current_station_id = progress.current_station_id
+        is_finished = progress.is_finished
+    else:
+        current_station_id = None
+        is_finished = False
     return JsonResponse(
         {
             "ok": True,
             "status": hunt.status,
+            "current_station_id": current_station_id,
+            "is_finished": is_finished,
             "leaderboard": hunt.get_serialized_leaderboard(),
         }
     )
@@ -876,7 +895,7 @@ def cache_state_api(request, event_id):
 @crush_login_required
 def cache_coach_dashboard(request, event_id):
     """Live control room: readiness, start/finish, leaderboard, team map."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if not _can_manage_hunt(request.user, hunt):
         messages.error(request, _("You are not a coach for this event."))
         return redirect("crush_lu:dashboard")
@@ -952,7 +971,7 @@ def cache_coach_dashboard(request, event_id):
 @require_POST
 def cache_coach_start(request, event_id):
     """Start the hunt: draft → live, initialize every team's progress."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if not _can_manage_hunt(request.user, hunt):
         messages.error(request, _("You are not a coach for this event."))
         return redirect("crush_lu:dashboard")
@@ -1000,7 +1019,7 @@ def cache_coach_start(request, event_id):
 @require_POST
 def cache_coach_finish(request, event_id):
     """Finish the hunt: live → finished. Standings freeze as they are."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if not _can_manage_hunt(request.user, hunt):
         messages.error(request, _("You are not a coach for this event."))
         return redirect("crush_lu:dashboard")
@@ -1031,7 +1050,7 @@ def cache_coach_finish(request, event_id):
 @require_POST
 def cache_coach_auto_teams(request, event_id):
     """Split checked-in attendees without a team into teams of ≤ max size."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if not _can_manage_hunt(request.user, hunt):
         messages.error(request, _("You are not a coach for this event."))
         return redirect("crush_lu:dashboard")
@@ -1092,7 +1111,7 @@ def cache_coach_auto_teams(request, event_id):
 @crush_login_required
 def cache_coach_state_api(request, event_id):
     """Polling fallback for the coach dashboard (leaderboard + positions)."""
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if not _can_manage_hunt(request.user, hunt):
         return JsonResponse({"ok": False, "error": "not_event_coach"}, status=403)
     positions = [
@@ -1125,7 +1144,7 @@ def cache_coach_qr_sheet(request, event_id):
     the ones sticking codes to lampposts on event day)."""
     from .qr_utils import HAS_REPORTLAB, generate_cache_station_sheet
 
-    hunt = _get_hunt_or_404(event_id)
+    hunt = _get_hunt_or_404(event_id, request=request)
     if not _can_manage_hunt(request.user, hunt):
         messages.error(request, _("You are not a coach for this event."))
         return redirect("crush_lu:dashboard")

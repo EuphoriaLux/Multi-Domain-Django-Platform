@@ -2027,3 +2027,549 @@ class TestSeedCrushCacheCommand:
                 call_command(
                     "seed_crush_cache", preset=preset_name, reset=True, force=True
                 )
+
+
+class TestIOSNativeCacheGate:
+    """IOS_NATIVE_CACHE_ENABLED=False keeps Crush Cache hidden inside the iOS shell."""
+
+    IOS_HEADERS = {
+        "HTTP_USER_AGENT": "CrushLUApp/1.0 CFNetwork/1568",
+        "HTTP_X_CRUSH_CLIENT": "ios-app",
+    }
+
+    def test_ios_native_requests_get_404_when_flag_disabled(
+        self, client, player, hunt, stations, team, settings
+    ):
+        settings.IOS_NATIVE_CACHE_ENABLED = False
+        _start_hunt(hunt)
+        client.force_login(player)
+
+        get_urls = [
+            reverse("crush_lu:cache_lobby", args=[hunt.event.id]),
+            reverse("crush_lu:cache_play", args=[hunt.event.id]),
+            reverse("crush_lu:cache_qr_scan", args=[stations[0].qr_token]),
+            reverse("crush_lu:cache_state_api", args=[hunt.event.id]),
+        ]
+        for url in get_urls:
+            resp = client.get(url, **self.IOS_HEADERS)
+            assert resp.status_code == 404, f"Expected 404 for {url} inside iOS shell"
+
+        pos_url = reverse("crush_lu:cache_position_api", args=[hunt.event.id])
+        pos_resp = client.post(
+            pos_url,
+            data=json.dumps({"lat": GELLE_FRA[0], "lng": GELLE_FRA[1], "accuracy": 10}),
+            content_type="application/json",
+            **self.IOS_HEADERS,
+        )
+        assert pos_resp.status_code == 404
+
+        settings.IOS_NATIVE_CACHE_ENABLED = True
+        assert (
+            client.get(
+                reverse("crush_lu:cache_play", args=[hunt.event.id]),
+                **self.IOS_HEADERS,
+            ).status_code
+            == 200
+        )
+        assert (
+            client.get(
+                reverse("crush_lu:cache_state_api", args=[hunt.event.id]),
+                **self.IOS_HEADERS,
+            ).status_code
+            == 200
+        )
+
+    def test_event_list_hides_crush_cache_for_ios_native_only(
+        self, client, hunt, settings
+    ):
+        settings.IOS_NATIVE_CACHE_ENABLED = False
+        url = reverse("crush_lu:event_list")
+
+        ios_resp = client.get(url, **self.IOS_HEADERS)
+        assert ios_resp.status_code == 200
+        assert hunt.event.title.encode() not in ios_resp.content
+
+        safari_resp = client.get(url)
+        assert safari_resp.status_code == 200
+        assert hunt.event.title.encode() in safari_resp.content
+
+        settings.IOS_NATIVE_CACHE_ENABLED = True
+        enabled_ios_resp = client.get(url, **self.IOS_HEADERS)
+        assert enabled_ios_resp.status_code == 200
+        assert hunt.event.title.encode() in enabled_ios_resp.content
+
+    def test_anonymous_home_hides_crush_cache_for_ios_native_only(
+        self, client, hunt, settings
+    ):
+        settings.IOS_NATIVE_CACHE_ENABLED = False
+        url = reverse("crush_lu:home")
+
+        ios_resp = client.get(url, **self.IOS_HEADERS)
+        assert ios_resp.status_code == 200
+        assert hunt.event.title.encode() not in ios_resp.content
+
+        safari_resp = client.get(url)
+        assert safari_resp.status_code == 200
+        assert hunt.event.title.encode() in safari_resp.content
+
+        settings.IOS_NATIVE_CACHE_ENABLED = True
+        enabled_ios_resp = client.get(url, **self.IOS_HEADERS)
+        assert enabled_ios_resp.status_code == 200
+        assert hunt.event.title.encode() in enabled_ios_resp.content
+
+    def test_event_detail_hides_cache_lobby_button_in_ios_native_only(
+        self, client, player, hunt, registration, settings
+    ):
+        settings.IOS_NATIVE_CACHE_ENABLED = False
+        client.force_login(player)
+        detail_url = reverse("crush_lu:event_detail", args=[hunt.event.id])
+        lobby_url = reverse("crush_lu:cache_lobby", args=[hunt.event.id])
+
+        ios_resp = client.get(detail_url, **self.IOS_HEADERS)
+        assert ios_resp.status_code == 200
+        assert lobby_url.encode() not in ios_resp.content
+
+        safari_resp = client.get(detail_url)
+        assert safari_resp.status_code == 200
+        assert lobby_url.encode() in safari_resp.content
+
+    def test_coach_event_detail_hides_cache_card_in_ios_native_only(
+        self, client, coach_user, hunt, settings
+    ):
+        settings.IOS_NATIVE_CACHE_ENABLED = False
+        client.force_login(coach_user)
+        url = reverse("crush_lu:coach_event_detail", args=[hunt.event.id])
+
+        ios_resp = client.get(url, **self.IOS_HEADERS)
+        assert ios_resp.status_code == 200
+        assert ios_resp.context["can_manage_cache_hunt"] is False
+
+        safari_resp = client.get(url)
+        assert safari_resp.status_code == 200
+        assert safari_resp.context["can_manage_cache_hunt"] is True
+
+
+class TestSafariAndTeamSync:
+    """Server state sync, stale-station HX-Refresh, and WebSocket gate."""
+
+    def test_cache_state_api_exposes_current_station_and_is_finished(
+        self, client, player, hunt, stations, team
+    ):
+        _start_hunt(hunt)
+        client.force_login(player)
+        url = reverse("crush_lu:cache_state_api", args=[hunt.event.id])
+
+        resp = client.get(url)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ok"] is True
+        assert data["current_station_id"] == stations[0].id
+        assert data["is_finished"] is False
+
+        progress = CacheTeamProgress.objects.get(team=team)
+        progress.is_finished = True
+        progress.current_station = None
+        progress.save()
+
+        finished_data = client.get(url).json()
+        assert finished_data["current_station_id"] is None
+        assert finished_data["is_finished"] is True
+
+    def test_stale_answer_and_hint_return_hx_refresh(
+        self, client, player, hunt, stations, team
+    ):
+        _start_hunt(hunt)
+        CacheTeamProgress.objects.update_or_create(
+            team=team, defaults={"current_station": stations[1]}
+        )
+        CacheStationAttempt.objects.create(
+            team=team, station=stations[0], arrived_at=timezone.now()
+        )
+        challenge = stations[0].challenges.first()
+        client.force_login(player)
+
+        ans_url = reverse(
+            "crush_lu:cache_answer_api", args=[hunt.event.id, challenge.id]
+        )
+        ans_resp = client.post(
+            ans_url,
+            data={"answer": "Gelle Fra"},
+            HTTP_HX_REQUEST="true",
+        )
+        assert ans_resp.status_code == 200
+        assert ans_resp.headers.get("HX-Refresh") == "true"
+        assert (
+            CacheTeamProgress.objects.get(team=team).current_station_id
+            == stations[1].id
+        )
+
+        hint_url = reverse(
+            "crush_lu:cache_hint_api", args=[hunt.event.id, challenge.id, 1]
+        )
+        hint_resp = client.post(hint_url, HTTP_HX_REQUEST="true")
+        assert hint_resp.status_code == 200
+        assert hint_resp.headers.get("HX-Refresh") == "true"
+
+    def test_consumer_can_join_allows_pending_and_respects_ios_gate(
+        self, db, hunt, teammate, team, settings
+    ):
+        from crush_lu.consumers import CacheHuntConsumer
+
+        pending_reg = EventRegistration.objects.create(
+            event=hunt.event, user=teammate, status="pending"
+        )
+        CacheTeamMember.objects.create(hunt=hunt, team=team, registration=pending_reg)
+
+        consumer = CacheHuntConsumer()
+        consumer.hunt_id = hunt.id
+        can_join = CacheHuntConsumer.__dict__["_can_join"].func
+
+        settings.IOS_NATIVE_CACHE_ENABLED = False
+        consumer.scope = {"headers": [], "query_string": b""}
+        assert can_join(consumer, teammate) is True
+
+        consumer.scope = {
+            "headers": [(b"user-agent", b"CrushLUApp/1.0 CFNetwork/1568")],
+            "query_string": b"",
+        }
+        assert can_join(consumer, teammate) is False
+
+        consumer.scope = {
+            "session": {"crush_ios_app": True},
+            "headers": [],
+            "query_string": b"",
+        }
+        assert can_join(consumer, teammate) is False
+
+        settings.IOS_NATIVE_CACHE_ENABLED = True
+        assert can_join(consumer, teammate) is True
+
+
+class TestCachePlayJsBehavior:
+    """Exercise cache-play.js Safari navigation, wake-lock, audio, and sync."""
+
+    def test_safari_gps_wake_lock_compass_audio_and_team_sync(self):
+        import os
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        node_bin = shutil.which("node")
+        if not node_bin:
+            pytest.skip("Node.js runtime not installed")
+
+        js_path = (
+            Path(__file__).resolve().parents[1]
+            / "static"
+            / "crush_lu"
+            / "js"
+            / "cache-play.js"
+        )
+        script = r"""
+const fs = require("fs");
+const vm = require("vm");
+const assert = require("assert");
+
+const code = fs.readFileSync(process.env.CACHE_PLAY_JS, "utf8");
+
+async function main() {
+    const docListeners = {};
+    const winListeners = {};
+    const factories = {};
+    const intervalFns = [];
+    const mapClasses = new Set(["crush-fullscreen-active"]);
+    const syncOrder = [];
+
+    let celebrationPresent = false;
+    let watchCalls = 0;
+    let watchNextId = 1;
+    let clearWatchCalls = 0;
+    let wakeLockRequests = 0;
+    let reloadCalls = 0;
+    let permissionCalls = 0;
+    let wsInstance = null;
+    let visibilityState = "visible";
+
+    let nextFetchHandler = async () => ({
+        ok: true,
+        status: 200,
+        arrayBuffer: async () => new ArrayBuffer(8),
+        json: async () => ({ ok: true }),
+    });
+
+    const audioCtx = {
+        state: "suspended",
+        sampleRate: 44100,
+        currentTime: 0,
+        destination: {},
+        resume() {
+            this.state = "running";
+            return Promise.resolve();
+        },
+        createBuffer() { return {}; },
+        createBufferSource() { return { buffer: null, connect() {}, start() {} }; },
+        createGain() {
+            return {
+                gain: { setValueAtTime() {}, exponentialRampToValueAtTime() {} },
+                connect() {},
+            };
+        },
+        createOscillator() {
+            return {
+                frequency: { setValueAtTime() {} },
+                type: "sine",
+                connect() {},
+                start() {},
+                stop() {},
+            };
+        },
+        decodeAudioData() { return Promise.resolve({}); },
+    };
+
+    const document = {
+        get visibilityState() { return visibilityState; },
+        cookie: "csrftoken=testcsrf",
+        addEventListener(type, fn) {
+            (docListeners[type] = docListeners[type] || []).push(fn);
+        },
+        removeEventListener(type, fn) {
+            docListeners[type] = (docListeners[type] || []).filter((f) => f !== fn);
+        },
+        getElementById(id) {
+            if (id === "cache-celebration") return celebrationPresent ? { id } : null;
+            if (id === "cache-map-container") {
+                return {
+                    id,
+                    classList: {
+                        add(c) { mapClasses.add(c); },
+                        remove(c) { mapClasses.delete(c); },
+                        contains(c) { return mapClasses.has(c); },
+                    },
+                };
+            }
+            if (id === "csrf-token-input") return { value: "testcsrf" };
+            return null;
+        },
+    };
+
+    const sandbox = {
+        console,
+        Promise,
+        Math,
+        JSON,
+        Date,
+        Number,
+        String,
+        Array,
+        Object,
+        AbortController: class {
+            constructor() { this.signal = {}; }
+            abort() {}
+        },
+        parseInt,
+        parseFloat,
+        isNaN,
+        setTimeout: () => 1,
+        clearTimeout: () => {},
+        setInterval: (fn) => { intervalFns.push(fn); return intervalFns.length; },
+        clearInterval: () => {},
+        document,
+        Alpine: {
+            data(name, fn) { factories[name] = fn; },
+        },
+        DeviceOrientationEvent: {
+            requestPermission() {
+                syncOrder.push("compassPermission");
+                permissionCalls += 1;
+                return Promise.resolve("granted");
+            },
+        },
+        AudioContext: function () { return audioCtx; },
+        WebSocket: class {
+            constructor(url) { this.url = url; wsInstance = this; }
+            close() {}
+        },
+        navigator: {
+            geolocation: {
+                watchPosition() {
+                    syncOrder.push("watchPosition");
+                    watchCalls += 1;
+                    return watchNextId++;
+                },
+                clearWatch() { clearWatchCalls += 1; },
+            },
+            wakeLock: {
+                request(kind) {
+                    syncOrder.push("wakeLock:" + kind);
+                    wakeLockRequests += 1;
+                    return Promise.resolve({
+                        release() { return Promise.resolve(); },
+                        addEventListener() {},
+                    });
+                },
+            },
+            vibrate() { return true; },
+        },
+        fetch: (url, opts) => nextFetchHandler(url, opts),
+        matchMedia: () => ({ matches: false }),
+        addEventListener(type, fn) {
+            (winListeners[type] = winListeners[type] || []).push(fn);
+        },
+        removeEventListener(type, fn) {
+            winListeners[type] = (winListeners[type] || []).filter((f) => f !== fn);
+        },
+        location: {
+            protocol: "https:",
+            host: "crush.lu",
+            reload() { reloadCalls += 1; },
+        },
+    };
+    sandbox.window = sandbox;
+    sandbox.self = sandbox;
+
+    const ctx = vm.createContext(sandbox);
+    vm.runInContext(code, ctx);
+    for (const fn of docListeners["alpine:init"] || []) fn();
+
+    function makeComp() {
+        const comp = factories.cachePlay();
+        comp.$el = {
+            dataset: {
+                positionUrl: "/en/events/1/cache/position/",
+                stateUrl: "/en/events/1/cache/state/",
+                huntId: "42",
+                huntStatus: "live",
+                teamId: "7",
+                stationId: "101",
+                navMode: "map",
+                needsGps: "true",
+                unlocked: "false",
+                targetLat: "49.60972",
+                targetLng: "6.12917",
+                targetRadius: "25",
+                audioUrl: "/static/crush_lu/audio/Crush-Love-Sound.mp3",
+                msgGpsLowAccuracy: "Too coarse (±{n} m)",
+                completedStations: "[]",
+            },
+            addEventListener() {},
+        };
+        return comp;
+    }
+
+    // 1. map mode with DeviceOrientationEvent.requestPermission defers attach until tap,
+    //    and enableSoundAndTracking invokes permission, wakeLock, and watchPosition synchronously.
+    const comp = makeComp();
+    comp.init();
+    assert.strictEqual(comp.compassNeedsPermission, true);
+    assert.ok(!comp._compassAttached);
+    assert.strictEqual(watchCalls, 0);
+
+    comp.enableSoundAndTracking();
+    assert.strictEqual(permissionCalls, 1);
+    assert.strictEqual(wakeLockRequests, 1);
+    assert.strictEqual(watchCalls, 1);
+    assert.deepStrictEqual(syncOrder.slice(0, 3), [
+        "compassPermission",
+        "watchPosition",
+        "wakeLock:screen",
+    ]);
+    await new Promise((r) => setImmediate(r));
+
+    // 2. Safari background audio interruption leaves GPS running, restarts watch, and resumes on tap.
+    audioCtx.state = "interrupted";
+    const watchesBeforeVis = watchCalls;
+    visibilityState = "visible";
+    for (const fn of docListeners["visibilitychange"] || []) fn();
+    assert.strictEqual(comp.trackingStarted, true);
+    assert.ok(watchCalls > watchesBeforeVis);
+    assert.strictEqual(comp.audioPaused, true);
+    assert.ok((winListeners["pointerdown"] || []).length === 1);
+
+    await comp.resumeAudioOnly();
+    assert.strictEqual(comp.audioPaused, false);
+
+    // 3. postPosition surfaces and clears gpsLowAccuracy.
+    nextFetchHandler = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, accepted: false, reason: "accuracy" }),
+    });
+    comp.postPosition(49.609, 6.129, 240.4);
+    await new Promise((r) => setImmediate(r));
+    assert.strictEqual(comp.gpsLowAccuracy, true);
+    assert.strictEqual(comp.gpsLowAccuracyMsg, "Too coarse (±240 m)");
+
+    nextFetchHandler = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, accepted: true, distance_m: 42, bearing: 90 }),
+    });
+    comp.postPosition(49.6097, 6.1291, 8);
+    await new Promise((r) => setImmediate(r));
+    assert.strictEqual(comp.gpsLowAccuracy, false);
+    assert.strictEqual(comp.gpsLowAccuracyMsg, "");
+    assert.strictEqual(comp.distanceM, 42);
+
+    // 4. celebrateArrival clears fullscreen map overlay so arrival celebration sits unobstructed.
+    comp.isFullscreenMap = true;
+    mapClasses.add("crush-fullscreen-active");
+    comp.celebrateArrival();
+    assert.strictEqual(comp.isFullscreenMap, false);
+    assert.strictEqual(mapClasses.has("crush-fullscreen-active"), false);
+    assert.strictEqual(comp.arrivalCelebrating, true);
+
+    // 5. WebSocket progress event for own team reloads only when celebration card is absent.
+    const syncComp = makeComp();
+    syncComp.init();
+    const reloadsStart = reloadCalls;
+    celebrationPresent = true;
+    wsInstance.onmessage({ data: JSON.stringify({ type: "progress", data: { team_id: 7 } }) });
+    assert.strictEqual(reloadCalls, reloadsStart);
+
+    celebrationPresent = false;
+    wsInstance.onmessage({ data: JSON.stringify({ type: "progress", data: { team_id: 99 } }) });
+    assert.strictEqual(reloadCalls, reloadsStart);
+
+    wsInstance.onmessage({ data: JSON.stringify({ type: "progress", data: { team_id: 7 } }) });
+    assert.strictEqual(reloadCalls, reloadsStart + 1);
+
+    // 6. State polling reloads when station changes or hunt finishes for the team.
+    const pollComp = makeComp();
+    pollComp.init();
+    const pollFn = intervalFns[intervalFns.length - 1];
+    nextFetchHandler = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, status: "live", current_station_id: 102, is_finished: false }),
+    });
+    pollFn();
+    await new Promise((r) => setImmediate(r));
+    assert.strictEqual(reloadCalls, reloadsStart + 2);
+
+    const pollCompFinished = makeComp();
+    pollCompFinished.init();
+    const pollFn2 = intervalFns[intervalFns.length - 1];
+    nextFetchHandler = async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ ok: true, status: "live", current_station_id: null, is_finished: true }),
+    });
+    pollFn2();
+    await new Promise((r) => setImmediate(r));
+    assert.strictEqual(reloadCalls, reloadsStart + 3);
+}
+
+main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+});
+"""
+        env = {**os.environ, "CACHE_PLAY_JS": str(js_path)}
+        proc = subprocess.run(
+            [node_bin, "-e", script],
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=15,
+        )
+        assert proc.returncode == 0, f"stdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"

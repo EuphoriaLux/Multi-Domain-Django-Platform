@@ -221,6 +221,10 @@ def home(request):
     published = MeetupEvent.objects.filter(
         is_published=True, is_cancelled=False, is_private_invitation=False
     ).exclude(title_en__icontains="[DEBUG]")
+    from .ios_app_utils import ios_cache_suppressed
+
+    if ios_cache_suppressed(request):
+        published = published.exclude(event_type="crush_cache")
     # Include live events only while they still accept registrations. The
     # bounded lookback covers every valid duration; check each event's actual
     # end_time in Python because duration arithmetic is not portable to SQLite.

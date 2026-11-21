@@ -84,6 +84,7 @@ def crush_user_context(request):
         return {}
 
     from .ios_app_utils import (
+        ios_cache_suppressed,
         is_android_device,
         is_android_native_request,
         is_ios_device,
@@ -106,7 +107,10 @@ def crush_user_context(request):
         settings, "ANDROID_NATIVE_COMMERCE_ENABLED", False
     )
     context = {
-        "crush_cache_enabled": getattr(settings, "CRUSH_CACHE_ENABLED", False),
+        "crush_cache_enabled": (
+            getattr(settings, "CRUSH_CACHE_ENABLED", False)
+            and not ios_cache_suppressed(request)
+        ),
         # Connect real-person check: coach tooling, and the member-facing badge
         # (the badge flag only counts while the tooling flag is on too).
         "connect_real_person_check_enabled": real_person_check_enabled(),

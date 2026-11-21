@@ -102,6 +102,77 @@ def test_apple_app_site_association_exposes_universal_links(client, settings):
         assert not is_excluded(url_path), f"{url_path} should remain a universal link"
 
 
+def test_apple_app_site_association_excludes_cache_when_ios_native_disabled(
+    client, settings
+):
+    settings.IOS_APP_TEAM_ID = "C5XDPB2G33"
+    settings.IOS_APP_BUNDLE_ID = "lu.crush.app"
+
+    def is_excluded(url_path):
+        response = client.get("/.well-known/apple-app-site-association")
+        assert response.status_code == 200
+        paths = response.json()["applinks"]["details"][0]["paths"]
+        for pattern in paths:
+            negated = pattern.startswith("NOT ")
+            glob = pattern[4:] if negated else pattern
+            if fnmatch.fnmatchcase(url_path, glob):
+                return negated
+        return False
+
+    cache_paths = [
+        "/cache/qr/00000000-0000-0000-0000-000000000000/",
+        "/en/cache/qr/00000000-0000-0000-0000-000000000000/",
+        "/en/events/1/cache/",
+        "/fr/events/1/cache/play/",
+    ]
+
+    settings.IOS_NATIVE_CACHE_ENABLED = False
+    for url_path in cache_paths:
+        assert is_excluded(url_path), f"{url_path} should stay in Safari by default"
+
+    settings.IOS_NATIVE_CACHE_ENABLED = True
+    for url_path in cache_paths:
+        assert not is_excluded(
+            url_path
+        ), f"{url_path} should be claimable when IOS_NATIVE_CACHE_ENABLED is True"
+
+
+def test_crush_cache_enabled_suppressed_in_ios_native_app_only(settings):
+    from django.contrib.auth.models import AnonymousUser
+    from django.test import RequestFactory
+
+    from crush_lu.context_processors import crush_user_context
+
+    factory = RequestFactory()
+    settings.CRUSH_CACHE_ENABLED = True
+    settings.IOS_NATIVE_CACHE_ENABLED = False
+
+    native_req = factory.get(
+        "/en/events/",
+        HTTP_HOST="crush.lu",
+        HTTP_USER_AGENT="CrushLUApp/1.0 CFNetwork/1568",
+    )
+    native_req.urlconf = "azureproject.urls_crush"
+    native_req.user = AnonymousUser()
+    assert crush_user_context(native_req)["crush_cache_enabled"] is False
+
+    safari_req = factory.get(
+        "/en/events/",
+        HTTP_HOST="crush.lu",
+        HTTP_USER_AGENT=(
+            "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 "
+            "Mobile/15E148 Safari/604.1"
+        ),
+    )
+    safari_req.urlconf = "azureproject.urls_crush"
+    safari_req.user = AnonymousUser()
+    assert crush_user_context(safari_req)["crush_cache_enabled"] is True
+
+    settings.IOS_NATIVE_CACHE_ENABLED = True
+    assert crush_user_context(native_req)["crush_cache_enabled"] is True
+
+
 def test_ios_config_returns_store_safe_defaults(client, settings):
     settings.IOS_APP_STORE_URL = ""
     settings.IOS_NATIVE_COMMERCE_ENABLED = False
