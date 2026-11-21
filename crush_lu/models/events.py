@@ -1970,6 +1970,30 @@ class EventRegistration(models.Model):
         help_text=_("Timestamp the member confirmed they are coming"),
     )
 
+    # Abandoned Mollie checkout (release_abandoned_event_checkouts, driven by
+    # the AbandonedCheckoutSweep timer). A member who opens the payment page and
+    # leaves holds a "pending" seat; on 2026-11-20 two such seats blocked two of
+    # the sixteen women's places at Quiz Night #28 until the event. The sweep
+    # sends one "finish your payment" email, then releases the seat. Both are
+    # cleared when the row starts a new registration cycle.
+    checkout_reminder_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When the 'finish your payment' step ran for an abandoned online "
+            "checkout (sent, or skipped for an unsubscribed member)"
+        ),
+    )
+    checkout_released_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When this unpaid seat was released because its online checkout "
+            "was abandoned. A payment that still lands afterwards re-confirms "
+            "the seat if one is free, otherwise it becomes Crush Credit."
+        ),
+    )
+
     # Post-event feedback email tracking (idempotency for the
     # send_event_feedback_requests mgmt command).
     feedback_request_sent_at = models.DateTimeField(

@@ -77,6 +77,7 @@ _REASONS_RELEASING_PAYMENT = frozenset(
         CrushCredit.Reason.SEAT_RESOLD,
         CrushCredit.Reason.EVENT_CANCELLED,
         CrushCredit.Reason.CURATED_GROUP_UNAVAILABLE,
+        CrushCredit.Reason.SEAT_RELEASED_UNPAID,
     }
 )
 
@@ -1119,6 +1120,48 @@ def credit_registration_for_cancelled_event(registration, *, payment=None, note=
         registration=registration,
         payment=payment,
         note=note,
+    )
+
+
+def credit_registration_for_released_seat(registration, *, payment):
+    """Return a capture that landed after its abandoned seat was released.
+
+    ``release_abandoned_event_checkouts`` frees a seat whose online checkout
+    was left unpaid. A payment can still complete afterwards (a bank payment
+    settling late), and when the seat has gone to someone else in the meantime
+    the member must not be left with only a log line. Crush.lu released the
+    seat, so the full value comes back, the card money stays refundable on
+    request, and a credit-funded payment gets its tranches back on a fresh
+    clock. Idempotent per payment. The caller holds the payment, event and
+    registration locks.
+    """
+    amount_cents = payment_amount_cents(payment)
+    if amount_cents <= 0:
+        return []
+    existing = list(
+        CrushCredit.objects.filter(
+            source_payment=payment,
+            reason=CrushCredit.Reason.SEAT_RELEASED_UNPAID,
+        ).order_by("pk")
+    )
+    if existing:
+        return existing
+    refundable = payment.provider in (
+        PaymentTransaction.Provider.SUMUP,
+        PaymentTransaction.Provider.MOLLIE,
+        PaymentTransaction.Provider.MANUAL,
+    ) and (payment.status == PaymentTransaction.Status.PAID)
+    return _issue_payment_return_credits(
+        registration,
+        payment,
+        amount_cents,
+        CrushCredit.Reason.SEAT_RELEASED_UNPAID,
+        cash_refund_eligible=refundable,
+        note=(
+            "Full payment value returned: the payment completed after the "
+            "unpaid seat was released and no seat was free any more."
+        ),
+        crush_side_failure=True,
     )
 
 

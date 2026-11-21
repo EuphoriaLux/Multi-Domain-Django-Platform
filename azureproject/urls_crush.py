@@ -880,6 +880,11 @@ urlpatterns = (
             api_admin_events.premium_lapse_sweep,
             name="api_admin_premium_lapse_sweep",
         ),
+        path(
+            "api/admin/abandoned-checkout-sweep/",
+            api_admin_events.abandoned_checkout_sweep,
+            name="api_admin_abandoned_checkout_sweep",
+        ),
         # Changelog ingest (called by the Claude Code changelog routine on PR merge).
         # Language-neutral path; auto-publishes to /changelog/. See docs/changelog-routine.md.
         path(

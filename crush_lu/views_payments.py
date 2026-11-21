@@ -1853,6 +1853,93 @@ def _premium_purchase_refused(membership, *, lock=False):
     return not (entry and entry.selected_as_tester)
 
 
+def _released_seat_is_free(reg):
+    """Whether ``reg``'s member could take a seat on its event right now.
+
+    The same capacity rules as signup and waitlist promotion: premium members
+    measure against the full capacity, everyone else against the public one,
+    and the member's gender pool must have room. The caller holds the event
+    lock, so the answer cannot change before the seat is written.
+    """
+    from crush_lu.services.premium_billing import entitled_q
+
+    event = reg.event
+    is_premium = PremiumMembership.objects.filter(
+        entitled_q(), user_id=reg.user_id
+    ).exists()
+    if event.is_full_for(is_premium=is_premium):
+        return False
+    if event.gender_limits_active:
+        profile = CrushProfile.objects.filter(user_id=reg.user_id).first()
+        gender = getattr(profile, "gender", None)
+        if gender and event.is_gender_pool_full(gender):
+            return False
+    return True
+
+
+def _settle_capture_for_released_seat(locked, reg):
+    """Apply a capture for a seat the abandoned-checkout sweep released.
+
+    Re-confirms the seat when the event has not started, the amount still
+    matches the fee and a seat is free for this member. Otherwise the payment
+    stays PAID as the record of the charge and its full value becomes Crush
+    Credit (cash on request), with an email saying so. Curated events are never
+    released by the sweep, so no curated-group rule applies here. The caller
+    holds the payment, event and registration locks.
+    """
+    from crush_lu.services.credits import credit_registration_for_released_seat
+
+    event = reg.event
+    now = timezone.now()
+    reg.payment_confirmed = True
+    reg.payment_date = now
+    if (
+        event.date_time > now
+        and locked.amount == event.registration_fee
+        and _released_seat_is_free(reg)
+    ):
+        reg.status = "confirmed"
+        reg.cancelled_at = None
+        reg.checkout_released_at = None
+        reg.save()
+        _generate_checkin_token(reg)
+        logger.warning(
+            "Payment %s completed after registration %s was released for an "
+            "abandoned checkout; a seat was free, so it is confirmed again.",
+            locked.transaction_reference,
+            reg.pk,
+        )
+        transaction.on_commit(lambda r=reg: _send_registration_confirmation_safely(r))
+        return
+
+    reg.save(update_fields=["payment_confirmed", "payment_date"])
+    credits = credit_registration_for_released_seat(reg, payment=locked)
+    logger.error(
+        "Payment %s completed after registration %s was released for an "
+        "abandoned checkout and no seat is free; full value issued as Crush "
+        "Credit (%s).",
+        locked.transaction_reference,
+        reg.pk,
+        [credit.pk for credit in credits],
+    )
+    if credits:
+        transaction.on_commit(partial(_send_released_seat_credit_safely, reg, credits))
+
+
+def _send_released_seat_credit_safely(registration, credits):
+    """Tell the member their late payment became Crush Credit."""
+    from .email_helpers import send_released_seat_credit
+
+    try:
+        send_released_seat_credit(registration, credits)
+    except Exception as exc:
+        logger.error(
+            "Failed to send released-seat credit email for registration %s: %s",
+            registration.id,
+            type(exc).__name__,
+        )
+
+
 def _apply_paid_checkout(tx_obj, data):
     """Mark the transaction paid and unlock whatever it bought.
 
@@ -2036,6 +2123,16 @@ def _apply_paid_checkout(tx_obj, data):
                     locked.transaction_reference,
                     reg.id,
                 )
+                return
+
+            # The abandoned-checkout sweep released this unpaid seat
+            # (release_abandoned_event_checkouts), and the payment completed
+            # anyway. The member did not cancel, so the member-cancellation
+            # policy below (nothing inside 48h) is the wrong remedy: give the
+            # seat back if one is still free, otherwise the full value as
+            # Crush Credit, refundable on request.
+            if reg.status == "cancelled" and reg.checkout_released_at is not None:
+                _settle_capture_for_released_seat(locked, reg)
                 return
 
             # The member released this seat while the SumUp widget was still

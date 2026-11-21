@@ -198,3 +198,20 @@ def premium_lapse_sweep(request):
     Idempotent: an ended membership is no longer selected.
     """
     return _run(request, "premium_lapse_sweep", "sweep_premium_lapses")
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def abandoned_checkout_sweep(request):
+    """POST /api/admin/abandoned-checkout-sweep/
+
+    Send one "finish your payment" email for an abandoned online checkout,
+    then release the unpaid seat (``release_abandoned_event_checkouts``).
+    Invoked every 10 minutes by the ``AbandonedCheckoutSweep`` Azure Function
+    timer, which ships dormant until its URL is set after the swap that ships
+    this route. Idempotent: a reminded seat is stamped, a released one is no
+    longer pending.
+    """
+    return _run(
+        request, "abandoned_checkout_sweep", "release_abandoned_event_checkouts"
+    )

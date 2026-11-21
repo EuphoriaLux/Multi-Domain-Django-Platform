@@ -52,6 +52,12 @@ Environment Variables Required:
         az functionapp config appsettings set -g django-app-rg
           -n crush-hybrid-maintenance --settings
           DJANGO_PREMIUM_LAPSE_SWEEP_URL=https://crush.lu/api/admin/premium-lapse-sweep/)
+    - DJANGO_ABANDONED_CHECKOUT_SWEEP_URL: e.g. https://crush.lu/api/admin/abandoned-checkout-sweep/
+      (ships dormant like the two above, for the same reason: set it BY HAND
+      after the slot swap that puts the route on production:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_ABANDONED_CHECKOUT_SWEEP_URL=https://crush.lu/api/admin/abandoned-checkout-sweep/)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -602,6 +608,38 @@ def premium_lapse_sweep(timer: func.TimerRequest) -> None:
     _call_admin_endpoint(
         "PremiumLapseSweep",
         "DJANGO_PREMIUM_LAPSE_SWEEP_URL",
+        dormant_if_unset=True,
+    )
+
+
+@app.function_name(name="AbandonedCheckoutSweep")
+@app.timer_trigger(
+    # Every 10 minutes at :x9. Clear of invites (:x0), campaigns (:x2/:x7,
+    # whose 110 s tail ends by :x8:50 / :x3:50), echo :05, the lapse sweep :14,
+    # SLA :15, recaps :25, SumUp :34, reminders :35, lead reminders :45 and
+    # feedback :55. This call's own 60 s timeout ends before the next :x2 tick.
+    schedule="0 9/10 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def abandoned_checkout_sweep(timer: func.TimerRequest) -> None:
+    """Remind, then release, unpaid event seats whose Mollie checkout was left.
+
+    A member who opens the payment page and leaves keeps a "pending" seat.
+    About 15 minutes after the checkout they get one "finish your payment"
+    email; about 30 minutes after it (and 15 after the email) the seat goes
+    back to the pool and the waitlist. Every 10 minutes so the seat is freed
+    close to that mark; cheap when nothing is due (one query). Ships dormant
+    until DJANGO_ABANDONED_CHECKOUT_SWEEP_URL is set after the slot swap.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("AbandonedCheckoutSweep: timer past due at %s", ts)
+    logging.info("AbandonedCheckoutSweep: starting at %s", ts)
+    _call_admin_endpoint(
+        "AbandonedCheckoutSweep",
+        "DJANGO_ABANDONED_CHECKOUT_SWEEP_URL",
         dormant_if_unset=True,
     )
 
