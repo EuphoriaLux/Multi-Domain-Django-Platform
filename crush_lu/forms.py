@@ -73,8 +73,12 @@ class CrushSignupForm(SignupForm):
     # screen readers: anything typed into it is a bot. STARTED_FIELD carries a
     # signed render time, so a POST that arrives faster than a person can fill
     # the form is caught (see CRUSH_SIGNUP_MIN_FILL_SECONDS).
+    # JS_FIELD must hold the STARTED_FIELD value reversed, which only the
+    # page's script writes: the 2026-11 bot waited long enough to pass the
+    # timing check but never ran JavaScript.
     HONEYPOT_FIELD = "signup_note"
     STARTED_FIELD = "form_started"
+    JS_FIELD = "js_check"
     _STARTED_SALT = "crush_lu.signup.form_started"
 
     # Set on the form when clean_email() detects a duplicate. The template uses
@@ -104,9 +108,10 @@ class CrushSignupForm(SignupForm):
         """Why this bound form's POST looks automated, or ``None``.
 
         ``"honeypot"``: the hidden field was filled; reject silently.
-        ``"too_fast"`` / ``"no_token"`` / ``"bad_token"`` / ``"expired"``: the
-        timing check failed; these may be a person (a tab opened before a
-        deploy, or left open overnight), so the view asks them to try again.
+        ``"too_fast"`` / ``"no_token"`` / ``"bad_token"`` / ``"expired"`` /
+        ``"no_js"``: the timing or JavaScript check failed; these may be a
+        person (a tab opened before a deploy, or left open overnight), so the
+        view asks them to try again.
         """
         if (self.data.get(self.HONEYPOT_FIELD) or "").strip():
             return "honeypot"
@@ -132,6 +137,8 @@ class CrushSignupForm(SignupForm):
             return "bad_token"
         if time.time() - started < min_seconds:
             return "too_fast"
+        if (self.data.get(self.JS_FIELD) or "") != token[::-1]:
+            return "no_js"
         return None
 
     def clean_email(self):

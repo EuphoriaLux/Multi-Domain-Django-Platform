@@ -50,12 +50,15 @@ class SignupBotTrapTests(TestCase):
         self.client = Client(HTTP_HOST="crush.lu")
 
     def _post(self, **overrides):
+        token = overrides.pop("form_started", _token())
         data = {
             "first_name": "Lea",
             "email": "lea@example.com",
             "password1": "Sup3r-secret-pw!",
             "crushlu_consent": "on",
-            CrushSignupForm.STARTED_FIELD: _token(),
+            CrushSignupForm.STARTED_FIELD: token,
+            # What the page's script writes: the token reversed.
+            CrushSignupForm.JS_FIELD: token[::-1] if token else None,
         }
         data.update(overrides)
         data = {k: v for k, v in data.items() if v is not None}
@@ -65,6 +68,7 @@ class SignupBotTrapTests(TestCase):
         content = self.client.get(SIGNUP).content.decode()
         self.assertIn('name="form_started"', content)
         self.assertIn('name="signup_note"', content)
+        self.assertIn('name="js_check"', content)
 
     def test_person_who_took_their_time_gets_an_account(self):
         response = self._post()
@@ -102,6 +106,23 @@ class SignupBotTrapTests(TestCase):
                 self.assertEqual(response.status_code, 200)
                 self.assertIn(f"reason={reason}", logs.output[0])
                 self.assertFalse(User.objects.filter(email="lea@example.com").exists())
+
+    def test_missing_or_wrong_js_check_is_sent_back(self):
+        # The 2026-11 bot waited past the timing check but never ran JS.
+        for js_check in (None, "", "not-the-token"):
+            with self.subTest(js_check=js_check):
+                with self.assertLogs("crush_lu.views_account", "WARNING") as logs:
+                    response = self._post(js_check=js_check)
+                self.assertEqual(response.status_code, 200)
+                self.assertIn("reason=no_js", logs.output[0])
+                self.assertIn("press Create Account again", response.content.decode())
+                self.assertFalse(User.objects.filter(email="lea@example.com").exists())
+                self.assertEqual(len(mail.outbox), 0)
+
+    def test_script_fills_js_check_from_the_token(self):
+        content = self.client.get(SIGNUP).content.decode()
+        self.assertIn('id="id_js_check"', content)
+        self.assertIn("split('').reverse().join('')", content)
 
     @override_settings(CRUSH_SIGNUP_FORM_MAX_AGE_SECONDS=5)
     def test_expired_token_is_sent_back(self):
