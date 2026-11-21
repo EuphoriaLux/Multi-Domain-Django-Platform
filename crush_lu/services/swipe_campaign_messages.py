@@ -120,7 +120,7 @@ def _hub_url(user, request=None):
 
 def _end_words(campaign, lang):
     with translation.override(lang):
-        return date_format(timezone.localtime(campaign.ends_at), "j F")
+        return date_format(timezone.localtime(campaign.ends_at), "MONTH_DAY_FORMAT")
 
 
 def send_campaign_email(user, campaign, step, request=None) -> bool:
@@ -178,7 +178,7 @@ def send_campaign_push(user, campaign, step) -> bool:
     if event is None:
         return False
     with user_language_context(user):
-        end = date_format(timezone.localtime(campaign.ends_at), "j F")
+        end = date_format(timezone.localtime(campaign.ends_at), "MONTH_DAY_FORMAT")
         if step == Msg.STEP_START:
             title = _("Swipe your past events")
             body = _(

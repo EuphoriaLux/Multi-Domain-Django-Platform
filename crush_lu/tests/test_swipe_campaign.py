@@ -8,7 +8,7 @@ two Connect members, the message dispatcher, the dispatch endpoint, and the
 command that closes the old "My Crush!" leads.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from io import StringIO
 
 import pytest
@@ -531,3 +531,19 @@ def test_campaign_email_is_translated(old_room, lang, expected):
     html = message.alternatives[0][0]
     for text in expected:
         assert text in message.subject + html
+
+
+@pytest.mark.parametrize(
+    "lang,expected",
+    [("de", "bis 13. dezember"), ("fr", "13 décembre"), ("en", "December 13")],
+)
+def test_campaign_end_date_uses_the_locale_day_month_format(old_room, lang, expected):
+    profile = old_room["anna"].crushprofile
+    profile.preferred_language = lang
+    profile.save(update_fields=["preferred_language"])
+    end = timezone.make_aware(datetime(2026, 12, 13, 23, 59))
+    campaign = _campaign(ends_at=end)
+    assert dispatcher.send_campaign_email(old_room["anna"], campaign, "start")
+    html = mail.outbox[-1].alternatives[0][0]
+    # FR month names are capitalised by the site catalog ("Décembre").
+    assert expected.lower() in html.lower()

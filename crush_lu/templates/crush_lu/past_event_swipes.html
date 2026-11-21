@@ -22,7 +22,7 @@ Lists the member's past events with what is left to swipe, and carries the
         <p class="text-muted-fg mb-6">{% trans "You chose not to appear in past-event decks. Nobody sees you there, and you can't swipe them either." %}</p>
     {% else %}
         <p class="text-muted-fg mb-6">
-            {% blocktrans with end=campaign.ends_at|date:"j F" %}Until {{ end }} you can swipe the people from your Crush.lu events once more. If you both like each other, your chat opens straight away. Nobody ever sees a one-sided like.{% endblocktrans %}
+            {% blocktrans with end=campaign.ends_at|date:"MONTH_DAY_FORMAT" %}Until {{ end }} you can swipe the people from your Crush.lu events once more. If you both like each other, your chat opens straight away. Nobody ever sees a one-sided like.{% endblocktrans %}
         </p>
 
         {% if rows %}
@@ -32,7 +32,7 @@ Lists the member's past events with what is left to swipe, and carries the
                         <div class="flex-grow min-w-0">
                             <p class="font-semibold dark:text-white truncate">{{ row.event.title }}</p>
                             <p class="text-sm text-muted-fg">
-                                {{ row.event.date_time|date:"j F Y" }}{% if row.event.location %} · {{ row.event.location }}{% endif %}
+                                {{ row.event.date_time|date:"DATE_FORMAT" }}{% if row.event.location %} · {{ row.event.location }}{% endif %}
                             </p>
                             <p class="text-sm mt-1 dark:text-gray-300">
                                 {% if row.remaining %}
