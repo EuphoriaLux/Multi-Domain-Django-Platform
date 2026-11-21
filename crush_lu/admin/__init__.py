@@ -27,6 +27,8 @@ Modules:
 from django.contrib.auth.models import User
 
 # Import the custom admin site
+from hub.models import Location, PartnerOffer
+
 from .site import crush_admin_site
 
 # Import all admin classes for re-export
@@ -78,6 +80,8 @@ from .events import (
     PresentationQueueInline,
     CuratedEventGroupAdmin,
     MeetupEventAdmin,
+    PartnerLookupAdmin,
+    PartnerOfferLookupAdmin,
     EventRegistrationAdmin,
     EventInvitationAdmin,
     EventFeedbackAdmin,
@@ -421,6 +425,9 @@ crush_admin_site.register(PremiumMembership, PremiumMembershipAdmin)
 
 # Event System
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
+# Hidden, search-only: backs MeetupEventAdmin's partner/offer autocomplete.
+crush_admin_site.register(Location, PartnerLookupAdmin)
+crush_admin_site.register(PartnerOffer, PartnerOfferLookupAdmin)
 crush_admin_site.register(CuratedEventGroup, CuratedEventGroupAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)

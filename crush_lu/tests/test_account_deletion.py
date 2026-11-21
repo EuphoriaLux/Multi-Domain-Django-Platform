@@ -437,16 +437,17 @@ class AccountErasureCompletenessTests(TestCase):
             ACCOUNT_ERASURE_PURGE_OTHER_APPS,
         )
 
-        handled = {
-            (app, name) for app, name, _f in ACCOUNT_ERASURE_PURGE_OTHER_APPS
-        } | {(app, name) for app, name, _f in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS}
+        handled = (
+            {(app, name) for app, name, _f in ACCOUNT_ERASURE_PURGE_OTHER_APPS}
+            | {(app, name) for app, name, _f in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS}
+            # Venue claims are released by _release_venue_claims.
+            | {("hub", "Location")}
+        )
         deferred = {
             ("hub", "SocialPost"),
             ("hub", "WhatsAppMessage"),
             ("token_blacklist", "OutstandingToken"),
             ("hub", "PartnerOnboardingStep"),
-            # Venue claim: a staff (coach) actor link, like done_by above.
-            ("hub", "Location"),
             ("onboarding", "OnboardingSession"),
             ("arborist", "ArboristLead"),
             ("arborist", "LeadEvent"),
@@ -2768,3 +2769,56 @@ class MergedAccountErasureTests(TestCase):
             UserDataConsent.objects.get(user=self.keeper).crushlu_ban_reason,
             "user_deletion",
         )
+
+
+class VenueClaimErasureTests(TestCase):
+    """A departed coach's Hub venue claims are released on erasure (#1364)."""
+
+    def test_full_account_deletion_releases_the_coachs_venue_claims(self):
+        from django.contrib.auth import get_user_model
+
+        from crush_lu.views_account import delete_full_account
+        from hub.models import Location
+
+        User = get_user_model()
+        coach = User.objects.create_user(
+            username="anna@crush.lu",
+            email="anna@crush.lu",
+            password="x",
+            first_name="Anna",
+            last_name="Muller",
+            is_staff=True,
+        )
+        other = User.objects.create_user(
+            username="ben@crush.lu", email="ben@crush.lu", password="x", is_staff=True
+        )
+        claimed_at = timezone.now() - timedelta(days=3)
+        mine = Location.objects.create(
+            name="Café Anna",
+            address="1 Rue Test, L-2229 Luxembourg",
+            city="Luxembourg",
+            max_capacity=40,
+            claimed_by=coach,
+            claimed_at=claimed_at,
+            account_manager="Anna Muller",
+        )
+        theirs = Location.objects.create(
+            name="Café Ben",
+            address="2 Rue Test, L-2229 Luxembourg",
+            city="Luxembourg",
+            max_capacity=40,
+            claimed_by=other,
+            claimed_at=claimed_at,
+            account_manager="Ben",
+        )
+
+        delete_full_account(coach)
+
+        mine.refresh_from_db()
+        self.assertIsNone(mine.claimed_by_id)
+        self.assertIsNone(mine.claimed_at)
+        self.assertEqual(mine.account_manager, "")
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.claimed_by_id, other.pk)
+        self.assertEqual(theirs.claimed_at, claimed_at)
+        self.assertEqual(theirs.account_manager, "Ben")
