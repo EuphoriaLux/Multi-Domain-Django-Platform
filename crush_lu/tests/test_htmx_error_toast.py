@@ -209,15 +209,24 @@ def test_queued_copy_mirrors_the_service_worker_queue_rule():
     body = sw[sw.index("function isQueueablePost(") :]
     body = body[: body.index("\n    }\n")]
     sw_prefixes = re.findall(r'!pathname\.startsWith\("([^"]+)"\)', body)
+    sw_segments = re.findall(r'!pathname\.includes\("([^"]+)"\)', body)
 
     handler = _static("js/htmx-error-toast.js")
     start = handler.index("var QUEUE_EXCLUDED_PREFIXES = [")
     handler_prefixes = re.findall(
         r'"([^"]+)"', handler[start : handler.index("];", start)]
     )
+    seg_start = handler.index("var QUEUE_EXCLUDED_SEGMENTS = [")
+    handler_segments = re.findall(
+        r'"([^"]+)"', handler[seg_start : handler.index("];", seg_start)]
+    )
 
     assert sw_prefixes, "isQueueablePost() exclusions not found in sw-workbox.js"
     assert handler_prefixes == sw_prefixes
+    assert (
+        sw_segments
+    ), "isQueueablePost() segment exclusions not found in sw-workbox.js"
+    assert handler_segments == sw_segments
 
 
 def test_queued_copy_needs_the_workers_confirmation():

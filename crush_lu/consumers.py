@@ -2399,9 +2399,13 @@ class CacheHuntConsumer(BaseCrushWebsocketConsumer):
         """Hunt hosts and members with an active registration may connect."""
         from django.conf import settings
 
+        from crush_lu.ios_app_utils import ios_cache_suppressed_scope
         from crush_lu.models.crush_cache import CacheHunt, CacheTeamMember
+        from crush_lu.models.events import SEAT_HOLDING_STATUSES
 
         if not getattr(settings, "CRUSH_CACHE_ENABLED", False):
+            return False
+        if ios_cache_suppressed_scope(self.scope):
             return False
         if not CacheHunt.objects.filter(pk=self.hunt_id).exists():
             return False
@@ -2410,7 +2414,7 @@ class CacheHuntConsumer(BaseCrushWebsocketConsumer):
         return CacheTeamMember.objects.filter(
             hunt_id=self.hunt_id,
             registration__user=user,
-            registration__status__in=["confirmed", "attended"],
+            registration__status__in=SEAT_HOLDING_STATUSES,
         ).exists()
 
     @database_sync_to_async

@@ -589,6 +589,14 @@ def event_list(request):
     visible_upcoming = _filter_private_events(upcoming_events, request.user)
     visible_past = _filter_private_events(past_events, request.user)
 
+    from .ios_app_utils import ios_cache_suppressed
+
+    if ios_cache_suppressed(request):
+        visible_upcoming = [
+            e for e in visible_upcoming if e.event_type != "crush_cache"
+        ]
+        visible_past = [e for e in visible_past if e.event_type != "crush_cache"]
+
     # "See entry events" (#1082): an entry event is one that only asks for a
     # participation-ready profile (profile_requirement="completed"), so a
     # not-yet-verified member can join it and get verified there.

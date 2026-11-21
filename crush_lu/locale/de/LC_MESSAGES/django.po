@@ -48757,3 +48757,23 @@ msgstr "Entschuldigung, wir konnten dein Konto gerade nicht erstellen. Bitte üb
 #: crush_lu/templates/crush_lu/auth.html
 msgid "Leave this field empty"
 msgstr "Dieses Feld leer lassen"
+
+#: crush_lu/templates/crush_lu/cache/play.html
+msgid "GPS accuracy is too low (±{n} m). Enable Precise Location for Safari in Settings → Privacy & Security → Location Services, or step outdoors."
+msgstr "Die GPS-Genauigkeit ist zu gering (±{n} m). Aktiviere „Genauer Standort“ für Safari unter Einstellungen → Datenschutz & Sicherheit → Ortungsdienste oder geh ins Freie."
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Tap once to start GPS, compass & arrival sound."
+msgstr "Einmal tippen, um GPS, Kompass und Ankunftston zu starten."
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Sound paused — tap to re-enable"
+msgstr "Ton pausiert — zum Reaktivieren tippen"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Location is blocked. Allow location access (with Precise Location on) in Settings → Safari → Location or your browser settings, or let a teammate with GPS lead the way."
+msgstr "Standort ist blockiert. Erlaube den Standortzugriff (mit „Genauer Standort“ aktiviert) unter Einstellungen → Safari → Standort oder in den Browser-Einstellungen – oder lass ein Teammitglied mit GPS vorangehen."
+
+#: crush_lu/templates/crush_lu/cache/scanner.html
+msgid "Not a Crush Cache QR code — keep looking!"
+msgstr "Kein Crush-Cache-QR-Code — such weiter!"
