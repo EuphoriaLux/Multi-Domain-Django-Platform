@@ -1654,6 +1654,47 @@ class TestSeedCrushCacheCommand:
         assert str(schluss.longitude) == "5.863352"
         assert schluss.unlock_mode == "gps_qr"
 
+    def test_seed_hesperange_parc_preset(self):
+        from django.core.management import call_command
+        from crush_lu.models.crush_cache import CacheHunt
+
+        call_command(
+            "seed_crush_cache",
+            preset="hesperange_parc",
+            reset=True,
+            live=True,
+            force=True,
+        )
+
+        hunt = CacheHunt.objects.get(event__title__contains="Hesperange")
+        assert hunt.status == "live"
+        assert hunt.event.location == "Hesperange"
+        assert hunt.navigation_mode == "map"
+
+        stations = list(hunt.ordered_stations())
+        assert len(stations) == 6
+        assert all(s.unlock_mode == "gps" for s in stations)
+        assert all(s.radius_meters == 35 for s in stations)
+
+        # Every coordinate lies inside Hesperpark / Castle Viewpoint bounds
+        for station in stations:
+            lat, lng = float(station.latitude), float(station.longitude)
+            assert 49.568 <= lat <= 49.574, station.name
+            assert 6.153 <= lng <= 6.161, station.name
+
+        # No two stops sit closer than 75 m (keeps 35 m arrival radii distinct)
+        coords = [(float(s.latitude), float(s.longitude)) for s in stations]
+        min_sep = min(
+            haversine_m(coords[i][0], coords[i][1], coords[j][0], coords[j][1])
+            for i in range(len(coords))
+            for j in range(i + 1, len(coords))
+        )
+        assert min_sep >= 75
+
+        final_challenge = stations[5].challenges.get()
+        assert final_challenge.check_answer("Alzette") is True
+        assert final_challenge.check_answer("Uelzecht") is True
+
     def test_seed_lux_city_default_preset(self):
         from django.core.management import call_command
         from crush_lu.models.crush_cache import CacheHunt
@@ -2022,7 +2063,12 @@ class TestSeedCrushCacheCommand:
         monkeypatch.setenv("WEBSITE_HOSTNAME", "django-app-staging.azurewebsites.net")
         monkeypatch.setenv("WEBSITE_SLOT_NAME", "staging")
 
-        for preset_name in ("lux_city", "minette", "echternach_um_see"):
+        for preset_name in (
+            "lux_city",
+            "minette",
+            "echternach_um_see",
+            "hesperange_parc",
+        ):
             with pytest.raises(CommandError, match="Refusing to do that on Azure"):
                 call_command(
                     "seed_crush_cache", preset=preset_name, reset=True, force=True

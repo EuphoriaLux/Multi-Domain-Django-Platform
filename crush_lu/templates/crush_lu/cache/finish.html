@@ -7,6 +7,10 @@
 <div class="min-h-screen pt-4 pb-16">
     <div class="mx-auto max-w-lg px-4">
 
+        {% if cache_rehearsal_toolbar %}
+            {% include "crush_lu/cache/_rehearsal_toolbar.html" %}
+        {% endif %}
+
         <div class="mb-6 text-center">
             <div class="mx-auto w-20 ghost-glow">
                 {% include "crush_lu/includes/ghost-logo-animated.html" with class="w-20 h-20" %}

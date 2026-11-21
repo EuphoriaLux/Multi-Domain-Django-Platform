@@ -9,6 +9,7 @@ adding one is data rather than another branch:
     minette           Fond-de-Gras mining valley, German icebreakers + QR
     echternach_lake   Echternach lake, GPS-only solo field-test prototype
     echternach_um_see Echternach lake, German icebreakers + QR, team hunt
+    hesperange_parc   Parc de Hesperange (Hesperpark), GPS-only icebreaker loop
 
 The debug presets create a `crush_cache` MeetupEvent + CacheHunt with landmark
 stations, challenges and demo users. `echternach_lake` instead reuses one
@@ -559,6 +560,147 @@ STATIONS_ECHTERNACH_UM_SEE = [
     },
 ]
 
+# Parc de Hesperange ("Hesperpark", OSM way 570560124) GPS-only ~1.1 km loop.
+# Every station uses exact OpenStreetMap node/way coordinates along paths,
+# bridges, sports lawns, and the Buerg Hesper castle viewpoint so coaches can
+# test GPS navigation outdoors on Safari right away with no physical QR codes.
+STATIONS_HESPERANGE_PARC = [
+    {
+        "order": 1,
+        "name": "Park Entrance & Bicherbox (Mairie)",
+        "lat": "49.572120",
+        "lng": "6.158811",
+        "unlock_mode": "gps",
+        "intro": (
+            "Meet behind Hesperange Town Hall by the park information board "
+            "and the Bicherbox outdoor bookcase, then head south along the "
+            "Alzette promenade."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "If you picked a surprise book from the Bicherbox today, which genre wins?",
+        "options": {
+            "1": "A gripping mystery or thriller",
+            "2": "Travel stories and photography",
+            "3": "Something funny I can finish in a weekend",
+        },
+        "answer": "",  # Accepts any choice (icebreaker prompt)
+        "alternatives": [],
+        "hint_1": "Pick whichever shelf you usually walk toward first.",
+        "points": 100,
+    },
+    {
+        "order": 2,
+        "name": "Hesper Beach Club & Alzette Bank",
+        "lat": "49.570482",
+        "lng": "6.157590",
+        "unlock_mode": "gps",
+        "intro": (
+            "Follow the riverside path south past the central pond and fountains "
+            "until you reach the Alzette bank beside Hesper Beach Club."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "Sunny afternoon at a park pop-up bar — what is your go-to order?",
+        "options": {
+            "1": "Classic sparkling aperitif or local crémant",
+            "2": "Fresh iced mocktail or craft lemonade",
+            "3": "Iced coffee and something sweet",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Go with what sounds best right after this walk.",
+        "points": 100,
+    },
+    {
+        "order": 3,
+        "name": "Southern Alzette Footbridge",
+        "lat": "49.569443",
+        "lng": "6.157331",
+        "unlock_mode": "gps",
+        "intro": (
+            "Continue past the beach volleyball courts to the southern footbridge "
+            "spanning the Alzette river at the south end of Hesperpark."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "You hit an unmarked fork on a weekend walk together — you usually:",
+        "options": {
+            "1": "Take the scenic path even if it adds 20 minutes",
+            "2": "Check the map so we stay on schedule",
+            "3": "Flip a coin and make it an adventure",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "Think about your last Sunday stroll.",
+        "points": 100,
+    },
+    {
+        "order": 4,
+        "name": "Skate Park & Sports Lawn",
+        "lat": "49.569363",
+        "lng": "6.156118",
+        "unlock_mode": "gps",
+        "intro": (
+            "Cross the footbridge to the western side of the park beside the "
+            "Skate Park, basketball court, and open sports lawn."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "What is your ideal active Sunday together?",
+        "options": {
+            "1": "A relaxed walk with good conversation",
+            "2": "Friendly games — ping-pong, pétanque, or volleyball",
+            "3": "Cycling along the Alzette valley paths",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "No athletic pressure — pick your favorite vibe.",
+        "points": 100,
+    },
+    {
+        "order": 5,
+        "name": "Buerg Hesper Castle Viewpoint",
+        "lat": "49.572558",
+        "lng": "6.154175",
+        "unlock_mode": "gps",
+        "intro": (
+            "Walk north past the park woods toward the hill overlooking the "
+            "13th-century Hesperange Castle ruins (Buerg Hesper)."
+        ),
+        "challenge_type": "multiple_choice",
+        "question": "Medieval legends or modern city nights — which kind of date wins?",
+        "options": {
+            "1": "Castle ruins and golden-hour countryside views",
+            "2": "A cozy dinner spot in town after dark",
+            "3": "Start with sunset nature, finish with dinner",
+        },
+        "answer": "",  # Accepts any choice
+        "alternatives": [],
+        "hint_1": "You do not have to pick only one side forever.",
+        "points": 100,
+    },
+    {
+        "order": 6,
+        "name": "Um Hesprénger Schlass Promenade (Finish)",
+        "lat": "49.572422",
+        "lng": "6.156938",
+        "unlock_mode": "gps",
+        "intro": (
+            "Head back into the northern corner of Hesperpark near the monument "
+            "Um Hesprénger Schlass along the river promenade to complete the loop."
+        ),
+        "challenge_type": "riddle",
+        "question": "Final riddle: Which river winds right through the heart of Parc de Hesperange?",
+        "answer": "Alzette",
+        "alternatives": [
+            "Uelzecht",
+            "l'Alzette",
+            "die Alzette",
+            "Alzette river",
+            "The Alzette",
+        ],
+        "hint_1": "In Luxembourgish it is called the Uelzecht — it flows north from here into Luxembourg City.",
+        "points": 150,
+    },
+]
+
 # Applied to every preset that does not override them, so each entry below
 # shows only its real deltas.
 PRESET_DEFAULTS = {
@@ -645,6 +787,29 @@ PRESETS = {
             "admin (Cache Stations) if a station is hard to trigger."
         ),
     },
+    "hesperange_parc": {
+        "event_title": "🧭 [DEBUG] Parc de Hesperange Crush Cache",
+        "event_description": (
+            "Debug scavenger hunt through Parc de Hesperange (Hesperpark) "
+            "along the Alzette for QA."
+        ),
+        "location": "Hesperange",
+        "address": "474 Route de Thionville, L-5886 Hesperange",
+        "hunt_title": "Parc de Hesperange Hunt",
+        "hunt_description": (
+            "A ~1.1 km scenic loop through Hesperpark, across the Alzette "
+            "footbridges, past the Skate Park, and up to the Buerg Hesper "
+            "castle viewpoint."
+        ),
+        "team_name": "Alzette Walkers",
+        "radius_meters": 35,
+        "stations": STATIONS_HESPERANGE_PARC,
+        "coords_note": (
+            "Coordinates come from OpenStreetMap nodes/ways inside Hesperpark "
+            "(way 570560124) — check arrival triggers under park trees and "
+            "adjust radius in admin if needed."
+        ),
+    },
 }
 
 REQUIRED_PRESET_KEYS = {
@@ -699,8 +864,9 @@ class Command(BaseCommand):
             default=DEFAULT_PRESET,
             help=(
                 "Which hunt preset to seed: 'lux_city' (default), 'minette' "
-                "(Fond-de-Gras), 'echternach_lake' (solo GPS prototype) or "
-                "'echternach_um_see' (Echternach team hunt)."
+                "(Fond-de-Gras), 'echternach_lake' (solo GPS prototype), "
+                "'echternach_um_see' (Echternach team hunt), or 'hesperange_parc' "
+                "(Parc de Hesperange loop)."
             ),
         )
         parser.add_argument(

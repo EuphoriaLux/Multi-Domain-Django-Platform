@@ -21,6 +21,12 @@
         <a href="{% url 'crush_lu:quiz_rehearsal' %}" class="font-semibold underline">Quiz Night rehearsal</a>
         <span class="text-sm">&mdash; practise hosting a quiz with test guests (staging only). Reset it any time from the host panel.</span>
     </p>
+    {% if not is_ios_native_app or crush_cache_enabled %}
+    <p>
+        <a href="{% url 'crush_lu:cache_rehearsal' %}" class="font-semibold underline">{% trans "Crush Cache field-test" %}</a>
+        <span class="text-sm">&mdash; {% trans "test any course outdoors in Safari with daily auto-reset (staging only)." %}</span>
+    </p>
+    {% endif %}
 </div>
 {% endif %}
 

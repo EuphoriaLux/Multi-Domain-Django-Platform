@@ -48837,3 +48837,107 @@ msgid "%(counter)s older coach-led connection is still open."
 msgid_plural "%(counter)s older coach-led connections are still open."
 msgstr[0] "%(counter)s ältere Verbindung über Coaches ist noch offen."
 msgstr[1] "%(counter)s ältere Verbindungen über Coaches sind noch offen."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Crush Cache field-test"
+msgstr "Crush-Cache-Feldtest"
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Always-live Crush Cache courses on Safari. Your personal run auto-resets at midnight, or reset any time before walking a route."
+msgstr "Dauerhaft aktive Crush-Cache-Strecken in Safari. Dein persönlicher Durchlauf wird um Mitternacht automatisch zurückgesetzt – oder jederzeit vor dem Losgehen."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Open test.crush.lu in Safari on your phone — Crush Cache is intentionally suppressed inside the native iOS app shell."
+msgstr "Öffne test.crush.lu in Safari auf deinem Handy — Crush Cache ist in der nativen iOS-App absichtlich ausgeblendet."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "CRUSH_CACHE_ENABLED is currently off on this server. Set CRUSH_CACHE_ENABLED=true on staging to open gameplay pages."
+msgstr "CRUSH_CACHE_ENABLED ist auf diesem Server aktuell deaktiviert. Aktiviere CRUSH_CACHE_ENABLED=true auf Staging, um die Spielseiten zu öffnen."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Practising as your practice member — coach controls stay hidden."
+msgstr "Du testest als dein Übungsmitglied — Coach-Steuerungen bleiben ausgeblendet."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Standard courses"
+msgstr "Standardstrecken"
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Existing staging hunts"
+msgstr "Bestehende Staging-Runden"
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Open Coach Playground"
+msgstr "Coach-Playground öffnen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+#, python-format
+msgid "%(count)s station"
+msgid_plural "%(count)s stations"
+msgstr[0] "%(count)s Station"
+msgstr[1] "%(count)s Stationen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+#, python-format
+msgid "Station %(order)s"
+msgstr "Station %(order)s"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "New day auto-reset ready"
+msgstr "Tages-Reset bereit"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Play solo"
+msgstr "Solo spielen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Team Lobby"
+msgstr "Team-Lobby"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Reset my run"
+msgstr "Meinen Lauf zurücksetzen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Coach Control"
+msgstr "Coach-Steuerung"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_toolbar.html
+msgid "Field-test"
+msgstr "Feldtest"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_toolbar.html
+msgid "All test caches"
+msgstr "Alle Test-Caches"
+
+#: crush_lu/templates/crush_lu/coach_dashboard.html
+msgid "test any course outdoors in Safari with daily auto-reset (staging only)."
+msgstr "teste jede Strecke draußen in Safari mit täglichem Auto-Reset (nur Staging)."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Test GPS & QR scavenger hunts outdoors in Safari. Runs stay live all day and auto-reset overnight."
+msgstr "Teste GPS- & QR-Schnitzeljagden draußen in Safari. Strecken bleiben den ganzen Tag aktiv und werden über Nacht zurückgesetzt."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Open Crush Cache field-test"
+msgstr "Crush-Cache-Feldtest öffnen"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Crush Cache is switched off on this server. Ask Tom to switch on CRUSH_CACHE_ENABLED, then try again."
+msgstr "Crush Cache ist auf diesem Server deaktiviert. Bitte Tom, CRUSH_CACHE_ENABLED zu aktivieren, und versuche es dann erneut."
+
+#: crush_lu/views_crush_cache.py
+msgid "Crush Cache field-test is only open to active coaches."
+msgstr "Der Crush-Cache-Feldtest steht nur aktiven Coaches offen."
+
+#: crush_lu/views_crush_cache.py
+msgid "New day — your run was reset to Station 1."
+msgstr "Neuer Tag — dein Lauf wurde auf Station 1 zurückgesetzt."
+
+#: crush_lu/views_crush_cache.py
+msgid "Your run has been reset to Station 1."
+msgstr "Dein Lauf wurde auf Station 1 zurückgesetzt."
+
+#: crush_lu/views_crush_cache.py
+msgid "You have not joined this hunt yet — press Play to start."
+msgstr "Du bist dieser Runde noch nicht beigetreten — tippe zum Starten auf Spielen."

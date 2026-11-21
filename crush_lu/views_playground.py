@@ -97,6 +97,7 @@ def _error_text(code):
 @playground_view
 @require_GET
 def coach_playground(request):
+    from crush_lu.services.cache_rehearsal import cache_rehearsal_enabled
     from crush_lu.services.playground_mail import recent_mail
     from crush_lu.services.quiz_rehearsal import rehearsal_enabled
 
@@ -121,6 +122,7 @@ def coach_playground(request):
         "current_preset": practice.PRESETS.get(link.preset) if link else None,
         "mails": recent_mail(practice_user) if practice_user else [],
         "quiz_rehearsal_enabled": rehearsal_enabled(),
+        "cache_rehearsal_enabled": cache_rehearsal_enabled(),
         "sso_enabled": sso.consumer_enabled(),
     }
     return render(request, "crush_lu/coach_playground.html", context)
