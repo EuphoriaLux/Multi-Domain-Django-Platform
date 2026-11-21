@@ -817,10 +817,11 @@ ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS = (
 # hub.SocialPost, hub.WhatsAppMessage (staff-authored business records),
 # token_blacklist.OutstandingToken (deleting it would un-blacklist refresh
 # tokens; the anonymised user is inactive), and staff-actor SET_NULL links
-# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by,
-# hub.Location.claimed_by). The user row is anonymised, not deleted, so a
-# departed coach's venue claim (and its account_manager name) stays until a
-# superuser releases or force-claims the venue.
+# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by).
+# hub.Location.claimed_by is released instead (_release_venue_claims): the
+# user row is anonymised, not deleted, so SET_NULL never fires and a departed
+# coach's claim and account_manager name would otherwise stay on the venue,
+# blocking other coaches with a 409 (decided 2026-11-21, #1364).
 
 # User-keyed crush_lu models deliberately KEPT after account deletion, and why.
 # ``test_account_deletion`` fails when a new User FK model is in neither list,
@@ -1556,6 +1557,23 @@ def _purge_other_apps_personal_data(user):
         for app_label, model_name, field in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS:
             model = apps.get_model(app_label, model_name)
             model.objects.filter(**{field: user}).update(**{field: None})
+        _release_venue_claims(user)
+
+
+def _release_venue_claims(user):
+    """Release a departing coach's Hub venue claims, as a release would.
+
+    ``claimed_by``, ``claimed_at`` and ``account_manager`` are cleared
+    together: nulling only the FK leaves the name behind, and the claim
+    endpoint's legacy-owner check would still refuse every other coach.
+    """
+    from django.utils import timezone
+
+    from hub.models import Location
+
+    return Location.objects.filter(claimed_by=user).update(
+        claimed_by=None, claimed_at=None, account_manager="", updated_at=timezone.now()
+    )
 
 
 def _phone_digits(value):
