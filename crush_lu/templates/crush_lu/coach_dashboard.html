@@ -99,15 +99,6 @@
                 </span>
                 <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Matches" %}</span>
             </a>
-            {% if pending_connections_count %}
-            <a href="{% url 'crush_lu:coach_connections' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
-                    {% include "shared/icons/users.html" with class="w-4 h-4" %}
-                </span>
-                <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Coach queue (older connections)" %}</span>
-                <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-pink-500 text-white rounded-full">{{ pending_connections_count }}</span>
-            </a>
-            {% endif %}
             <a href="{% url 'crush_lu:coach_spark_list' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 group-hover:scale-110 transition-transform">
                     {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4" %}
