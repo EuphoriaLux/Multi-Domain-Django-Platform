@@ -2209,6 +2209,7 @@ def profile_submitted(request):
     from django.db.models import Avg, ExpressionWrapper, F, DurationField
     from django.db.models.functions import Extract
     from .utils.formatting import format_review_estimate
+    from .services.verification_call_request import can_request_coach_call
     from .services.verification_funnel import funnel_visible
 
     if funnel_visible(request.user):
@@ -2437,12 +2438,40 @@ def profile_submitted(request):
         "recontact_days_remaining": recontact_days_remaining,
         "has_booking_token": has_booking_token,
         **_verification_path_context(profile, request.user),
+        # A third way to get verified: ask a coach for a call (flag-gated).
+        "coach_call_available": can_request_coach_call(profile),
     }
 
     # Final journey step: "Get verified". Verified users are redirected to the
     # dashboard above, so this page always renders at the get-verified step.
     context.update(onboarding.stepper_context(current=5))
     return render(request, "crush_lu/profile_submitted.html", context)
+
+
+@crush_login_required
+@require_http_methods(["POST"])
+@ratelimit(key="user", rate="5/h", method="POST", block=True)
+def request_verification_call(request):
+    """A pending member asks a coach to verify them on a call."""
+    from .services.verification_call_request import request_coach_call
+
+    profile = CrushProfile.objects.filter(user=request.user).first()
+    if profile is None:
+        return redirect("crush_lu:create_profile")
+    if request_coach_call(profile) is not None:
+        messages.success(
+            request,
+            _(
+                "Request sent. A Crush Coach will contact you to arrange a "
+                "short call to verify your profile."
+            ),
+        )
+    else:
+        messages.info(
+            request,
+            _("A call with a coach can't be requested for your profile right now."),
+        )
+    return redirect("crush_lu:profile_submitted")
 
 
 @crush_login_required

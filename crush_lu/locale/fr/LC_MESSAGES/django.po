@@ -49226,3 +49226,53 @@ msgstr "Annulé %(time)s"
 #, python-format
 msgid "In at %(time)s"
 msgstr "Arrivé à %(time)s"
+
+#: crush_lu/views.py
+msgid ""
+"Request sent. A Crush Coach will contact you to arrange a short call to "
+"verify your profile."
+msgstr ""
+"Demande envoyée. Un Crush Coach vous contactera pour convenir d'un court "
+"appel afin de vérifier votre profil."
+
+#: crush_lu/views.py
+msgid "A call with a coach can't be requested for your profile right now."
+msgstr ""
+"Un appel avec un coach ne peut pas être demandé pour votre profil pour le "
+"moment."
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+msgid "Three ways to get verified"
+msgstr "Trois façons de vous faire vérifier"
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+msgid "Talk to a Coach"
+msgstr "Parler à un Coach"
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+msgid ""
+"No LuxID and no event coming up? Ask for a short call. A Crush Coach "
+"contacts you, you talk for a few minutes by video or phone, and your profile "
+"is verified."
+msgstr ""
+"Pas de LuxID et pas d'événement en vue ? Demandez un court appel. Un Crush "
+"Coach vous contacte, vous échangez quelques minutes en vidéo ou par "
+"téléphone, et votre profil est vérifié."
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Request a call with a Coach"
+msgstr "Demander un appel avec un Coach"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "No LuxID and no event coming up?"
+msgstr "Pas de LuxID et pas d'événement en vue ?"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid ""
+"Ask for a short call with a Crush Coach, by video or phone. Open your "
+"profile page and tap \"Request a call with a Coach\"."
+msgstr ""
+"Demandez un court appel avec un Crush Coach, en vidéo ou par téléphone. "
+"Ouvrez votre page de profil et appuyez sur « Demander un appel avec un "
+"Coach »."
