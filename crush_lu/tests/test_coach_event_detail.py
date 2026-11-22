@@ -37,6 +37,7 @@ from crush_lu.models import (
     EventLobbyParticipation,
     EventRegistration,
     MeetupEvent,
+    PaymentTransaction,
     QuizEvent,
     UserDataConsent,
 )
@@ -789,3 +790,149 @@ class TestWaitlistPromotionNotice:
         content = response.content.decode()
         roster = content[content.index("data-coach-event-roster") :]
         assert 'data-promotion-notice="not-notified"' in roster
+
+
+class TestAttendeeStatusTiles:
+    """2026-11-22 (Quiz Night #28): coaches could not tell who checked in,
+    who held a seat and never came, who was still paying and who cancelled.
+    One tile per status, counts that add up, one list filtered by tile."""
+
+    def _member(self, name):
+        return User.objects.create_user(
+            username=f"{name}@example.com", email=f"{name}@example.com", first_name=name
+        )
+
+    def _event(self, starts_in_minutes, fee="15.50"):
+        from decimal import Decimal
+
+        event = _make_event("quiz_night", starts_in_minutes=starts_in_minutes)
+        event.registration_fee = Decimal(fee)
+        event.save(update_fields=["registration_fee"])
+        return event
+
+    def _reg(self, event, name, status, paid=False):
+        reg = EventRegistration.objects.create(
+            event=event, user=self._member(name), status="pending"
+        )
+        EventRegistration.objects.filter(pk=reg.pk).update(
+            status=status, payment_confirmed=paid
+        )
+        reg.refresh_from_db()
+        return reg
+
+    def _pay(self, reg, provider, status="paid"):
+        import uuid
+
+        PaymentTransaction.objects.create(
+            transaction_reference=f"T-{uuid.uuid4().hex[:10]}",
+            provider=provider,
+            amount=reg.event.registration_fee,
+            currency="EUR",
+            status=status,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=reg.user,
+            event_registration=reg,
+            event=reg.event,
+        )
+
+    def _get(self, client, event, **params):
+        if not getattr(self, "_coach", None):
+            self._coach = _make_coach()
+        client.force_login(self._coach)
+        return client.get(f"/en/coach/events/{event.pk}/", params, HTTP_HOST="crush.lu")
+
+    def _build(self, starts_in_minutes):
+        event = self._event(starts_in_minutes)
+        regs = {
+            "Ann": self._reg(event, "Ann", "attended", paid=True),
+            "Bob": self._reg(event, "Bob", "confirmed", paid=True),
+            "Cat": self._reg(event, "Cat", "pending"),
+            "Dov": self._reg(event, "Dov", "waitlist"),
+            "Eli": self._reg(event, "Eli", "cancelled"),
+        }
+        self._pay(regs["Ann"], "mollie")
+        self._pay(regs["Bob"], "manual")
+        self._pay(regs["Cat"], "mollie", status="cancelled")
+        return event, regs
+
+    def test_tiles_add_up_and_confirmed_turns_into_not_checked_in(self, client):
+        event, _ = self._build(starts_in_minutes=-60)
+        ctx = self._get(client, event).context
+        tiles = {t["key"]: t for t in ctx["status_tiles"]}
+
+        assert tiles["all"]["count"] == 4
+        assert tiles["attended"]["count"] == 1
+        assert tiles["confirmed"]["count"] == 1
+        assert str(tiles["confirmed"]["label"]) == "Not checked in"
+        assert tiles["pending"]["count"] == 1
+        assert tiles["waitlist"]["count"] == 1
+        assert tiles["cancelled"]["count"] == 1
+        bucket_keys = ("attended", "confirmed", "pending", "waitlist")
+        assert sum(tiles[k]["count"] for k in bucket_keys) == tiles["all"]["count"]
+
+    def test_before_the_event_confirmed_reads_confirmed(self, client):
+        event, _ = self._build(starts_in_minutes=24 * 60)
+        ctx = self._get(client, event).context
+        tiles = {t["key"]: t for t in ctx["status_tiles"]}
+        assert str(tiles["confirmed"]["label"]) == "Confirmed"
+
+    def test_each_tile_filters_the_list(self, client):
+        event, regs = self._build(starts_in_minutes=-60)
+        for key, name in (
+            ("attended", "Ann"),
+            ("confirmed", "Bob"),
+            ("pending", "Cat"),
+            ("waitlist", "Dov"),
+            ("cancelled", "Eli"),
+        ):
+            rows = self._get(client, event, status=key).context["roster_rows"]
+            assert [r["registration"].pk for r in rows] == [regs[name].pk], key
+
+    def test_cancelled_only_on_its_own_tab(self, client):
+        event, _ = self._build(starts_in_minutes=-60)
+        names = {
+            r["registration"].user.first_name
+            for r in self._get(client, event).context["roster_rows"]
+        }
+        assert names == {"Ann", "Bob", "Cat", "Dov"}
+
+    def test_all_view_is_grouped_by_status(self, client):
+        event, _ = self._build(starts_in_minutes=-60)
+        rows = self._get(client, event).context["roster_rows"]
+        assert [r["registration"].status for r in rows] == [
+            "pending",
+            "confirmed",
+            "attended",
+            "waitlist",
+        ]
+        assert all(r["group_start"] for r in rows)
+
+    def test_payment_says_how_it_was_paid_and_what_the_checkout_did(self, client):
+        event, _ = self._build(starts_in_minutes=-60)
+        rows = {
+            r["registration"].user.first_name: r
+            for r in self._get(client, event).context["roster_rows"]
+        }
+        assert rows["Ann"]["payment"] == "Paid online"
+        assert rows["Bob"]["payment"] == "Paid cash"
+        assert rows["Cat"]["payment"] == "Payment due"
+        assert str(rows["Cat"]["payment_notes"][0]).startswith("Checkout abandoned")
+        assert str(rows["Bob"]["status_label"]) == "Not checked in"
+        assert str(rows["Dov"]["status_label"]) == "Waitlist #1"
+
+    def test_legacy_filters_still_resolve(self, client):
+        event, regs = self._build(starts_in_minutes=-60)
+        assert (
+            self._get(client, event, status="other").context["status_filter"] == "all"
+        )
+        rows = self._get(client, event, status="checked_in").context["roster_rows"]
+        assert [r["registration"].pk for r in rows] == [regs["Ann"].pk]
+
+    def test_card_view_renders_the_same_rows(self, client):
+        event, _ = self._build(starts_in_minutes=-60)
+        response = self._get(client, event, view="cards")
+        content = response.content.decode()
+        assert response.context["view_mode"] == "cards"
+        assert "data-coach-attendee-cards" in content
+        assert "data-coach-event-roster" not in content
+        assert content.count('data-roster-row="') == 4

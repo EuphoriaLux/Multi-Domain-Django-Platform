@@ -2730,20 +2730,135 @@ def _curated_stage_label(stage, event):
     }[stage]
 
 
-def _coach_roster_rows(registrations, event):
+# One bucket per registration status, in the order the coach page lists them.
+# Every non-cancelled registration lands in exactly one bucket, so the tile
+# counts add up to the total; cancelled rows only show on their own tab.
+ROSTER_BUCKET_ORDER = (
+    "pending",
+    "confirmed",
+    "attended",
+    "waitlist",
+    "applied",
+    "not_selected",
+    "no_show",
+)
+# Old ?status= values (bookmarks, links in emails to coaches) and what they
+# show now. "confirmed" used to mean confirmed + attended; it now means the
+# confirmed seats that have not checked in, which is what coaches look for.
+ROSTER_FILTER_ALIASES = {"other": "all", "checked_in": "attended"}
+
+_ONLINE_PROVIDERS = ("mollie", "sumup")
+
+
+def _roster_payments_by_registration(registrations):
+    """Event payment transactions per registration, newest first."""
+    from .models import PaymentTransaction
+
+    ids = [r.pk for r in registrations]
+    by_reg = {}
+    if not ids:
+        return by_reg
+    for tx in PaymentTransaction.objects.filter(
+        event_registration_id__in=ids,
+        purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+    ).order_by("-created_at"):
+        by_reg.setdefault(tx.event_registration_id, []).append(tx)
+    return by_reg
+
+
+def _roster_status(registration, event, started):
+    """(label, tone) for the status badge. Tones map to badge colours."""
+    status = registration.status
+    if status == "confirmed":
+        if started and not event.is_cancelled:
+            return _("Not checked in"), "red"
+        return _("Confirmed"), "green"
+    if status == "attended":
+        return _("Checked in"), "emerald"
+    if status == "pending":
+        if event.registration_fee > 0:
+            return _("Pending payment"), "amber"
+        return _("Pending"), "blue"
+    if status == "waitlist":
+        position = getattr(registration, "waitlist_position", None)
+        if position:
+            return _("Waitlist #%(n)s") % {"n": position}, "yellow"
+        return _("Waitlist"), "yellow"
+    if status == "no_show":
+        return _("No-show"), "red"
+    if status == "applied":
+        return registration.get_status_display(), "purple"
+    return registration.get_status_display(), "gray"
+
+
+def _coach_roster_rows(registrations, event, payments_by_reg=None):
     """Present payment and arrival separately from the registration status."""
+    payments_by_reg = payments_by_reg or {}
+    started = event.date_time <= timezone.now()
     rows = []
     for registration in registrations:
+        txs = payments_by_reg.get(registration.pk, [])
+        paid_providers = {t.provider for t in txs if t.status == "paid"}
+        payment_tone = "gray"
         if event.registration_fee <= 0:
             payment = _("No payment required")
         elif registration.payment_confirmed:
-            payment = _("Payment complete")
+            payment_tone = "green"
+            labels = []
+            if paid_providers & set(_ONLINE_PROVIDERS):
+                labels.append(_("Paid online"))
+            if "manual" in paid_providers:
+                labels.append(_("Paid cash"))
+            if "credit" in paid_providers:
+                labels.append(_("Paid with credit"))
+            payment = " + ".join(str(label) for label in labels) or _(
+                "Payment complete"
+            )
         elif registration.status == "pending":
             payment = _("Payment due")
+            payment_tone = "amber"
         elif registration.status in ("confirmed", "attended"):
             payment = _("Payment not recorded")
+            payment_tone = "amber"
         else:
             payment = _("Not due")
+        if registration.status == "cancelled" and any(
+            t.status == "refunded" for t in txs
+        ):
+            payment = _("Refunded")
+            payment_tone = "gray"
+
+        # What happened to the online checkout of an unpaid seat. The
+        # checkout_* stamps come from the abandoned-checkout sweep and are
+        # read defensively so this works before and after that ships.
+        payment_notes = []
+        if (
+            event.registration_fee > 0
+            and registration.status == "pending"
+            and not registration.payment_confirmed
+        ):
+            online = [t for t in txs if t.provider in _ONLINE_PROVIDERS]
+            if not online:
+                payment_notes.append(_("No online checkout started"))
+            elif online[0].status == "pending":
+                payment_notes.append(
+                    _("Checkout open since %(time)s")
+                    % {"time": _short_time(online[0].created_at)}
+                )
+            else:
+                payment_notes.append(
+                    _("Checkout abandoned %(time)s")
+                    % {"time": _short_time(online[0].created_at)}
+                )
+            reminder_at = getattr(registration, "checkout_reminder_at", None)
+            if reminder_at:
+                payment_notes.append(
+                    _("Reminder sent %(time)s") % {"time": _short_time(reminder_at)}
+                )
+        if registration.status == "cancelled" and getattr(
+            registration, "checkout_released_at", None
+        ):
+            payment_notes.append(_("Seat released: checkout not paid"))
 
         arrival = {
             "applied": _("Awaiting selection"),
@@ -2754,6 +2869,12 @@ def _coach_roster_rows(registrations, event):
             "no_show": _("No-show"),
             "waitlist": _("Waitlist"),
         }.get(registration.status, registration.get_status_display())
+        if registration.status == "confirmed" and started and not event.is_cancelled:
+            arrival = _("Never checked in")
+        elif registration.status == "cancelled" and registration.cancelled_at:
+            arrival = _("Cancelled %(time)s") % {
+                "time": _short_time(registration.cancelled_at)
+            }
         # Cash-at-the-door seat holders are asked ~2 days before whether they
         # are still coming; show the answer next to the payment label.
         attendance_check = ""
@@ -2762,15 +2883,27 @@ def _coach_roster_rows(registrations, event):
                 attendance_check = _("Coming ✓")
             elif registration.attendance_check_sent_at:
                 attendance_check = _("Asked, no answer")
+        status_label, status_tone = _roster_status(registration, event, started)
         rows.append(
             {
                 "registration": registration,
                 "payment": payment,
+                "payment_tone": payment_tone,
+                "payment_notes": payment_notes,
                 "arrival": arrival,
                 "attendance_check": attendance_check,
+                "status_label": status_label,
+                "status_tone": status_tone,
             }
         )
     return rows
+
+
+def _short_time(value):
+    """Local "Nov 20, 18:42" for roster notes."""
+    from django.utils import formats
+
+    return formats.date_format(timezone.localtime(value), "M j, H:i")
 
 
 @coach_required
@@ -2843,6 +2976,95 @@ def _menu_summary(registrations):
         ((name, count, total) for name, (count, total) in rows.items()),
         key=lambda row: (-row[1], row[0]),
     )
+
+
+def _roster_status_tiles(event, bucket_counts, cancelled_count, total, started):
+    """Clickable count tiles for the coach event page, one per status.
+
+    Core statuses always show (a zero is information: nobody waiting); the
+    curated-only and after-the-fact ones only when someone is in them.
+    """
+    paid = event.registration_fee > 0
+    confirmed_label = (
+        _("Not checked in") if started and not event.is_cancelled else _("Confirmed")
+    )
+    confirmed_hint = (
+        _("seat, never scanned")
+        if started and not event.is_cancelled
+        else _("expected at the door")
+    )
+    spec = [
+        ("all", _("All"), total, "purple", _("active registrations"), True),
+        (
+            "confirmed",
+            confirmed_label,
+            bucket_counts["confirmed"],
+            "red" if started and not event.is_cancelled else "green",
+            confirmed_hint,
+            True,
+        ),
+        (
+            "attended",
+            _("Checked in"),
+            bucket_counts["attended"],
+            "emerald",
+            _("scanned at the door"),
+            True,
+        ),
+        (
+            "pending",
+            _("Pending payment") if paid else _("Pending"),
+            bucket_counts["pending"],
+            "amber",
+            _("seat held, not paid") if paid else _("seat held"),
+            paid or bucket_counts["pending"] > 0,
+        ),
+        (
+            "waitlist",
+            _("Waitlist"),
+            bucket_counts["waitlist"],
+            "yellow",
+            _("no seat yet"),
+            True,
+        ),
+        (
+            "applied",
+            _("Applications"),
+            bucket_counts["applied"],
+            "purple",
+            _("awaiting selection"),
+            bucket_counts["applied"] > 0,
+        ),
+        (
+            "not_selected",
+            _("Not selected"),
+            bucket_counts["not_selected"],
+            "gray",
+            _("no place given"),
+            bucket_counts["not_selected"] > 0,
+        ),
+        (
+            "no_show",
+            _("No-show"),
+            bucket_counts["no_show"],
+            "red",
+            _("recorded as no-show"),
+            bucket_counts["no_show"] > 0,
+        ),
+        (
+            "cancelled",
+            _("Cancelled"),
+            cancelled_count,
+            "gray",
+            _("not counted above"),
+            True,
+        ),
+    ]
+    return [
+        {"key": key, "label": label, "count": count, "tone": tone, "hint": hint}
+        for key, label, count, tone, hint, show in spec
+        if show
+    ]
 
 
 @coach_required
@@ -2981,17 +3203,16 @@ def coach_event_detail(request, event_id):
 
     curated_groups_panel = coach_group_panel(event, all_regs, blocked_user_pairs=pairs)
 
-    # Status filter — controls which section(s) the template renders
+    # Status filter — one tile per status bucket, plus the legacy aliases.
     status_filter = request.GET.get("status", "all")
-    status_filters = ("all", "confirmed", "waitlist", "other", "applied")
+    status_filter = ROSTER_FILTER_ALIASES.get(status_filter, status_filter)
+    status_filters = ("all", "cancelled", "payment_due", "payment_complete")
+    status_filters += ROSTER_BUCKET_ORDER
     if curated_groups_panel is not None:
         status_filters += ("groups",)
-    if event.uses_curated_registration:
-        status_filters += ("checked_in",)
-        if event.registration_fee > 0:
-            status_filters += ("payment_due", "payment_complete")
     if status_filter not in status_filters:
         status_filter = "all"
+    view_mode = "cards" if request.GET.get("view") == "cards" else "list"
 
     # Batch-query latest ProfileSubmission per registered user
     user_ids = [r.user_id for r in all_regs]
@@ -3023,15 +3244,62 @@ def coach_event_detail(request, event_id):
     )
     checked_in_count = sum(r.status == "attended" for r in all_regs)
     expected_count = sum(r.status == "confirmed" for r in all_regs)
-    roster_registrations = all_regs
-    if status_filter == "payment_due":
+    bucket_counts = {key: 0 for key in ROSTER_BUCKET_ORDER}
+    for r in all_regs:
+        if r.status in bucket_counts:
+            bucket_counts[r.status] += 1
+    cancelled_regs = []
+    if status_filter == "cancelled":
+        cancelled_regs = list(
+            EventRegistration.objects.filter(event=event, status="cancelled")
+            .select_related("user__crushprofile", "preference")
+            .order_by("-cancelled_at", "-registered_at")
+        )
+        cancelled_count = len(cancelled_regs)
+    else:
+        cancelled_count = EventRegistration.objects.filter(
+            event=event, status="cancelled"
+        ).count()
+
+    bucket_rank = {key: i for i, key in enumerate(ROSTER_BUCKET_ORDER)}
+    if status_filter == "all":
+        roster_registrations = sorted(
+            all_regs, key=lambda r: bucket_rank.get(r.status, len(bucket_rank))
+        )
+    elif status_filter == "cancelled":
+        roster_registrations = cancelled_regs
+    elif status_filter == "payment_due":
         roster_registrations = [
             r for r in all_regs if r.status == "pending" and not r.payment_confirmed
         ]
     elif status_filter == "payment_complete":
         roster_registrations = [r for r in all_regs if r.payment_confirmed]
-    elif status_filter == "checked_in":
-        roster_registrations = [r for r in all_regs if r.status == "attended"]
+    elif status_filter == "groups":
+        roster_registrations = []
+    else:
+        roster_registrations = [r for r in all_regs if r.status == status_filter]
+    roster_rows = _coach_roster_rows(
+        roster_registrations,
+        event,
+        _roster_payments_by_registration(roster_registrations),
+    )
+    # Section headers in the All view: one per status, with its count.
+    for row in roster_rows:
+        row["group_label"] = row["status_label"]
+    if status_filter == "all":
+        previous = None
+        for row in roster_rows:
+            status = row["registration"].status
+            row["group_start"] = status != previous
+            row["group_count"] = bucket_counts.get(status, 0)
+            previous = status
+            if status == "waitlist":
+                row["group_label"] = _("Waitlist")
+
+    started = event.date_time <= timezone.now()
+    status_tiles = _roster_status_tiles(
+        event, bucket_counts, cancelled_count, len(all_regs), started
+    )
     waitlist_count = len(all_waitlisted)
     other_count = len(all_other)
     spots_remaining = max(0, event.max_participants - seat_holding_count)
@@ -3210,8 +3478,11 @@ def coach_event_detail(request, event_id):
         "other_count": other_count,
         "spots_remaining": spots_remaining,
         "total_registrations": len(all_regs),
-        "roster_rows": _coach_roster_rows(roster_registrations, event),
+        "roster_rows": roster_rows,
         "status_filter": status_filter,
+        "status_tiles": status_tiles,
+        "cancelled_count": cancelled_count,
+        "view_mode": view_mode,
         "curated_groups_panel": curated_groups_panel,
         "curated_stage_label": curated_stage_label,
         "gender_pool_stats": gender_pool_stats,
