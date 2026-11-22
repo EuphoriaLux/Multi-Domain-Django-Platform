@@ -19,15 +19,6 @@
         </p>
     </div>
 
-    {% if open_queue_count %}
-    <div class="mb-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-amber-800 dark:text-amber-200 mb-0">
-            {% blocktrans count counter=open_queue_count %}{{ counter }} older coach-led connection is still open.{% plural %}{{ counter }} older coach-led connections are still open.{% endblocktrans %}
-        </p>
-        <a href="{% url 'crush_lu:coach_connections' %}?status=all" class="text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">{% trans "Open coach queue" %} &rarr;</a>
-    </div>
-    {% endif %}
-
     <!-- Counters: computed from exactly the matches listed below (before the chat filter) -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
         <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 text-center">

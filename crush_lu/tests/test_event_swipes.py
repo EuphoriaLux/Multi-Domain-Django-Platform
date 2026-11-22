@@ -422,9 +422,7 @@ class TestCoachMatches:
         response = client.get(reverse("crush_lu:coach_matches"))
         assert response.status_code == 302
 
-    def test_completed_older_connection_is_listed_open_lead_is_not(
-        self, client, room
-    ):
+    def test_completed_older_connection_is_listed_open_lead_is_not(self, client, room):
         coach = _coach()
         shared = EventConnection.objects.create(
             requester=room["bea"],
@@ -445,7 +443,6 @@ class TestCoachMatches:
         response, rows = self._rows(client, coach)
         assert rows == [shared]
         assert response.context["counters"]["matches"] == 1
-        assert response.context["open_queue_count"] == 1
         assert "secret note" not in response.content.decode()
 
     def test_blocked_pair_is_hidden(self, client, room):
@@ -511,19 +508,19 @@ class TestCoachMatches:
             reverse("crush_lu:coach_matches") + f"?event={room['event'].pk}"
         )
 
-    def test_matches_stay_out_of_the_connection_queue(self, client, room):
+    def test_old_connection_queue_url_redirects_to_matches(self, client, room):
         coach = _coach()
-        room["event"].coaches.add(coach)
-        self._match(room)
         _login(client, coach.user)
-        response = client.get(reverse("crush_lu:coach_connections") + "?status=all")
-        assert response.status_code == 200
-        assert not any(
-            c.flow == EventConnection.FLOW_SWIPE
-            for c in response.context["page_obj"].object_list
+        response = client.get(
+            reverse("crush_lu:coach_connections")
+            + f"?status=needs_review&event={room['event'].pk}"
         )
-        # Queue counters count only rows the queue can show (no swipe matches).
-        assert response.context["shared_count"] == 0
+        assert response.status_code == 302
+        assert response.url == (
+            reverse("crush_lu:coach_matches") + f"?event={room['event'].pk}"
+        )
+        bare = client.get(reverse("crush_lu:coach_connections"))
+        assert bare.url == reverse("crush_lu:coach_matches")
 
 
 # ---------------------------------------------------------------------------

@@ -377,19 +377,6 @@ class TestCoachLeadPrivacy:
         assert lead.assigned_coach == coach
         return lead
 
-    def test_non_routed_coach_sees_neither_the_pair_nor_the_note(self, client):
-        """A second coach must not learn the pair exists from the list view."""
-        routed = _make_coach("routed1@example.com")
-        other = _make_coach("other1@example.com")
-        lead = self._routed_lead(routed)
-        _login(client, other.user)
-
-        response = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
-
-        assert response.status_code == 200
-        assert b"I could not stop smiling." not in response.content
-        assert lead.requester.username.encode() not in response.content
-
     def test_non_routed_coach_gets_404_on_review_get(self, client):
         """Authorization applies to GET, not just POST — and the 404 must not
         disclose that the lead exists."""
@@ -412,7 +399,6 @@ class TestCoachLeadPrivacy:
         lead = self._routed_lead(routed)
         _login(client, routed.user)
 
-        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -420,8 +406,6 @@ class TestCoachLeadPrivacy:
             )
         )
 
-        assert listing.status_code == 200
-        assert b"I could not stop smiling." in listing.content
         assert review.status_code == 200
         assert b"I could not stop smiling." in review.content
 
@@ -504,7 +488,6 @@ class TestCoachLeadPrivacy:
         assert lead.assigned_coach is None
         _login(client, triager.user)
 
-        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -513,10 +496,8 @@ class TestCoachLeadPrivacy:
         )
 
         # Listed and openable so it can be claimed...
-        assert listing.status_code == 200
         assert review.status_code == 200
-        # ...but the note itself stays shut on both surfaces.
-        assert b"Pool lead note." not in listing.content
+        # ...but the note itself stays shut.
         assert b"Pool lead note." not in review.content
         assert b"Claim this lead to read the note." in review.content
 
@@ -577,7 +558,6 @@ class TestCodexRound2:
         )
         _login(client, stranger.user)
 
-        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -586,33 +566,9 @@ class TestCodexRound2:
         )
 
         # The completed introduction is still visible as a row...
-        assert listing.status_code == 200
         assert review.status_code == 200
         # ...but the note is not.
-        assert b"Shared-state note." not in listing.content
         assert b"Shared-state note." not in review.content
-
-    def test_routed_coach_keeps_the_note_after_shared(self, client):
-        routed = _make_coach("r2_routed2@example.com")
-        crusher = _plain("r2_ka", gender="M")
-        target = _plain("r2_kb", gender="F")
-        event = _ended_event()
-        _attend(crusher, event)
-        _attend(target, event)
-        EventConnection.objects.create(
-            requester=crusher,
-            recipient=target,
-            event=event,
-            flow=EventConnection.FLOW_CRUSH,
-            requester_note="Shared-state note.",
-            assigned_coach=routed,
-            status="shared",
-        )
-        _login(client, routed.user)
-
-        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
-
-        assert b"Shared-state note." in listing.content
 
     # --- P1: member overview discloses the pair ---
 

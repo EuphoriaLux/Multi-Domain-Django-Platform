@@ -705,47 +705,6 @@ class TestReminderCommand:
 class TestCodexRound1Fixes:
     """Findings from the Codex review of this PR."""
 
-    # --- P1: the global coach connection list leaked crush leads ---
-
-    def _listed_lead(self):
-        routed = _make_coach("cx_routed@example.com")
-        crusher, _ = _make_user("cx_crusher@example.com", "M")
-        target, _ = _make_user("cx_target@example.com", "F")
-        lead = _lead(
-            crusher,
-            target,
-            _make_event(),
-            routed,
-            requester_note="Codex round note.",
-        )
-        return routed, crusher, lead
-
-    def _list_url(self):
-        return reverse("crush_lu:coach_connections")
-
-    def test_unrelated_coach_sees_no_crush_row_on_the_connections_page(self):
-        """The routed-coach queue and the detail guard are moot if this page
-        still renders every lead with its note."""
-        _, crusher, _ = self._listed_lead()
-        stranger = _make_coach("cx_stranger@example.com")
-        client = Client()
-        _login(client, stranger.user)
-
-        response = client.get(self._list_url(), {"status": "all"})
-
-        assert response.status_code == 200
-        assert b"Codex round note." not in response.content
-        assert crusher.username.encode() not in response.content
-
-    def test_routed_coach_still_sees_their_lead_and_note(self):
-        routed, crusher, _ = self._listed_lead()
-        client = Client()
-        _login(client, routed.user)
-
-        response = client.get(self._list_url(), {"status": "all"})
-
-        assert b"Codex round note." in response.content
-
     # --- P2: an unrouted pool lead exposed its note on the detail page ---
 
     def test_pool_lead_withholds_the_note_on_both_surfaces(self):
@@ -757,7 +716,6 @@ class TestCodexRound1Fixes:
         client = Client()
         _login(client, triager.user)
 
-        listing = client.get(self._list_url(), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -765,11 +723,9 @@ class TestCodexRound1Fixes:
             )
         )
 
-        # Listed and openable so it stays claimable...
-        assert listing.status_code == 200
+        # Openable so it stays claimable, but the note is shut until a
+        # coach owns it.
         assert review.status_code == 200
-        # ...but the note is shut on both until a coach owns it.
-        assert b"Pool note." not in listing.content
         assert b"Pool note." not in review.content
 
     # --- P1: a failed push must not consume the reminder ---
@@ -1119,9 +1075,6 @@ class TestCrushLeadWorkspace:
         body = client.get(self._url(lead)).content.decode()
         assert body.count("Introduction made") == 3
         assert "Contacts shared" not in body and "Contacts Shared" not in body
-        listing = client.get(reverse("crush_lu:coach_connections")).content.decode()
-        assert "Introduction made" in listing
-        assert "Contacts Shared" not in listing
 
     def test_share_is_refused_until_both_sides_consented(self):
         coach, lead = self._lead(status="coach_approved")
@@ -1208,7 +1161,6 @@ class TestStaleCoachRecovery:
         client = Client()
         _login(client, active.user)
 
-        listing = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
         review = client.get(
             reverse(
                 "crush_lu:coach_connection_review",
@@ -1216,7 +1168,6 @@ class TestStaleCoachRecovery:
             )
         )
 
-        assert listing.status_code == 200
         assert review.status_code == 200
         assert review.context["lead_needs_claim"] is True
 
@@ -1335,42 +1286,6 @@ class TestCodexRound2Robustness:
         assert result["truncated"] is True
         # The remainder is still eligible for the next run.
         assert reminder_candidates().count() == 1
-
-    def test_a_declined_reciprocal_is_not_shown_as_a_mutual_match(self):
-        """The legacy flow-blind annotation would tell the coach the
-        recipient had declared a crush, after that lead closed."""
-        coach = _make_coach("rb_mut@example.com")
-        user_a, _ = _make_user("rb_ma@example.com", "M")
-        user_b, _ = _make_user("rb_mb@example.com", "F")
-        event = _make_event()
-        lead = _lead(user_a, user_b, event, coach)
-        _lead(user_b, user_a, event, coach, status="declined")
-        client = Client()
-        _login(client, coach.user)
-
-        response = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
-
-        row = next(
-            c for c in response.context["page_obj"].object_list if c.pk == lead.pk
-        )
-        assert row.is_mutual_annotated is False
-
-    def test_a_live_reciprocal_crush_is_still_shown_as_mutual(self):
-        coach = _make_coach("rb_mut2@example.com")
-        user_a, _ = _make_user("rb_m2a@example.com", "M")
-        user_b, _ = _make_user("rb_m2b@example.com", "F")
-        event = _make_event()
-        lead = _lead(user_a, user_b, event, coach)
-        _lead(user_b, user_a, event, coach)
-        client = Client()
-        _login(client, coach.user)
-
-        response = client.get(reverse("crush_lu:coach_connections"), {"status": "all"})
-
-        row = next(
-            c for c in response.context["page_obj"].object_list if c.pk == lead.pk
-        )
-        assert row.is_mutual_annotated is True
 
 
 class TestClaimCannotTakeOverALead:
