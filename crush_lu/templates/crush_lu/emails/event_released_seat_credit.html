@@ -1,0 +1,26 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Your payment is now Crush Credit" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% trans "Your payment is now Crush Credit" %}{% endblock %}
+
+{% block content %}
+<h2>{% blocktrans with name=display_name %}Hey {{ name }}!{% endblocktrans %}</h2>
+
+<p>{% blocktrans with title=event.title %}Your payment for <strong>{{ title }}</strong> arrived after we had released your unpaid seat, and the event filled up in the meantime.{% endblocktrans %}</p>
+
+<p><strong>{% blocktrans with amount=credit_total|floatformat:2 %}We've added {{ amount }} EUR in Crush Credit to your account.{% endblocktrans %}</strong></p>
+<p>{% trans "It is ready to use on any Crush.lu event and keeps the applicable credit expiry." %}</p>
+
+{% if cash_refund_eligible %}
+<p>{% trans "Would you rather have your money back? Reply to this email and we will refund it to the payment method you used." %}</p>
+{% endif %}
+
+<a href="{{ events_url }}" class="button">{% trans "Browse Upcoming Events" %}</a>
+
+<p>
+    {% trans "Best," %}<br>
+    <strong>{% trans "The Crush.lu Team" %}</strong>
+</p>
+{% endblock %}

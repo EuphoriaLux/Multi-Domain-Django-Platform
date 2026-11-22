@@ -48942,6 +48942,48 @@ msgstr "Dein Lauf wurde auf Station 1 zurückgesetzt."
 msgid "You have not joined this hunt yet — press Play to start."
 msgstr "Du bist dieser Runde noch nicht beigetreten — tippe zum Starten auf Spielen."
 
+msgid "Your seat for {title} is still waiting"
+msgstr "Dein Platz für {title} wartet noch auf dich"
+
+msgid "Finish your payment"
+msgstr "Schließe deine Zahlung ab"
+
+#, python-format
+msgid "You started paying for your seat at <strong>%(title)s</strong>, but the payment was not completed."
+msgstr "Du hast angefangen, deinen Platz für <strong>%(title)s</strong> zu bezahlen, aber die Zahlung wurde nicht abgeschlossen."
+
+#, python-format
+msgid "We are holding your seat for about %(minutes)s more minutes. Finish your payment now to keep it."
+msgstr "Wir halten deinen Platz noch etwa %(minutes)s Minuten für dich frei. Schließe jetzt deine Zahlung ab, damit er dir sicher ist."
+
+msgid "Finish my payment"
+msgstr "Zahlung abschließen"
+
+msgid "After that, the seat goes back to the pool so someone else can take it. If you changed your mind, you don't need to do anything."
+msgstr "Danach wird der Platz wieder freigegeben, damit jemand anderes ihn nehmen kann. Wenn du es dir anders überlegt hast, musst du nichts tun."
+
+msgid "Your payment for {title} is now Crush Credit"
+msgstr "Deine Zahlung für {title} ist jetzt Crush Credit"
+
+msgid "Your payment is now Crush Credit"
+msgstr "Deine Zahlung ist jetzt Crush Credit"
+
+#, python-format
+msgid "Your payment for <strong>%(title)s</strong> arrived after we had released your unpaid seat, and the event filled up in the meantime."
+msgstr "Deine Zahlung für <strong>%(title)s</strong> ist erst eingegangen, nachdem wir deinen unbezahlten Platz freigegeben hatten, und das Event ist inzwischen voll."
+
+msgid "Would you rather have your money back? Reply to this email and we will refund it to the payment method you used."
+msgstr "Hättest du lieber dein Geld zurück? Antworte auf diese E-Mail und wir erstatten es auf das Zahlungsmittel, das du verwendet hast."
+
+msgid "Paid after the unpaid seat was released"
+msgstr "Bezahlt, nachdem der unbezahlte Platz freigegeben wurde"
+
+msgid "When the 'finish your payment' step ran for an abandoned online checkout (sent, or skipped for an unsubscribed member)"
+msgstr "Wann der Schritt „Zahlung abschließen“ für einen abgebrochenen Online-Checkout lief (gesendet oder für ein abgemeldetes Mitglied übersprungen)"
+
+msgid "When this unpaid seat was released because its online checkout was abandoned. A payment that still lands afterwards re-confirms the seat if one is free, otherwise it becomes Crush Credit."
+msgstr "Wann dieser unbezahlte Platz freigegeben wurde, weil der Online-Checkout abgebrochen wurde. Eine später noch eingehende Zahlung bestätigt den Platz erneut, wenn einer frei ist, sonst wird sie zu Crush Credit."
+
 #: crush_lu/views_coach.py
 msgid "Not checked in"
 msgstr "Nicht eingecheckt"

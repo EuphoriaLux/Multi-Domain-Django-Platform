@@ -71,6 +71,9 @@ class CrushCredit(models.Model):
         CURATED_GROUP_UNAVAILABLE = "curated_group_unavailable", _(
             "Curated group became unavailable"
         )
+        SEAT_RELEASED_UNPAID = "seat_released_unpaid", _(
+            "Paid after the unpaid seat was released"
+        )
         GOODWILL = "goodwill", _("Goodwill")
         REFERRAL = "referral", _("Referral")
 
