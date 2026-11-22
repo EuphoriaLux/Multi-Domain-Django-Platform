@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 
 from django.core.cache import cache
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 
 from crush_lu.models.events import EventRegistration
@@ -100,9 +100,11 @@ def candidate_registrations(now=None):
     now = now or timezone.now()
     return (
         EventRegistration.objects.filter(
+            # A release from an earlier registration cycle is history only.
+            Q(checkout_released_at__isnull=True)
+            | Q(checkout_released_at__lt=F("registered_at")),
             status="pending",
             payment_confirmed=False,
-            checkout_released_at__isnull=True,
             event__is_cancelled=False,
             event__registration_fee__gt=0,
             event__date_time__gt=now,
@@ -288,7 +290,6 @@ def release_seat(registration_id, *, registered_at, now=None):
             if (
                 registration.status != "pending"
                 or registration.payment_confirmed
-                or registration.checkout_released_at is not None
                 or registration.registered_at != registered_at
                 or event.is_cancelled
                 or event.uses_curated_registration

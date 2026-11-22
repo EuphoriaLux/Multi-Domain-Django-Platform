@@ -1877,15 +1877,33 @@ def _released_seat_is_free(reg):
     return True
 
 
-def _settle_capture_for_released_seat(locked, reg):
+def _capture_is_for_released_seat(locked, reg):
+    """Whether ``locked`` was opened for a seat the sweep later released.
+
+    ``checkout_released_at`` is kept across re-registration, so the answer
+    survives the member signing up again (onto the waitlist, say) before the
+    late payment lands. A seat the member holds again goes through the
+    ordinary path instead.
+    """
+    return (
+        reg.checkout_released_at is not None
+        and locked.created_at <= reg.checkout_released_at
+        and reg.status in ("cancelled", "waitlist")
+    )
+
+
+def _settle_capture_for_released_seat(locked, reg, resale_source=None):
     """Apply a capture for a seat the abandoned-checkout sweep released.
 
     Re-confirms the seat when the event has not started, the amount still
-    matches the fee and a seat is free for this member. Otherwise the payment
-    stays PAID as the record of the charge and its full value becomes Crush
-    Credit (cash on request), with an email saying so. Curated events are never
-    released by the sweep, so no curated-group rule applies here. The caller
-    holds the payment, event and registration locks.
+    matches the fee and a seat is free for this member, and then settles any
+    resale claim the seat carried (it may itself have been a waitlist
+    replacement for a late canceller), as the ordinary confirmation does.
+    Otherwise the payment stays PAID as the record of the charge and its full
+    value becomes Crush Credit (cash on request), with an email saying so.
+    Curated events are never released by the sweep, so no curated-group rule
+    applies here. The caller holds the payment, event and registration locks
+    (and the resale source's, as ``_apply_paid_checkout`` takes them).
     """
     from crush_lu.services.credits import credit_registration_for_released_seat
 
@@ -1902,6 +1920,18 @@ def _settle_capture_for_released_seat(locked, reg):
         reg.cancelled_at = None
         reg.checkout_released_at = None
         reg.save()
+        resale_credits = settle_pending_resale_credit(
+            reg, source_registration=resale_source
+        )
+        if resale_credits:
+            transaction.on_commit(
+                partial(
+                    _send_member_cancellation_safely,
+                    resale_source or reg,
+                    resale_credits,
+                    recipient_user=resale_credits[0].user,
+                )
+            )
         _generate_checkin_token(reg)
         logger.warning(
             "Payment %s completed after registration %s was released for an "
@@ -2131,8 +2161,8 @@ def _apply_paid_checkout(tx_obj, data):
             # policy below (nothing inside 48h) is the wrong remedy: give the
             # seat back if one is still free, otherwise the full value as
             # Crush Credit, refundable on request.
-            if reg.status == "cancelled" and reg.checkout_released_at is not None:
-                _settle_capture_for_released_seat(locked, reg)
+            if _capture_is_for_released_seat(locked, reg):
+                _settle_capture_for_released_seat(locked, reg, resale_source)
                 return
 
             # The member released this seat while the SumUp widget was still

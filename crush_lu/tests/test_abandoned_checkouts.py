@@ -330,17 +330,24 @@ class AbandonedCheckoutTests(CreditFixture):
         self.assertEqual(self.seat.status, "cancelled")
         self.assertIsNone(_resale_claim_from(self.seat, self.target))
 
-    def test_re_registration_clears_the_markers(self):
+    def test_re_registration_starts_a_fresh_cycle(self):
         self._checkout(PaymentTransaction.Status.CANCELLED, minutes_ago=200)
         self._run()
         self._run(minutes_later=20)
+        # The sweep ran on a simulated clock 20 minutes ahead; put the release
+        # back in the real past before the member signs up again.
+        EventRegistration.objects.filter(pk=self.seat.pk).update(
+            checkout_released_at=timezone.now() - timedelta(minutes=5)
+        )
         self.client.force_login(self.buyer)
         response = self.client.post(f"/en/events/{self.target.pk}/register/")
         self.assertIn(response.status_code, (200, 302))
         self.seat.refresh_from_db()
         self.assertEqual(self.seat.status, "pending")
-        self.assertIsNone(self.seat.checkout_released_at)
         self.assertIsNone(self.seat.checkout_reminder_at)
+        # The release stays as history, but no longer counts for this cycle.
+        self.assertIsNotNone(self.seat.checkout_released_at)
+        self.assertLess(self.seat.checkout_released_at, self.seat.registered_at)
 
     # -- a payment that lands after the release ------------------------------
 
@@ -403,6 +410,47 @@ class AbandonedCheckoutTests(CreditFixture):
         ):
             Client(HTTP_HOST="crush.lu").post(WEBHOOK, {"id": "tr_latepay01"})
         self.assertEqual(CrushCredit.objects.filter(user=self.buyer).count(), 1)
+
+    def test_late_payment_after_re_registering_onto_the_waitlist_is_credited(self):
+        self._release()
+        self._fill_other_seat("a@crush.lu")
+        self._fill_other_seat("b@crush.lu")
+        # The member signs up again; the event is full, so they wait.
+        self.client.force_login(self.buyer)
+        self.client.post(f"/en/events/{self.target.pk}/register/")
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.status, "waitlist")
+        # The checkout from the released cycle pays late.
+        tx = self._checkout(
+            PaymentTransaction.Status.PENDING,
+            minutes_ago=300,
+            payment_id="tr_latepay01",
+        )
+        PaymentTransaction.objects.filter(pk=tx.pk).update(
+            created_at=self.seat.checkout_released_at - timedelta(minutes=5)
+        )
+        with mock.patch(
+            REQUEST, return_value=_payment("paid", payment_id="tr_latepay01")
+        ), self.captureOnCommitCallbacks(execute=True):
+            Client(HTTP_HOST="crush.lu").post(WEBHOOK, {"id": "tr_latepay01"})
+        credit = CrushCredit.objects.get(user=self.buyer)
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RELEASED_UNPAID)
+        self.assertTrue(credit.cash_refund_eligible)
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.status, "waitlist")
+        self.assertFalse(self.seat.payment_confirmed)
+
+    def test_restored_replacement_settles_the_resale_claim_it_carried(self):
+        self._release()
+        with mock.patch(
+            "crush_lu.views_payments.settle_pending_resale_credit",
+            return_value=[],
+        ) as settle:
+            self._late_capture()
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.status, "confirmed")
+        settle.assert_called_once()
+        self.assertEqual(settle.call_args.args[0].pk, self.seat.pk)
 
     # -- endpoint -----------------------------------------------------------
 

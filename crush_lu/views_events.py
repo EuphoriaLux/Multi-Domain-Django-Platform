@@ -147,7 +147,11 @@ def _resale_claim_from(source, event):
     # money, and no payment is still open on it (the sweep only releases once
     # every checkout has ended), so there is nothing to share back. A payment
     # that lands later anyway is settled by _settle_capture_for_released_seat.
-    if source.checkout_released_at is not None and not source.payment_confirmed:
+    if (
+        source.checkout_released_at is not None
+        and source.checkout_released_at >= source.registered_at
+        and not source.payment_confirmed
+    ):
         return None
 
     source_payment = None
@@ -2145,9 +2149,12 @@ def event_register(request, event_id):
                     # asked afresh (and an old link no longer matches it).
                     registration.attendance_check_sent_at = None
                     registration.attendance_confirmed_at = None
-                    # Nor does an abandoned checkout's reminder or release.
+                    # Nor does an abandoned checkout's reminder. Its release
+                    # time stays: a payment from that checkout can still land
+                    # and must find its remedy (views_payments
+                    # _capture_is_for_released_seat). The sweep and the resale
+                    # rule only count a release inside the current cycle.
                     registration.checkout_reminder_at = None
-                    registration.checkout_released_at = None
                 else:
                     registration = form.save(commit=False)
                     registration.event = locked_event

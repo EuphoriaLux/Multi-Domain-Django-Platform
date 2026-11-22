@@ -1974,8 +1974,10 @@ class EventRegistration(models.Model):
     # the AbandonedCheckoutSweep timer). A member who opens the payment page and
     # leaves holds a "pending" seat; on 2026-11-20 two such seats blocked two of
     # the sixteen women's places at Quiz Night #28 until the event. The sweep
-    # sends one "finish your payment" email, then releases the seat. Both are
-    # cleared when the row starts a new registration cycle.
+    # sends one "finish your payment" email, then releases the seat. A new
+    # registration cycle clears the reminder but keeps the release time, so a
+    # late payment from the released checkout still finds its remedy; only a
+    # release at or after ``registered_at`` counts for the current cycle.
     checkout_reminder_at = models.DateTimeField(
         null=True,
         blank=True,
