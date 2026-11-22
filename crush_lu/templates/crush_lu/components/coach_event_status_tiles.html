@@ -1,0 +1,25 @@
+{% load i18n %}{% comment %}
+Status tiles on the coach event page. Each tile is one registration status
+and doubles as the filter for the list below; apart from Cancelled the counts
+add up to All. Expects `tiles`, `status_filter`, `view_mode`, `event`,
+`spots_remaining`, `seat_holding_count`.
+{% endcomment %}
+<div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-{% if tiles|length > 6 %}8{% else %}7{% endif %} gap-3 mb-6" data-status-tiles>
+    {% for tile in tiles %}
+    <a href="?status={{ tile.key }}{% if view_mode == 'cards' %}&amp;view=cards{% endif %}#attendees" data-status-tile="{{ tile.key }}"
+       class="block rounded-xl p-3 border transition-colors {% if status_filter == tile.key %}border-crush-purple ring-2 ring-crush-purple/40 bg-white dark:bg-gray-800{% else %}border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-crush-purple/50{% endif %}"
+       {% if status_filter == tile.key %}aria-current="true"{% endif %}>
+        <span class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full flex-shrink-0 {% if tile.tone == 'green' %}bg-green-500{% elif tile.tone == 'emerald' %}bg-emerald-500{% elif tile.tone == 'red' %}bg-red-500{% elif tile.tone == 'amber' %}bg-amber-500{% elif tile.tone == 'yellow' %}bg-yellow-400{% elif tile.tone == 'purple' %}bg-crush-purple{% else %}bg-gray-400{% endif %}"></span>
+            <span class="text-xs font-medium text-gray-600 dark:text-gray-300 truncate">{{ tile.label }}</span>
+        </span>
+        <span class="block text-2xl font-bold tabular-nums mt-1 {% if tile.tone == 'red' and tile.count %}text-red-600 dark:text-red-400{% else %}text-gray-900 dark:text-white{% endif %}">{{ tile.count }}</span>
+        <span class="block text-[11px] text-gray-500 dark:text-gray-400 truncate">{{ tile.hint }}</span>
+    </a>
+    {% endfor %}
+    <div class="rounded-xl p-3 border border-dashed border-gray-300 dark:border-gray-600" data-status-tile="seats">
+        <span class="text-xs font-medium text-gray-600 dark:text-gray-300">{% trans "Free seats" %}</span>
+        <span class="block text-2xl font-bold tabular-nums mt-1 text-blue-600 dark:text-blue-400">{{ spots_remaining }}</span>
+        <span class="block text-[11px] text-gray-500 dark:text-gray-400">{% blocktrans with held=seat_holding_count max=event.max_participants %}{{ held }} of {{ max }} held{% endblocktrans %}</span>
+    </div>
+</div>

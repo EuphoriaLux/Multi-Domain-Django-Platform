@@ -49094,3 +49094,135 @@ msgstr "Quand l'étape « finalisez votre paiement » a été exécutée pour un
 
 msgid "When this unpaid seat was released because its online checkout was abandoned. A payment that still lands afterwards re-confirms the seat if one is free, otherwise it becomes Crush Credit."
 msgstr "Quand cette place non payée a été libérée parce que son paiement en ligne a été abandonné. Un paiement qui arrive encore ensuite reconfirme la place s'il en reste une, sinon il devient du Crush Credit."
+
+#: crush_lu/views_coach.py
+msgid "Not checked in"
+msgstr "Pas enregistré"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "Waitlist #%(n)s"
+msgstr "Liste d'attente n°%(n)s"
+
+#: crush_lu/views_coach.py
+msgid "Paid online"
+msgstr "Payé en ligne"
+
+#: crush_lu/views_coach.py
+msgid "Paid cash"
+msgstr "Payé en espèces"
+
+#: crush_lu/views_coach.py
+msgid "Paid with credit"
+msgstr "Payé avec crédit"
+
+#: crush_lu/views_coach.py
+msgid "Refunded"
+msgstr "Remboursé"
+
+#: crush_lu/views_coach.py
+msgid "No online checkout started"
+msgstr "Aucun paiement en ligne commencé"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "Checkout open since %(time)s"
+msgstr "Paiement ouvert depuis %(time)s"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "Checkout abandoned %(time)s"
+msgstr "Paiement abandonné %(time)s"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "Reminder sent %(time)s"
+msgstr "Rappel envoyé %(time)s"
+
+#: crush_lu/views_coach.py
+msgid "Seat released: checkout not paid"
+msgstr "Place libérée : paiement non effectué"
+
+#: crush_lu/views_coach.py
+msgid "seat, never scanned"
+msgstr "place, jamais scanné"
+
+#: crush_lu/views_coach.py
+msgid "expected at the door"
+msgstr "attendus à l'entrée"
+
+#: crush_lu/views_coach.py
+msgid "active registrations"
+msgstr "inscriptions actives"
+
+#: crush_lu/views_coach.py
+msgid "scanned at the door"
+msgstr "scannés à l'entrée"
+
+#: crush_lu/views_coach.py
+msgid "seat held, not paid"
+msgstr "place réservée, non payée"
+
+#: crush_lu/views_coach.py
+msgid "seat held"
+msgstr "place réservée"
+
+#: crush_lu/views_coach.py
+msgid "no seat yet"
+msgstr "pas encore de place"
+
+#: crush_lu/views_coach.py
+msgid "awaiting selection"
+msgstr "en attente de sélection"
+
+#: crush_lu/views_coach.py
+msgid "no place given"
+msgstr "pas de place attribuée"
+
+#: crush_lu/views_coach.py
+msgid "recorded as no-show"
+msgstr "enregistré comme absent"
+
+#: crush_lu/views_coach.py
+msgid "not counted above"
+msgstr "non comptées ci-dessus"
+
+#: crush_lu/views_coach.py
+msgid "Free seats"
+msgstr "Places libres"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "%(held)s of %(max)s held"
+msgstr "%(held)s sur %(max)s occupées"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "%(n)s waiting"
+msgstr "%(n)s en attente"
+
+#: crush_lu/views_coach.py
+msgid "Layout"
+msgstr "Affichage"
+
+#: crush_lu/views_coach.py
+msgid "List"
+msgstr "Liste"
+
+#: crush_lu/views_coach.py
+msgid "Nobody in this group."
+msgstr "Personne dans ce groupe."
+
+#: crush_lu/views_coach.py
+msgid "Never checked in"
+msgstr "Jamais enregistré"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "Cancelled %(time)s"
+msgstr "Annulé %(time)s"
+
+#: crush_lu/views_coach.py
+#, python-format
+msgid "In at %(time)s"
+msgstr "Arrivé à %(time)s"

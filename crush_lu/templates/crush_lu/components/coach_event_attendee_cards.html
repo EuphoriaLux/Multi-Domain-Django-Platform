@@ -1,0 +1,60 @@
+{% load i18n %}{% comment %}
+Photo-card view of the same rows as coach_event_roster.html (?view=cards).
+Expects `rows`, `event`, `status_filter`.
+{% endcomment %}
+{% if rows %}
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-8" data-coach-attendee-cards>
+    {% for row in rows %}
+    {% with reg=row.registration profile=row.registration.user.crushprofile %}
+    <a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="block bg-white dark:bg-gray-800 rounded-xl shadow-sm dark:shadow-gray-900/20 overflow-hidden hover:shadow-md hover:ring-1 hover:ring-crush-purple/30 transition-all" data-roster-row="{{ reg.status }}">
+        <div class="p-4">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    {% if profile and profile.photo_1 %}
+                    <img src="{% url 'crush_lu:serve_profile_photo' reg.user_id 'photo_1' %}" alt="" class="w-12 h-12 rounded-full object-cover object-face" loading="lazy">
+                    {% else %}
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center"><span class="text-lg font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span></div>
+                    {% endif %}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <h4 class="font-semibold text-sm text-gray-900 dark:text-white truncate">{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}</h4>
+                        {% if profile.gender == 'F' %}<span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>{% elif profile.gender == 'M' %}<span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>{% elif profile.gender %}<span class="text-purple-500 text-xs" title="{{ profile.get_gender_display }}">&#9898;</span>{% endif %}
+                    </div>
+                    {% if profile %}<p class="text-xs text-gray-500 dark:text-gray-400">{% if profile.show_exact_age and profile.age %}{{ profile.age }} {% trans "years" %}{% elif profile.age_range %}{{ profile.age_range }}{% endif %}</p>{% endif %}
+                    {% if profile and profile.is_approved %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">&#10003; {% trans "Verified" %}</span>
+                    {% elif reg.latest_submission and reg.latest_submission.status == 'pending' %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">&#9679; {% trans "In Review" %}</span>
+                    {% elif reg.latest_submission and reg.latest_submission.status == 'revision' %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">&#8634; {% trans "Revision" %}</span>
+                    {% elif reg.latest_submission and reg.latest_submission.status == 'recontact_coach' %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">&#9742; {% trans "Recontact" %}</span>
+                    {% elif profile %}
+                    <span class="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">{% trans "Not Verified" %}</span>
+                    {% endif %}
+                </div>
+                <div class="flex-shrink-0 text-right">
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full {% include 'crush_lu/components/coach_badge_tone.html' with tone=row.status_tone %}" data-roster-status>{{ row.status_label }}</span>
+                    {% if reg.status == 'waitlist' and event.gender_limits_active and reg.waitlist_position_in_pool %}<p class="text-[10px] text-gray-400 dark:text-gray-500 tabular-nums mt-0.5">{% if reg.waitlist_pool == 'm' %}♂{% elif reg.waitlist_pool == 'f' %}♀{% elif reg.waitlist_pool == 'nb' %}⚬{% endif %} #{{ reg.waitlist_position_in_pool }}</p>{% endif %}
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-1">
+                <p class="text-xs"><span class="text-gray-400 dark:text-gray-500">{% trans "Payment" %}:</span> <span class="font-medium {% if row.payment_tone == 'green' %}text-green-700 dark:text-green-400{% elif row.payment_tone == 'amber' %}text-amber-700 dark:text-amber-400{% else %}text-gray-600 dark:text-gray-300{% endif %}">{{ row.payment }}</span>{% if row.attendance_check %} <span class="text-gray-500 dark:text-gray-400" data-attendance-check>({{ row.attendance_check }})</span>{% endif %}</p>
+                {% for note in row.payment_notes %}<p class="text-[11px] text-gray-500 dark:text-gray-400">{{ note }}</p>{% endfor %}
+                <p class="text-xs"><span class="text-gray-400 dark:text-gray-500">{% trans "Attendance" %}:</span> {% if reg.checked_in_at %}<span class="font-medium text-emerald-700 dark:text-emerald-400">{% blocktrans with time=reg.checked_in_at|date:"H:i" %}In at {{ time }}{% endblocktrans %}</span>{% else %}<span class="text-gray-600 dark:text-gray-300">{{ row.arrival }}</span>{% endif %}</p>
+                <p class="text-[11px] text-gray-400 dark:text-gray-500">{% trans "Registered" %}: {{ reg.registered_at|date:"M j, H:i" }}</p>
+                {% include "crush_lu/components/coach_promotion_notice.html" %}
+                {% if reg.menu_option_name %}<p class="text-xs text-crush-purple">🍷 {{ reg.menu_option_name }}{% if reg.menu_option_price is not None %} — {{ reg.menu_option_price|floatformat:"-2" }} €{% endif %}</p>{% endif %}
+                {% if event.has_food_component and reg.dietary_restrictions %}<p class="text-xs text-orange-600 dark:text-orange-400">{{ reg.dietary_restrictions }}</p>{% endif %}
+                {% if event.allow_plus_ones and reg.bringing_guest %}<p class="text-xs text-purple-600 dark:text-purple-400">+1: {{ reg.guest_name|default:_("Guest") }}</p>{% endif %}
+                {% include "crush_lu/components/registration_preference_chips.html" %}
+            </div>
+        </div>
+    </a>
+    {% endwith %}
+    {% endfor %}
+</div>
+{% else %}
+<div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 text-center mb-8"><p class="text-gray-500 dark:text-gray-400 text-sm">{% if status_filter == 'all' %}{% trans "No registrations yet." %}{% else %}{% trans "Nobody in this group." %}{% endif %}</p></div>
+{% endif %}
