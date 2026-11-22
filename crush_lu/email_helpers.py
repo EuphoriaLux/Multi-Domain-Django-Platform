@@ -201,6 +201,12 @@ TRANSACTIONAL_EMAIL_TYPES = frozenset(
         "event_attendance_check",
         "coach_curated_group_alert",
         "event_application_outcome",
+        # The one "finish your payment" email for an abandoned online checkout:
+        # about a seat the member holds and will lose (abandoned_checkouts).
+        "event_checkout_reminder",
+        # A payment that landed after that seat was released became Crush
+        # Credit: the member must hear where their money went.
+        "event_released_seat_credit",
     }
 )
 
@@ -1730,6 +1736,122 @@ def send_event_attendance_check(registration, request=None):
         subject = _("Are you still coming to {title}?").format(title=event.title)
         html_message = render_to_string(
             "crush_lu/emails/event_attendance_check.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_event_checkout_reminder(registration, request=None):
+    """The one "finish your payment" email for an abandoned online checkout.
+
+    Sent by ``release_abandoned_event_checkouts`` about 15 minutes after the
+    member left the Mollie payment page, while the seat is still held. The
+    button opens the event page, whose "Pay now" opens a fresh checkout.
+    Transactional (``TRANSACTIONAL_EMAIL_TYPES``): returns 0 without sending
+    only for a banned account or the master unsubscribe.
+
+    Returns:
+        int: Number of emails sent
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    from crush_lu.services.abandoned_checkouts import RELEASE_AFTER_REMINDER
+
+    if not can_send_email(registration.user, "event_checkout_reminder"):
+        logger.info(
+            "Skipping checkout reminder for registration %s - user unsubscribed",
+            registration.pk,
+        )
+        return 0
+
+    user = registration.user
+    event = registration.event
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    event_url = get_user_language_url(
+        user, "crush_lu:event_detail", request, kwargs={"event_id": event.id}
+    )
+    profile = getattr(user, "crushprofile", None)
+    display_name = profile.display_name if profile else user.first_name
+
+    context = get_email_context_with_unsubscribe(
+        user,
+        request,
+        registration=registration,
+        event=event,
+        display_name=display_name,
+        amount=event.registration_fee,
+        event_url=event_url,
+        hold_minutes=int(RELEASE_AFTER_REMINDER.total_seconds() // 60),
+    )
+
+    with translation.override(lang):
+        subject = _("Your seat for {title} is still waiting").format(title=event.title)
+        html_message = render_to_string(
+            "crush_lu/emails/event_checkout_reminder.html", context
+        )
+        plain_message = html_to_plain_text(html_message)
+
+    return send_domain_email(
+        subject=subject,
+        message=plain_message,
+        html_message=html_message,
+        recipient_list=[user.email],
+        request=request,
+        domain="crush.lu",
+        fail_silently=False,
+    )
+
+
+def send_released_seat_credit(registration, credits, request=None):
+    """Tell a member their payment, which landed after their unpaid seat was
+    released and the event filled, is now Crush Credit (cash on request).
+
+    Returns:
+        int: Number of emails sent
+    """
+    from django.utils import translation
+    from django.utils.translation import gettext as _
+
+    if not can_send_email(registration.user, "event_released_seat_credit"):
+        return 0
+
+    user = registration.user
+    event = registration.event
+    lang = get_user_preferred_language(user=user, request=request, default="en")
+    profile = getattr(user, "crushprofile", None)
+    display_name = profile.display_name if profile else user.first_name
+    credits = list(credits)
+
+    context = get_email_context_with_unsubscribe(
+        user,
+        request,
+        registration=registration,
+        event=event,
+        display_name=display_name,
+        credit_total=sum(credit.amount_cents for credit in credits) / 100,
+        cash_refund_eligible=any(credit.cash_refund_eligible for credit in credits),
+        event_url=get_user_language_url(
+            user, "crush_lu:event_detail", request, kwargs={"event_id": event.id}
+        ),
+        events_url=get_user_language_url(user, "crush_lu:event_list", request),
+    )
+
+    with translation.override(lang):
+        subject = _("Your payment for {title} is now Crush Credit").format(
+            title=event.title
+        )
+        html_message = render_to_string(
+            "crush_lu/emails/event_released_seat_credit.html", context
         )
         plain_message = html_to_plain_text(html_message)
 
