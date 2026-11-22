@@ -134,7 +134,7 @@ jobs:
           SECRET_KEY: 'ci-test-key'
           USE_AZURE_STORAGE: 'False'
         run: |
-          pytest -m "not playwright" --tb=short -q -x -n auto
+          pytest -m "not playwright" --tb=short -q -x -n auto --durations=25
         continue-on-error: false
 
   lint:
