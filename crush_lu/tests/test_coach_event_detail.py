@@ -936,3 +936,22 @@ class TestAttendeeStatusTiles:
         assert "data-coach-attendee-cards" in content
         assert "data-coach-event-roster" not in content
         assert content.count('data-roster-row="') == 4
+
+    def test_abandoned_checkout_sweep_stamps_show_up(self, client):
+        """#1401's reminder and release stamps reach the coach list."""
+        event, regs = self._build(starts_in_minutes=-60)
+        now = timezone.now()
+        EventRegistration.objects.filter(pk=regs["Cat"].pk).update(
+            checkout_reminder_at=now
+        )
+        EventRegistration.objects.filter(pk=regs["Eli"].pk).update(
+            checkout_released_at=now, cancelled_at=now
+        )
+        pending = self._get(client, event, status="pending").context["roster_rows"]
+        assert any(
+            str(n).startswith("Reminder sent") for n in pending[0]["payment_notes"]
+        )
+        cancelled = self._get(client, event, status="cancelled").context["roster_rows"]
+        assert "Seat released: checkout not paid" in [
+            str(n) for n in cancelled[0]["payment_notes"]
+        ]
