@@ -10,10 +10,6 @@ from django.db import transaction
 from django.db.models import (
     Q,
     Count,
-    Case,
-    When,
-    Value,
-    IntegerField,
     Avg,
     F,
     Exists,
@@ -3392,11 +3388,6 @@ def coach_event_detail(request, event_id):
         }
         mutual_count = len(mutual_user_ids)
 
-        pending_intros_mine = connections_for_event.filter(
-            assigned_coach=coach,
-            status__in=["accepted", "coach_reviewing"],
-        ).count()
-
         coach_recap = {
             "onboarded_count": len(
                 {r.user_id for r in all_regs if r.user_id in onboarded_user_ids}
@@ -3404,7 +3395,6 @@ def coach_event_detail(request, event_id):
             "attended_count": attended_count_mine,
             "senders_count": senders_count,
             "mutual_count": mutual_count,
-            "pending_intros": pending_intros_mine,
         }
 
     # Feedback aggregates (only meaningful after the event has ended).
@@ -5616,14 +5606,6 @@ def coach_matches(request):
         id__in=EventConnection.objects.filter(status="shared").values("event_id")
     ).order_by("-date_time")[:50]
 
-    # The old coach queue only matters while older leads are still open.
-    open_queue_count = (
-        EventConnection.objects.visible_to_coach(coach)
-        .exclude(flow=EventConnection.FLOW_SWIPE)
-        .filter(status__in=["pending", "accepted", "coach_reviewing", "coach_approved"])
-        .count()
-    )
-
     context = {
         "coach": coach,
         "page_obj": page_obj,
@@ -5634,7 +5616,6 @@ def coach_matches(request):
         "event_id": event_id,
         "event_stats": event_swipe_stats(event) if event else None,
         "events_with_matches": events_with_matches,
-        "open_queue_count": open_queue_count,
     }
     return render(request, "crush_lu/coach_matches.html", context)
 
@@ -5651,190 +5632,18 @@ def coach_event_matches(request):
 
 @coach_required
 def coach_connections(request):
-    """Coach view to review and manage post-event connections."""
-    coach = request.coach
+    """Old coach connection queue: now redirects to ``coach_matches``.
 
-    # Filter by event if specified
-    event_id = request.GET.get("event")
-    status_filter = request.GET.get("status", "needs_review")
-
-    # Validate status filter
-    valid_statuses = {"pending", "needs_review", "approved", "shared", "all"}
-    if status_filter not in valid_statuses:
-        status_filter = "needs_review"
-
-    # Base queryset: legacy connections stay visible to every coach, but a
-    # pre-`shared` crush lead is coach-private — only the routed coach (or
-    # any coach, while it is still an unrouted pool row) may see the pair
-    # and its `requester_note`. Without this the routed-coach queue and the
-    # detail guard are moot: this page renders both identities and the note.
-    connections_qs = (
-        EventConnection.objects.select_related(
-            "requester__crushprofile",
-            "recipient__crushprofile",
-            "event",
-            "assigned_coach__user",
-        )
-        .visible_to_coach(coach)
-        # Swipe matches need no coach work; they live read-only on
-        # coach_event_matches instead of in this action queue.
-        .exclude(flow=EventConnection.FLOW_SWIPE)
-        .order_by("-requested_at")
-    )
-
-    # Header counters must count only rows this coach could open, so they
-    # are taken from the visibility-scoped queryset (after the event / mine
-    # filters below), not from the whole table.
-    counter_base = connections_qs
-
-    # Status filter
-    if status_filter == "pending":
-        # One-way requests not yet reciprocated
-        connections_qs = connections_qs.filter(status="pending")
-    elif status_filter == "needs_review":
-        # Accepted (mutual) connections that need coach to review and approve
-        connections_qs = connections_qs.filter(
-            status__in=["accepted", "coach_reviewing"]
-        )
-    elif status_filter == "approved":
-        connections_qs = connections_qs.filter(status="coach_approved")
-    elif status_filter == "shared":
-        connections_qs = connections_qs.filter(status="shared")
-    elif status_filter == "all":
-        connections_qs = connections_qs.exclude(status="declined")
-
-    # Event filter
-    event = None
-    if event_id:
-        try:
-            event = MeetupEvent.objects.get(id=event_id)
-            connections_qs = connections_qs.filter(event=event)
-            counter_base = counter_base.filter(event=event)
-        except (MeetupEvent.DoesNotExist, ValueError):
-            pass
-
-    # Coach filter - show connections assigned to this coach, plus unassigned
-    my_connections_filter = request.GET.get("mine", "")
-    if my_connections_filter == "1":
-        mine_q = Q(assigned_coach=coach) | Q(assigned_coach__isnull=True)
-        connections_qs = connections_qs.filter(mine_q)
-        counter_base = counter_base.filter(mine_q)
-
-    # Use mutual annotation to avoid N+1 queries, then push mutual matches to the
-    # top of the list so coaches triage the most actionable rows first.
-    # Both annotations are computed: the legacy one is flow-blind, so on a
-    # crush row it would render "Mutual match" for a reciprocal declaration
-    # that has since been declined — telling the coach the recipient had once
-    # declared a crush, after that lead closed. Crush rows use the flow-aware
-    # flag instead (live reciprocal crush leads only).
-    connections_qs = (
-        connections_qs.annotate_is_mutual()
-        .annotate_is_mutual_crush()
-        .order_by("-is_mutual_annotated", "-requested_at")
-    )
-
-    # Paginate
-    paginator = Paginator(connections_qs, 20)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
-
-    # Annotate page items with next-action and progress dots so the template
-    # can show "Waiting on Sarah to consent" instead of just "Approved".
-    for conn in page_obj.object_list:
-        conn.next_action = _compute_connection_next_action(conn, coach)
-        conn.stages = _compute_connection_stages(conn)
-        conn.requester_display_name = _profile_display_name(conn.requester)
-        conn.recipient_display_name = _profile_display_name(conn.recipient)
-        # The crush note is written for the routed coach only. Unrouted pool
-        # leads stay listed so they can be claimed, but their note preview is
-        # withheld until a coach actually owns the lead.
-        # No `shared` exception: the note was written under "only your Crush
-        # Coach will read this". Completing the introduction changes who may
-        # see the *pair*, not who may read the note.
-        conn.show_requester_note = (
-            conn.flow != EventConnection.FLOW_CRUSH
-            or conn.assigned_coach_id == coach.id
-        )
-        # Flow-aware mutual flag for crush rows (see the annotation above).
-        if conn.flow == EventConnection.FLOW_CRUSH:
-            conn.is_mutual_annotated = getattr(conn, "is_mutual_crush_annotated", False)
-
-    # Batch-fetch the onboarding coach per user (the coach who approved their
-    # ProfileSubmission). Surfaced next to each avatar so the reviewing coach
-    # knows who originally onboarded the people involved.
-    user_ids = set()
-    for conn in page_obj.object_list:
-        user_ids.add(conn.requester_id)
-        user_ids.add(conn.recipient_id)
-    onboarding_by_user = {}
-    if user_ids:
-        approved_subs = (
-            ProfileSubmission.objects.filter(
-                profile__user_id__in=user_ids, status="approved"
-            )
-            .select_related("coach__user", "profile")
-            .order_by("-reviewed_at", "-id")
-        )
-        for sub in approved_subs:
-            uid = sub.profile.user_id
-            if uid in onboarding_by_user:
-                continue  # keep the most-recent approval per user
-            onboarding_by_user[uid] = sub.coach
-    for conn in page_obj.object_list:
-        conn.requester_onboarding_coach = onboarding_by_user.get(conn.requester_id)
-        conn.recipient_onboarding_coach = onboarding_by_user.get(conn.recipient_id)
-
-    # Stats for the header (single query instead of 4)
-    stats = counter_base.order_by().aggregate(
-        pending_count=Count(
-            Case(
-                When(status="pending", then=Value(1)),
-                output_field=IntegerField(),
-            )
-        ),
-        needs_review_count=Count(
-            Case(
-                When(status__in=["accepted", "coach_reviewing"], then=Value(1)),
-                output_field=IntegerField(),
-            )
-        ),
-        approved_count=Count(
-            Case(
-                When(status="coach_approved", then=Value(1)),
-                output_field=IntegerField(),
-            )
-        ),
-        shared_count=Count(
-            Case(
-                When(status="shared", then=Value(1)),
-                output_field=IntegerField(),
-            )
-        ),
-    )
-    pending_count = stats["pending_count"]
-    needs_review_count = stats["needs_review_count"]
-    approved_count = stats["approved_count"]
-    shared_count = stats["shared_count"]
-
-    # Get events that have connections for the filter dropdown
-    events_with_connections = MeetupEvent.objects.filter(
-        id__in=EventConnection.objects.values_list("event_id", flat=True).distinct()
-    ).order_by("-date_time")[:20]
-
-    context = {
-        "coach": coach,
-        "page_obj": page_obj,
-        "status_filter": status_filter,
-        "event_filter": event,
-        "event_id": event_id or "",
-        "mine_filter": my_connections_filter,
-        "pending_count": pending_count,
-        "needs_review_count": needs_review_count,
-        "approved_count": approved_count,
-        "shared_count": shared_count,
-        "events_with_connections": events_with_connections,
-    }
-    return render(request, "crush_lu/coach_connections.html", context)
+    Post-event swiping replaced the coach-led "My Crush!" leads, nothing
+    creates queue entries any more and the last open leads were closed on
+    2026-11-21. Single connections stay reachable through
+    ``coach_connection_review`` so their history remains readable.
+    """
+    url = reverse("crush_lu:coach_matches")
+    event_id = request.GET.get("event", "")
+    if event_id.isdigit():
+        url += f"?event={event_id}"
+    return redirect(url)
 
 
 @coach_required

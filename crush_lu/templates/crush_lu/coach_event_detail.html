@@ -244,8 +244,8 @@
                         <p class="text-xs text-gray-500 dark:text-gray-400">{{ mutual_connections }} {% trans "mutual" %}</p>
                     </div>
                 </div>
-                <a href="{% url 'crush_lu:coach_connections' %}?event={{ event.id }}&status=needs_review" class="text-xs font-medium text-crush-purple dark:text-purple-400 hover:underline">
-                    {% trans "Review" %} &rarr;
+                <a href="{% url 'crush_lu:coach_matches' %}?event={{ event.id }}" class="text-xs font-medium text-crush-purple dark:text-purple-400 hover:underline">
+                    {% trans "See matches" %} &rarr;
                 </a>
             </div>
         </div>
@@ -302,16 +302,6 @@
                 <p class="text-2xl font-bold {% if coach_recap.mutual_count %}text-pink-600 dark:text-pink-400{% else %}dark:text-white{% endif %}">{{ coach_recap.mutual_count }}</p>
             </div>
         </div>
-        {% if coach_recap.pending_intros %}
-        <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between flex-wrap gap-2">
-            <p class="text-sm text-amber-700 dark:text-amber-300 mb-0">
-                {% blocktrans count counter=coach_recap.pending_intros %}{{ counter }} connection still needs your introduction.{% plural %}{{ counter }} connections still need your introduction.{% endblocktrans %}
-            </p>
-            <a href="{% url 'crush_lu:coach_connections' %}?event={{ event.id }}&status=needs_review" class="inline-flex items-center gap-1 text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">
-                {% trans "Review" %} →
-            </a>
-        </div>
-        {% endif %}
         <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
             <a href="{% url 'crush_lu:coach_matches' %}?event={{ event.id }}" class="inline-flex items-center gap-1 text-sm font-medium text-crush-purple dark:text-purple-400 hover:underline">
                 {% trans "See matches" %} →
