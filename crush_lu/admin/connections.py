@@ -167,3 +167,73 @@ class ConnectionMessageAdmin(admin.ModelAdmin):
             "connection__event",
             "sender",
         )
+
+
+class EventSwipeAdmin(admin.ModelAdmin):
+    """Read-only audit of post-event swipes (decisions are final by design)."""
+
+    list_display = ("event", "swiper", "target", "liked", "created_at")
+    list_filter = ("liked", "event")
+    search_fields = ("swiper__email", "target__email", "event__title")
+    raw_id_fields = ("event", "swiper", "target")
+    date_hierarchy = "created_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class SwipeCampaignAdmin(admin.ModelAdmin):
+    """Past-event swipe campaigns (December 2026 reactivation).
+
+    Switch ``is_active`` on to open swiping and let the hourly dispatcher send
+    the message sequence at the times set here.
+    """
+
+    list_display = (
+        "name",
+        "starts_at",
+        "ends_at",
+        "is_active",
+        "messages_sent",
+        "matches",
+    )
+    list_filter = ("is_active",)
+    fieldsets = (
+        (None, {"fields": ("name", "is_active")}),
+        ("Window", {"fields": ("starts_at", "ends_at")}),
+        ("Messages", {"fields": ("reminder_1_at", "reminder_2_at", "last_call_at")}),
+    )
+
+    @admin.display(description="Messages sent")
+    def messages_sent(self, obj):
+        return obj.messages.filter(status="sent").count()
+
+    @admin.display(description="Matches")
+    def matches(self, obj):
+        from crush_lu.services.event_swipes import campaign_stats
+
+        return campaign_stats(obj)["matches"]
+
+
+class SwipeCampaignMessageAdmin(admin.ModelAdmin):
+    """Read-only send log of campaign messages."""
+
+    list_display = ("campaign", "user", "step", "channel", "status", "created_at")
+    list_filter = ("campaign", "step", "channel", "status")
+    search_fields = ("user__email",)
+    raw_id_fields = ("campaign", "user")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+class PastEventDeckOptOutAdmin(admin.ModelAdmin):
+    list_display = ("user", "created_at")
+    search_fields = ("user__email",)
+    raw_id_fields = ("user",)

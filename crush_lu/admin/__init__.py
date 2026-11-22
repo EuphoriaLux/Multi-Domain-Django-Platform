@@ -27,6 +27,8 @@ Modules:
 from django.contrib.auth.models import User
 
 # Import the custom admin site
+from hub.models import Location, PartnerOffer
+
 from .site import crush_admin_site
 
 # Import all admin classes for re-export
@@ -78,6 +80,8 @@ from .events import (
     PresentationQueueInline,
     CuratedEventGroupAdmin,
     MeetupEventAdmin,
+    PartnerLookupAdmin,
+    PartnerOfferLookupAdmin,
     EventRegistrationAdmin,
     EventInvitationAdmin,
     EventFeedbackAdmin,
@@ -86,6 +90,10 @@ from .events import (
 from .connections import (
     EventConnectionAdmin,
     ConnectionMessageAdmin,
+    EventSwipeAdmin,
+    PastEventDeckOptOutAdmin,
+    SwipeCampaignAdmin,
+    SwipeCampaignMessageAdmin,
 )
 
 from .activities import (
@@ -275,6 +283,10 @@ from .crush_cache import (
 
 # Import all models for registration
 from crush_lu.models import (
+    EventSwipe,
+    PastEventDeckOptOut,
+    SwipeCampaign,
+    SwipeCampaignMessage,
     PatchRelease,
     PatchNote,
     SpecialUserExperience,
@@ -413,6 +425,9 @@ crush_admin_site.register(PremiumMembership, PremiumMembershipAdmin)
 
 # Event System
 crush_admin_site.register(MeetupEvent, MeetupEventAdmin)
+# Hidden, search-only: backs MeetupEventAdmin's partner/offer autocomplete.
+crush_admin_site.register(Location, PartnerLookupAdmin)
+crush_admin_site.register(PartnerOffer, PartnerOfferLookupAdmin)
 crush_admin_site.register(CuratedEventGroup, CuratedEventGroupAdmin)
 crush_admin_site.register(EventRegistration, EventRegistrationAdmin)
 crush_admin_site.register(EventInvitation, EventInvitationAdmin)
@@ -441,6 +456,10 @@ crush_admin_site.register(CrushSpark, CrushSparkAdmin)
 
 # Connection System
 crush_admin_site.register(EventConnection, EventConnectionAdmin)
+crush_admin_site.register(EventSwipe, EventSwipeAdmin)
+crush_admin_site.register(SwipeCampaign, SwipeCampaignAdmin)
+crush_admin_site.register(SwipeCampaignMessage, SwipeCampaignMessageAdmin)
+crush_admin_site.register(PastEventDeckOptOut, PastEventDeckOptOutAdmin)
 crush_admin_site.register(ConnectionMessage, ConnectionMessageAdmin)
 
 # Activity Voting System

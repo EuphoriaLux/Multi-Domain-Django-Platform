@@ -817,6 +817,27 @@ urlpatterns = [
         views_quiz.quiz_rehearsal_entry,
         name="quiz_rehearsal",
     ),
+    # Staging only (404 elsewhere): Crush Cache field-test / daily rehearsal hub
+    path(
+        "coach/cache-rehearsal/",
+        views_crush_cache.cache_rehearsal_hub,
+        name="cache_rehearsal",
+    ),
+    path(
+        "coach/cache-rehearsal/<int:event_id>/play/",
+        views_crush_cache.cache_rehearsal_play,
+        name="cache_rehearsal_play",
+    ),
+    path(
+        "coach/cache-rehearsal/<int:event_id>/lobby/",
+        views_crush_cache.cache_rehearsal_lobby,
+        name="cache_rehearsal_lobby",
+    ),
+    path(
+        "coach/cache-rehearsal/<int:event_id>/reset/",
+        views_crush_cache.cache_rehearsal_reset,
+        name="cache_rehearsal_reset",
+    ),
     # Coach playground (staging only, 404 elsewhere): practice member,
     # scenarios, switch to the member and back, practice inbox.
     # Spec: ai-memory-hub/specs/2026-11-13-crush-coach-playground.md
@@ -1367,7 +1388,20 @@ urlpatterns = [
         name="coach_quiz_question_delete",
     ),
     # Coach connection management
-    path("coach/connections/", views.coach_connections, name="coach_connections"),
+    # Matches overview for every coach (2026-11-21). The old action queue for
+    # coach-led connections moved under it; the old event-matches URL
+    # redirects here.
+    path("coach/connections/", views.coach_matches, name="coach_matches"),
+    path(
+        "coach/connections/queue/",
+        views.coach_connections,
+        name="coach_connections",
+    ),
+    path(
+        "coach/event-matches/",
+        views.coach_event_matches,
+        name="coach_event_matches",
+    ),
     path(
         "coach/connections/<int:connection_id>/",
         views.coach_connection_review,
@@ -1441,6 +1475,21 @@ urlpatterns = [
         "events/<int:event_id>/attendees/",
         views.event_attendees,
         name="event_attendees",
+    ),
+    path(
+        "events/<int:event_id>/swipe/<int:user_id>/",
+        views.event_swipe,
+        name="event_swipe",
+    ),
+    path(
+        "events/swipe-past/",
+        views.past_event_swipes,
+        name="past_event_swipes",
+    ),
+    path(
+        "events/swipe-past/visibility/",
+        views.past_event_swipes_visibility,
+        name="past_event_swipes_visibility",
     ),
     path(
         "events/<int:event_id>/connect/<int:user_id>/",

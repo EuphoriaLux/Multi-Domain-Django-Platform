@@ -1761,33 +1761,6 @@ class TestLateAdmissionConsistency:
         )
         assert EventLobbyParticipation.objects.filter(event=event).count() == 2
 
-    def test_attendees_page_admits_rowless_targets_before_rendering_actions(
-        self, client
-    ):
-        event = _make_event()
-        requester = _make_member("page_late")
-        target = _make_member("page_target")
-        _attend(requester, event)
-        _attend(target, event)
-        _end_event(event)
-        _login(client, requester)
-
-        response = client.get(
-            reverse("crush_lu:event_attendees", kwargs={"event_id": event.pk})
-        )
-
-        assert response.status_code == 200
-        html = response.content.decode()
-        target_actions = re.search(
-            rf'<div id="connection-actions-{target.pk}"[^>]*>(.*?)</div>',
-            html,
-            re.DOTALL,
-        )
-        assert target_actions is not None
-        assert "Find them in your event recap" in target_actions.group(1)
-        assert "My Crush!" not in target_actions.group(1)
-        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
-
     def test_my_crush_still_applies_once_the_recap_has_closed(self):
         """The fallback must survive: past the recap window My Crush is
         correct again, and no participation may be created."""

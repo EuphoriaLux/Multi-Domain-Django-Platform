@@ -1,0 +1,25 @@
+{% load i18n crush_media %}
+<div class="flex items-center gap-2">
+    {% if person.crushprofile.photo_1 %}
+        <div class="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+            <img src="{% profile_photo_url person.crushprofile 'photo_1' %}" alt="{{ name }}" class="w-full h-full object-cover object-face" loading="lazy">
+        </div>
+    {% else %}
+        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center flex-shrink-0">
+            <span class="text-sm font-semibold text-crush-purple dark:text-crush-pink">{{ name|first|upper }}</span>
+        </div>
+    {% endif %}
+    <div>
+        <p class="font-semibold text-sm text-gray-900 dark:text-white">{{ name|truncatechars:20 }}
+            {% if person.crushprofile.gender == 'F' %}<span class="text-pink-500 text-xs ml-0.5">&#9792;</span>
+            {% elif person.crushprofile.gender == 'M' %}<span class="text-blue-500 text-xs ml-0.5">&#9794;</span>
+            {% endif %}
+        </p>
+        {% if onboarding %}
+            <p class="text-[10px] text-gray-400 dark:text-gray-500 leading-tight" title="{% trans 'Coach who onboarded this profile' %}">
+                {% include "shared/icons/shield-check.html" with class="w-2.5 h-2.5 inline -mt-0.5" %}
+                {{ onboarding.user.first_name }}
+            </p>
+        {% endif %}
+    </div>
+</div>

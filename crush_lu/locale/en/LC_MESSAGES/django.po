@@ -28245,7 +28245,7 @@ msgid "Delete my profile and data"
 msgstr ""
 
 #: templates/crush_lu/auth.html
-msgid "≈ 15 min to set up · Get verified at your first event"
+msgid "≈ 12 min to set up · Get verified at your first event"
 msgstr ""
 
 #: crush_lu/templates/crush_lu/event_cancel.html
@@ -30116,4 +30116,15 @@ msgstr ""
 
 #: crush_lu/services/playground_cast.py
 msgid "I'd like that. Shall we pick a day this week?"
+msgstr ""
+
+# Signup bot traps (2026-11)
+#: crush_lu/views_account.py
+msgid ""
+"Sorry, we couldn't create your account just now. Please check your details "
+"and press Create Account again."
+msgstr ""
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Leave this field empty"
 msgstr ""

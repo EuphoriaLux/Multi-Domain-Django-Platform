@@ -28,11 +28,8 @@ urlpatterns = (
         path("admin/", admin.site.urls),
         # Entreprinder home page
         path("", entreprinder_views.home, name="home"),
-        # Entreprinder app URLs (includes matching and vibe_coding)
+        # Entreprinder app URLs
         path("", include("entreprinder.urls", namespace="entreprinder")),
-        # Vibe Coding URLs - included directly for top-level namespace access
-        # This allows templates to use {% url 'vibe_coding:index' %} without entreprinder prefix
-        path("vibe-coding/", include(("entreprinder.vibe.urls", "vibe_coding"))),
         # LinkedIn OAuth callback
         path(
             "login_complete/", entreprinder_views.login_complete, name="login_complete"

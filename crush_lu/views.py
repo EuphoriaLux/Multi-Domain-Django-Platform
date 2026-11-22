@@ -114,6 +114,9 @@ from .views_events import (  # noqa: F401
 # Connections
 from .views_connections import (  # noqa: F401
     event_attendees,
+    event_swipe,
+    past_event_swipes,
+    past_event_swipes_visibility,
     request_connection,
     request_connection_inline,
     connection_actions,
@@ -127,6 +130,8 @@ from .views_connections import (  # noqa: F401
 from .views_notifications import notifications_page  # noqa: F401
 
 from .views_coach import (  # noqa: F401
+    coach_event_matches,
+    coach_matches,
     coach_dashboard,
     coach_action_queue,
     coach_mark_review_call_complete,
@@ -399,6 +404,23 @@ def _verify_pending_luxid_member(request, profile, submission):
         return False
     profile.refresh_from_db()
     return profile.verification_status == "verified"
+
+
+def _swipe_campaign_banner(user):
+    """The running swipe campaign when it has past events for ``user``."""
+    from .services import event_swipes
+
+    campaign = event_swipes.active_campaign()
+    if campaign is None or event_swipes.hidden_from_past_decks(user):
+        return None
+    attended = (
+        event_swipes.with_event_end(
+            EventRegistration.objects.filter(user=user, status="attended")
+        )
+        .filter(_event_end__lt=campaign.starts_at)
+        .exists()
+    )
+    return campaign if attended else None
 
 
 @crush_login_required
@@ -675,6 +697,7 @@ def dashboard(request):
             # #925: a case can block a fresh purchase without a notice (a
             # staff-only one): no "Go Premium" the chooser would refuse.
             "premium_purchase_blocked": blocks_new_charge(request.user),
+            "swipe_campaign": _swipe_campaign_banner(request.user),
             **_verification_path_context(profile, request.user),
         }
     except CrushProfile.DoesNotExist:
@@ -883,6 +906,8 @@ def create_profile(request):
                 "submitted"  # legacy; remove after migration cleanup
             )
             profile.verification_status = "pending"
+            # Starts the verification reminders (services/verification_nudges.py).
+            profile.submitted_for_verification_at = timezone.now()
 
             if is_first_submission:
                 logger.info(
@@ -1995,6 +2020,8 @@ def edit_profile(request):
                 "submitted"  # legacy; remove after migration cleanup
             )
             profile.verification_status = "pending"
+            # Starts the verification reminders (services/verification_nudges.py).
+            profile.submitted_for_verification_at = timezone.now()
             profile.save()
 
             # Look through expired (closed-out pre-pivot) submissions so a
@@ -2377,6 +2404,7 @@ def profile_submitted(request):
 
     # Next current or upcoming event teaser.
     next_event = next_visible_event(request.user, now)
+    from .services.verification_nudges import upcoming_entry_events
 
     context = {
         "profile": profile,
@@ -2399,6 +2427,9 @@ def profile_submitted(request):
         "wait_status": wait_status,
         "progress_percent": progress_percent,
         "next_event": next_event,
+        # The concrete entry events the "Come to an event" card offers, so the
+        # in-person path is one tap away instead of a browse through all events.
+        "next_entry_events": upcoming_entry_events(now=now),
         "has_candidate_note": has_candidate_note,
         "pre_screening_visible": pre_screening_visible,
         "pre_screening_submitted": pre_screening_submitted,

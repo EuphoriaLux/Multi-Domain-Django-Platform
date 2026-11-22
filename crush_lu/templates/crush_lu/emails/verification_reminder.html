@@ -1,0 +1,48 @@
+{% extends "crush_lu/emails/base_email.html" %}
+{% load i18n %}
+{% comment %}
+  Verification reminder for a submitted ("pending") member. Sent on day 1, 3
+  and 7 after submission (reminder_type v24h / v72h / v7d) and once as a
+  catch-up for members who submitted before the reminders existed (vlegacy).
+  Sender: crush_lu/services/verification_nudges.py.
+{% endcomment %}
+
+{% block title %}{% trans "Get verified" %} - Crush.lu{% endblock %}
+
+{% block header_title %}{% if reminder_type == "v7d" %}{% trans "Still not verified?" %}{% else %}{% trans "One last step" %}{% endif %}{% endblock %}
+
+{% block content %}
+<p>{% trans "Hey" %}{% if greeting_name %} {{ greeting_name }}{% endif %},</p>
+
+{% if reminder_type == "v24h" %}
+<p>{% trans "Your Crush.lu profile is complete. One last step and you're in: get verified, so other members know you're real." %}</p>
+{% elif reminder_type == "v72h" %}
+<p>{% trans "Your profile is ready, but other members can't see you until you're verified. It takes two minutes with LuxID, or one evening at an event." %}</p>
+{% elif reminder_type == "v7d" %}
+<p>{% trans "Your profile has been waiting for a week. This is our last reminder: verify now and start meeting people." %}</p>
+{% else %}
+<p>{% trans "You built your Crush.lu profile a while ago, but it was never verified. We've made it easier: pick whichever way suits you below." %}</p>
+{% endif %}
+
+<div class="info-box">
+    <strong>{% trans "Fastest: LuxID" %}</strong>
+    <p style="margin: 0;">{% trans "LuxID is POST Luxembourg's free login app. It checks your mobile number in a few taps, Luxembourg or abroad, and your profile is verified right away." %}</p>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ verify_url }}" class="button">{% trans "Get verified now" %}</a>
+</p>
+
+<h2>{% trans "Prefer to meet in person?" %}</h2>
+<p>{% trans "Come to an entry event: a Coach verifies you on the spot and you meet people the same evening." %}</p>
+
+{% if entry_events %}
+<ul>
+    {% for event in entry_events %}
+    <li><a href="{{ event.url }}">{{ event.title }}</a> · {{ event.date_time|date:"l j F, H:i" }}{% if event.location %} · {{ event.location }}{% endif %}</li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+<p><a href="{{ entry_events_url }}">{% trans "See all entry events" %}</a></p>
+{% endblock %}

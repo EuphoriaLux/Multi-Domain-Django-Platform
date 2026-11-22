@@ -21,7 +21,7 @@
             </p>
 
             <div class="cache-scanner-container">
-                <video id="qr-video" playsinline></video>
+                <video id="qr-video" playsinline muted autoplay></video>
                 <div class="cache-scanner-overlay">
                     <div class="cache-scanner-frame"></div>
                 </div>
@@ -42,7 +42,7 @@
                 <p class="mb-2 text-center text-sm text-gray-500 dark:text-gray-400">
                     {% trans "Camera not working? Type the short code printed under the QR:" %}
                 </p>
-                <form method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2" onsubmit="return handleManualCodeSubmit(event, this)">
+                <form id="manual-code-form" method="post" action="{% url 'crush_lu:cache_manual_code' event.id %}" class="flex gap-2">
                     {% csrf_token %}
                     <input type="text" name="code" autocomplete="off" required
                            autocapitalize="characters" autocorrect="off" spellcheck="false"
@@ -96,23 +96,26 @@ document.addEventListener('DOMContentLoaded', function() {
     var scanUrlTemplate = '{% url "crush_lu:cache_qr_scan" "00000000-0000-0000-0000-000000000000" %}';
 
     var msgQrDetected = '{% filter escapejs %}{% trans "QR Code detected! Redirecting..." %}{% endfilter %}';
+    var msgInvalidQr = '{% filter escapejs %}{% trans "Not a Crush Cache QR code — keep looking!" %}{% endfilter %}';
     var msgCameraDenied = '{% filter escapejs %}{% trans "Camera access denied. Please use manual input below." %}{% endfilter %}';
     var msgNoCamera = '{% filter escapejs %}{% trans "No camera found. Please use manual input below." %}{% endfilter %}';
     var msgCameraError = '{% filter escapejs %}{% trans "Could not access camera. Please use manual input." %}{% endfilter %}';
     var msgFlashOn = '{% filter escapejs %}{% trans "Flash On" %}{% endfilter %}';
     var msgFlashOff = '{% filter escapejs %}{% trans "Flash Off" %}{% endfilter %}';
 
-    window.handleManualCodeSubmit = function(evt, form) {
-        evt.preventDefault();
-        playQrSuccessSound();
-        if (navigator.vibrate) {
-            try { navigator.vibrate([80, 50, 80]); } catch (e) {}
-        }
-        setTimeout(function() {
-            form.submit();
-        }, 350);
-        return false;
-    };
+    var manualCodeForm = document.getElementById('manual-code-form');
+    if (manualCodeForm) {
+        manualCodeForm.addEventListener('submit', function(evt) {
+            evt.preventDefault();
+            playQrSuccessSound();
+            if (navigator.vibrate) {
+                try { navigator.vibrate([80, 50, 80]); } catch (e) {}
+            }
+            setTimeout(function() {
+                manualCodeForm.submit();
+            }, 350);
+        });
+    }
 
     function playQrSuccessSound() {
         playSynthQrSound();
@@ -193,11 +196,30 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (e) {}
     }
 
+    var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    var defaultStatusText = statusEl.textContent;
+
+    function extractToken(decodedText) {
+        var trimmed = String(decodedText || '').trim();
+        var match = trimmed.match(/\/cache\/qr\/([0-9a-f-]+)/i);
+        var candidate = match ? match[1] : trimmed;
+        return UUID_RE.test(candidate) ? candidate : null;
+    }
+
     function goToToken(token) {
         window.location.href = scanUrlTemplate.replace('00000000-0000-0000-0000-000000000000', token);
     }
 
     function onScanSuccess(decodedText) {
+        var token = extractToken(decodedText);
+        if (!token) {
+            statusEl.textContent = msgInvalidQr;
+            setTimeout(function() {
+                scanBusy = false;
+                statusEl.textContent = defaultStatusText;
+            }, 1200);
+            return;
+        }
         if (scanner) scanner.stop();
         statusEl.textContent = msgQrDetected;
         playQrSuccessSound();
@@ -205,11 +227,6 @@ document.addEventListener('DOMContentLoaded', function() {
             try { navigator.vibrate([80, 50, 80]); } catch (e) {}
         }
 
-        var token = decodedText;
-        if (decodedText.includes('/cache/qr/')) {
-            var match = decodedText.match(/\/cache\/qr\/([a-f0-9-]+)/i);
-            if (match) token = match[1];
-        }
         setTimeout(function() {
             goToToken(token);
         }, 350);

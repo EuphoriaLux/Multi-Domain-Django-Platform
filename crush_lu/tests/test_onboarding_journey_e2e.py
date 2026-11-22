@@ -164,6 +164,47 @@ class PhoneStepViewTests(_SiteMixin, TestCase):
         self.assertContains(response, "Verify with LuxID")
         self.assertContains(response, "or verify by SMS")
 
+    def test_luxid_button_posts_past_allauth_confirmation(self):
+        """The LuxID CTA is a CSRF-protected POST form, not a link: a GET on
+        /accounts/luxid/login/ only renders allauth's "Continue" page
+        (SOCIALACCOUNT_LOGIN_ON_GET = False), where about a quarter of
+        members gave up."""
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
+        response = self.client.get("/en/onboarding/phone/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertRegex(
+            html,
+            r'<form method="post" action="/accounts/luxid/login/\?'
+            r'process=connect&amp;next=%2Fen%2Fonboarding%2Fphone%2F"',
+        )
+        self.assertNotIn('href="/accounts/luxid/login/', html)
+        self.assertIn("csrfmiddlewaretoken", html)
+
+    @override_settings(META_WHATSAPP_ACCESS_TOKEN="token", META_PHONE_NUMBER_ID="12345")
+    def test_whatsapp_is_primary_with_sms_fallback_when_configured(self):
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
+        response = self.client.get("/en/onboarding/phone/")
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn("Get my code on WhatsApp", html)
+        self.assertIn("Get the code by SMS", html)
+        self.assertIn("or with a code to your phone", html)
+        self.assertNotIn("or verify by SMS", html)
+        self.assertIn('data-whatsapp-country-codes="352,49,33,32"', html)
+        self.assertIn("Get my code by SMS", html)
+        # WhatsApp button comes before the SMS fallback.
+        self.assertLess(
+            html.index("startWhatsAppVerification"), html.index('startVerification"')
+        )
+
+    def test_sms_only_layout_without_whatsapp(self):
+        CrushProfile.objects.create(user=self.user, welcome_seen_at=timezone.now())
+        with self.settings(META_WHATSAPP_ACCESS_TOKEN="", META_PHONE_NUMBER_ID=""):
+            response = self.client.get("/en/onboarding/phone/")
+        self.assertNotContains(response, "Get my code on WhatsApp")
+        self.assertContains(response, "Enter your number and click Verify")
+
     def test_luxid_notice_when_linked_but_phone_unverified(self):
         """A linked LuxID that could not confirm a phone number (no claim,
         untrusted prefix, number on another account) must explain itself

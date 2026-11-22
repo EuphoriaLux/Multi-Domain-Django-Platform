@@ -515,7 +515,7 @@ def should_publish(event):
         return False
     if event.is_private_invitation:
         return False
-    if _is_practice_mixer(event):
+    if _is_practice_mixer(event) or _is_rehearsal_cache_event(event):
         return False
     return event.end_time > timezone.now()
 
@@ -525,6 +525,13 @@ def _is_practice_mixer(event):
     from .playground_events import is_practice_mixer
 
     return is_practice_mixer(event)
+
+
+def _is_rehearsal_cache_event(event):
+    """A Crush Cache staging rehearsal event (test.crush.lu): never listed."""
+    from .cache_rehearsal import is_rehearsal_cache_event
+
+    return is_rehearsal_cache_event(event)
 
 
 def _cancellation_notice_wanted(event):
@@ -538,7 +545,7 @@ def _cancellation_notice_wanted(event):
     """
     if not event.is_published or event.is_private_invitation:
         return False
-    if _is_practice_mixer(event):
+    if _is_practice_mixer(event) or _is_rehearsal_cache_event(event):
         return False
     return event.end_time > timezone.now()
 
@@ -2152,11 +2159,12 @@ def events_needing_sync(queryset=None):
     if queryset is None:
         queryset = MeetupEvent.objects.all()
 
+    from .cache_rehearsal import exclude_rehearsal_cache_events
     from .playground_events import exclude_practice_mixers
 
     now = timezone.now()
-    # Coach playground practice mixers are never listed, whatever they say.
-    listable = exclude_practice_mixers(queryset)
+    # Coach playground practice mixers and rehearsal caches are never listed.
+    listable = exclude_rehearsal_cache_events(exclude_practice_mixers(queryset))
     publishable = listable.filter(
         is_published=True,
         is_cancelled=False,

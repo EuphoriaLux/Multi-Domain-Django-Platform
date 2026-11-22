@@ -838,8 +838,48 @@ class CuratedEventGroupAdmin(admin.ModelAdmin):
         return format_html("{}", " | ".join(rows) if rows else _("No schedule"))
 
 
+class _HiddenLookupAdmin(admin.ModelAdmin):
+    """Search-only registration so MeetupEventAdmin can autocomplete a Hub FK.
+
+    ``autocomplete_fields`` needs the related model registered on the same
+    admin site. These stay out of the Crush admin index and are read-only
+    here; partners and offers are still edited in the Hub admin and the CRM.
+    """
+
+    def has_module_permission(self, request):
+        return False
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_active and request.user.is_staff
+
+
+class PartnerLookupAdmin(_HiddenLookupAdmin):
+    search_fields = ("name", "city", "address_town", "account_manager")
+    ordering = ("name",)
+
+
+class PartnerOfferLookupAdmin(_HiddenLookupAdmin):
+    search_fields = ("name", "location__name")
+    ordering = ("location__name", "name")
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("location")
+
+
 class MeetupEventAdmin(AutoTranslateMixin, TranslationAdmin):
     form = MeetupEventAdminForm
+    # After the OSM venue import there are ~2,000 partners: a search box,
+    # not a plain select (#1364).
+    autocomplete_fields = ("partner", "offer")
 
     def get_changeform_initial_data(self, request):
         initial = super().get_changeform_initial_data(request)

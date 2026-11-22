@@ -243,9 +243,10 @@ class PartnerClaimView(APIView):
         partner = get_object_or_404(
             Location.objects.select_for_update(of=("self",)), pk=pk
         )
-        force = bool(
-            request.user.is_superuser and (request.data or {}).get("force") is True
-        )
+        # Only a JSON object can carry ``force``; a list or scalar body must
+        # not reach ``.get()`` (that raised AttributeError, a 500).
+        body = request.data if isinstance(request.data, dict) else {}
+        force = bool(request.user.is_superuser and body.get("force") is True)
         coach_name = _user_display_name(request.user)
 
         if (
@@ -283,8 +284,11 @@ class PartnerClaimView(APIView):
                 status=status.HTTP_409_CONFLICT,
             )
 
+        # Re-claiming your own venue keeps the first claim time, so "claimed
+        # since" stays true; a new owner (or a force-claim) starts a new one.
+        if partner.claimed_by_id != request.user.id or partner.claimed_at is None:
+            partner.claimed_at = timezone.now()
         partner.claimed_by = request.user
-        partner.claimed_at = timezone.now()
         partner.account_manager = coach_name
         partner.save(
             update_fields=["claimed_by", "claimed_at", "account_manager", "updated_at"]

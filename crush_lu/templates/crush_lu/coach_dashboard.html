@@ -21,6 +21,12 @@
         <a href="{% url 'crush_lu:quiz_rehearsal' %}" class="font-semibold underline">Quiz Night rehearsal</a>
         <span class="text-sm">&mdash; practise hosting a quiz with test guests (staging only). Reset it any time from the host panel.</span>
     </p>
+    {% if not is_ios_native_app or crush_cache_enabled %}
+    <p>
+        <a href="{% url 'crush_lu:cache_rehearsal' %}" class="font-semibold underline">{% trans "Crush Cache field-test" %}</a>
+        <span class="text-sm">&mdash; {% trans "test any course outdoors in Safari with daily auto-reset (staging only)." %}</span>
+    </p>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -87,13 +93,21 @@
                 <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Photo Review" %}</span>
                 <span class="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300">{% trans "Swipe" %}</span>
             </a>
-            <a href="{% url 'crush_lu:coach_connections' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+            <a href="{% url 'crush_lu:coach_matches' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
                     {% include "shared/icons/heart.html" with class="w-4 h-4" %}
                 </span>
-                <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Connections" %}</span>
-                {% if pending_connections_count %}<span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-pink-500 text-white rounded-full">{{ pending_connections_count }}</span>{% endif %}
+                <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Matches" %}</span>
             </a>
+            {% if pending_connections_count %}
+            <a href="{% url 'crush_lu:coach_connections' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-pink-50 dark:bg-pink-900/20 text-pink-600 dark:text-pink-400 group-hover:scale-110 transition-transform">
+                    {% include "shared/icons/users.html" with class="w-4 h-4" %}
+                </span>
+                <span class="flex-1 text-sm font-medium text-gray-700 dark:text-gray-200">{% trans "Coach queue (older connections)" %}</span>
+                <span class="min-w-5 h-5 px-1.5 inline-flex items-center justify-center text-xs font-bold bg-pink-500 text-white rounded-full">{{ pending_connections_count }}</span>
+            </a>
+            {% endif %}
             <a href="{% url 'crush_lu:coach_spark_list' %}" class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
                 <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 group-hover:scale-110 transition-transform">
                     {% include "crush_lu/includes/ghost-logo-icon.html" with class="w-4 h-4" %}

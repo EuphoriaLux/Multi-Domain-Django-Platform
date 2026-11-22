@@ -64,9 +64,9 @@
                         {# Only promise LuxID when its button below is actually rendered. #}
                         <p class="mt-3 text-center text-[11px] text-gray-500 dark:text-gray-400">
                             {% if socialaccount_providers|has_luxid %}
-                            {% trans "≈ 15 min to set up · Get verified instantly with LuxID, or at an event" %}
+                            {% trans "≈ 12 min to set up · Get verified instantly with LuxID, or at an event" %}
                             {% else %}
-                            {% trans "≈ 15 min to set up · Get verified at your first event" %}
+                            {% trans "≈ 12 min to set up · Get verified at your first event" %}
                             {% endif %}
                         </p>
                     </div>
@@ -267,6 +267,14 @@
                          x-transition:enter-start="opacity-0 translate-y-2" x-transition:enter-end="opacity-100 translate-y-0">
                         <form method="post" action="{% url 'crush_lu:signup' %}" novalidate id="signup-form">
                             {% csrf_token %}
+                            {# Bot traps (CrushSignupForm.bot_signal): a signed render time, and a field people never see. #}
+                            <input type="hidden" name="{{ signup_form.STARTED_FIELD }}" value="{{ signup_form.started_token }}" id="id_form_started">
+                            {# Filled by the script below (the form_started value reversed): proves the page's JavaScript ran. #}
+                            <input type="hidden" name="{{ signup_form.JS_FIELD }}" value="" id="id_js_check">
+                            <div style="position:absolute;left:-10000px;top:auto;width:1px;height:1px;overflow:hidden;" aria-hidden="true">
+                                <label for="id_signup_note">{% trans "Leave this field empty" %}</label>
+                                <input type="text" id="id_signup_note" name="{{ signup_form.HONEYPOT_FIELD }}" value="" tabindex="-1" autocomplete="off">
+                            </div>
 
                             {% if signup_form.non_field_errors %}
                                 <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-red-800 dark:text-red-300 rounded-lg p-4 mb-4" role="alert">
@@ -493,6 +501,21 @@ var _i18n = {
         var signupForm = document.getElementById('signup-form');
         var loginBtn = document.getElementById('login-submit-btn');
         var signupBtn = document.getElementById('signup-submit-btn');
+
+        // Bot trap (CrushSignupForm.bot_signal "no_js"): copy the signed
+        // render time, reversed, into js_check. Signup bots post the HTML
+        // form without running this script.
+        function fillJsCheck() {
+            var started = document.getElementById('id_form_started');
+            var jsCheck = document.getElementById('id_js_check');
+            if (started && jsCheck) {
+                jsCheck.value = started.value.split('').reverse().join('');
+            }
+        }
+        fillJsCheck();
+        if (signupForm) {
+            signupForm.addEventListener('submit', fillJsCheck, true);
+        }
 
         // Busy-state resets to run again on a bfcache (pageshow, event.persisted)
         // restore — see the pageshow listener at the bottom of this handler.

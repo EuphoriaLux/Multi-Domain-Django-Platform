@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 from django.db import transaction
 import json
@@ -185,6 +186,22 @@ def save_profile_step1(request):
             if location not in valid_locations:
                 errors["location"] = _("Invalid location selection")
 
+        # Event languages moved into step 1 (required). Older cached wizard JS
+        # does not send the key; then step 3 keeps validating them as before.
+        event_languages = None
+        if "event_languages" in data:
+            valid_languages = {code for code, _label in CrushProfile.EVENT_LANGUAGE_CHOICES}
+            raw_languages = data.get("event_languages") or []
+            if not isinstance(raw_languages, list):
+                raw_languages = []
+            event_languages = [
+                code for code in dict.fromkeys(raw_languages) if code in valid_languages
+            ]
+            if not event_languages:
+                errors["event_languages"] = _(
+                    "Please select at least one event language."
+                )
+
         # Return validation errors if any
         if errors:
             # CRITICAL FIX: Preserve invalid data in draft for recovery
@@ -201,7 +218,11 @@ def save_profile_step1(request):
             return JsonResponse(
                 {
                     "success": False,
-                    "error": _("Please fill in all required fields"),
+                    "error": (
+                        errors["event_languages"]
+                        if list(errors) == ["event_languages"]
+                        else _("Please fill in all required fields")
+                    ),
                     "errors": errors,
                 },
                 status=400,
@@ -226,6 +247,8 @@ def save_profile_step1(request):
         profile.date_of_birth = date_of_birth
         profile.gender = data.get("gender", "")
         profile.location = data.get("location", "")
+        if event_languages:
+            profile.event_languages = event_languages
 
         # Mark as incomplete until submitted — wizard_step property derives exact step
         profile.completion_status = (
@@ -816,6 +839,8 @@ def complete_profile_submission(request):
                     "submitted"  # legacy field; remove after migration cleanup
                 )
                 profile.verification_status = "pending"
+                # Starts the verification reminders (services/verification_nudges.py).
+                profile.submitted_for_verification_at = timezone.now()
 
                 # Clear ALL draft data on successful submission
                 profile.draft_data = {}
@@ -1467,6 +1492,11 @@ def phone_step(request):
         "profile": profile,
         "has_luxid_account": has_luxid_account,
         "luxid_linked_without_phone": has_luxid_account and not profile.phone_verified,
+        # POSTed by includes/luxid_connect_button.html, so the member skips
+        # allauth's "Continue" confirmation page.
+        "luxid_connect_url": reverse("luxid_login")
+        + "?"
+        + urlencode({"process": "connect", "next": request.path}),
     }
     context.update(onboarding.stepper_context(current=2))
     return render(request, "crush_lu/onboarding/phone.html", context)

@@ -325,6 +325,30 @@ const probes = [
         mustBeClaimed: false,
     },
     {
+        name: "cache_position_post",
+        url: "https://crush.lu/en/events/29/cache/api/position/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
+        name: "cache_answer_post",
+        url: "https://crush.lu/fr/events/29/cache/api/challenge/1/answer/",
+        method: "POST",
+        mode: "same-origin",
+        destination: "",
+        mustBeClaimed: false,
+    },
+    {
+        name: "cache_play_navigation",
+        url: "https://crush.lu/en/events/29/cache/play/",
+        mode: "navigate",
+        destination: "document",
+        mustBeClaimed: true,
+        mustMatchStrategy: "NetworkOnly",
+    },
+    {
         // The ticket is what an attendee opens at the venue door, often with
         // no signal. It needs its own cache: "crush-pages" is shared with
         // every page and expires after 24h.
@@ -521,6 +545,7 @@ async function probeReplay(urls) {
     const replay = await probeReplay([
         "https://crush.lu/crush-admin/crush_lu/meetupevent/29/change/",
         "https://crush.lu/cookies/decline/",
+        "https://crush.lu/en/events/29/cache/api/position/",
         "https://crush.lu/en/events/29/register/",
     ]);
     process.stdout.write(

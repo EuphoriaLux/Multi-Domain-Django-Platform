@@ -187,5 +187,18 @@
         <a href="{% url 'crush_lu:quiz_rehearsal' %}" class="btn-crush-outline btn-sm mt-3">{% trans "Open the quiz rehearsal" %}</a>
     </section>
     {% endif %}
+
+    {% if cache_rehearsal_enabled %}
+    {% if not is_ios_native_app or crush_cache_enabled %}
+    <section class="mb-6 rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800 dark:shadow-gray-900/20">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{% trans "Crush Cache field-test" %}</h2>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-300">{% trans "Test GPS & QR scavenger hunts outdoors in Safari. Runs stay live all day and auto-reset overnight." %}</p>
+        {% if not crush_cache_enabled %}
+        <p class="mt-2 text-sm text-amber-800 dark:text-amber-300">{% trans "Crush Cache is switched off on this server. Ask Tom to switch on CRUSH_CACHE_ENABLED, then try again." %}</p>
+        {% endif %}
+        <a href="{% url 'crush_lu:cache_rehearsal' %}" class="btn-crush-outline btn-sm mt-3">{% trans "Open Crush Cache field-test" %}</a>
+    </section>
+    {% endif %}
+    {% endif %}
 </div>
 {% endblock %}

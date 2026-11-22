@@ -80,67 +80,26 @@ class TestLiveOverlapGate:
         response = client.get(_attendees_url(event))
         assert response.status_code == 200
 
-    def test_request_connection_blocked_while_live(self, client):
-        member = _make_member("gate_c")
-        other = _make_member("gate_c2")
+    @pytest.mark.parametrize("hours_after_end", [None, 1])
+    def test_retired_request_endpoints_create_nothing(self, client, hours_after_end):
+        """ "My Crush!" declarations were replaced by swiping (2026-11-20):
+        both old endpoints now create nothing, live or after the end."""
+        member = _make_member("gate_c", membership=False, luxid=False)
+        other = _make_member("gate_c2", membership=False, luxid=False)
         event = _make_event()
         _attend(member, event)
         _attend(other, event)
-        _login(client, member)
-        response = client.post(_request_url(event, other), {"note": "hi"})
-        assert response.status_code == 302
-        assert response.url == reverse(
-            "crush_lu:event_detail", kwargs={"event_id": event.pk}
-        )
-        assert not EventConnection.objects.filter(event=event).exists()
-
-    def test_request_connection_inline_blocked_while_live(self, client):
-        member = _make_member("gate_d")
-        other = _make_member("gate_d2")
-        event = _make_event()
-        _attend(member, event)
-        _attend(other, event)
-        _login(client, member)
-        response = client.post(_inline_url(event, other), {"note": "hi"})
-        assert response.status_code == 200  # htmx error partial
-        assert b"Connections open once the event ends." in response.content
-        assert not EventConnection.objects.filter(event=event).exists()
-
-    def test_request_connection_allowed_after_end(self, client):
-        # Non-Connect attendees use the classic post-event connection flow.
-        member = _make_member("gate_e", membership=False, luxid=False)
-        other = _make_member("gate_e2", membership=False, luxid=False)
-        event = _make_event()
-        _attend(member, event)
-        _attend(other, event)
-        _end_event(event)
+        if hours_after_end is not None:
+            _end_event(event, hours_ago=hours_after_end)
         _login(client, member)
         response = client.post(_request_url(event, other), {"note": "hi"})
         assert response.status_code == 302
         assert response.url == _attendees_url(event)
-        assert EventConnection.objects.filter(
-            event=event, requester=member, recipient=other
-        ).exists()
-
-    def test_request_connection_redirects_two_rowless_members_to_recap(self, client):
-        from crush_lu.models import EventLobbyParticipation
-
-        member = _make_member("gate_recap")
-        other = _make_member("gate_recap2")
-        event = _make_event()
-        _attend(member, event)
-        _attend(other, event)
-        _end_event(event)
-        _login(client, member)
-
-        response = client.post(_request_url(event, other), {"note": "hi"})
-
-        assert response.status_code == 302
-        assert response.url == reverse(
-            "crush_lu:event_lobby", kwargs={"event_id": event.pk}
+        response = client.post(
+            _inline_url(event, other), {"note": "hi"}, HTTP_HX_REQUEST="true"
         )
+        assert response["HX-Redirect"] == _attendees_url(event)
         assert not EventConnection.objects.filter(event=event).exists()
-        assert EventLobbyParticipation.objects.filter(event=event).count() == 2
 
 
 class TestConnectionWindowFromEnd:
@@ -164,18 +123,15 @@ class TestConnectionWindowFromEnd:
         _end_event(closed, hours_ago=49)
         assert closed.connections_open is False
 
-    def test_request_after_window_redirects_to_teaser(self, client):
-        member = _make_member("win_a")
-        other = _make_member("win_a2")
+    def test_deck_after_window_redirects_to_my_connections(self, client):
+        member = _make_member("win_a", membership=False, luxid=False)
         event = _make_event()
         _attend(member, event)
-        _attend(other, event)
         _end_event(event, hours_ago=49)
         _login(client, member)
-        response = client.post(_request_url(event, other), {"note": "hi"})
+        response = client.get(_attendees_url(event))
         assert response.status_code == 302
-        assert response.url == reverse("crush_lu:crush_connect_teaser")
-        assert not EventConnection.objects.filter(event=event).exists()
+        assert response.url == reverse("crush_lu:my_connections")
 
 
 class TestRecapEmailBranching:

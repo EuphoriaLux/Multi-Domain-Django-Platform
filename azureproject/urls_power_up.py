@@ -9,6 +9,7 @@ Supports internationalization with language-prefixed URLs (/en/, /de/, /fr/).
 from django.contrib import admin
 from django.urls import path, include
 from django.conf.urls.i18n import i18n_patterns
+from django.views.generic import RedirectView
 
 from power_up.admin import power_up_admin_site
 from .views_seo import robots_txt_power_up
@@ -31,11 +32,25 @@ urlpatterns = base_patterns + [
     # Atmos - QR bar ordering prototype (language-neutral, spec §2.1: a
     # table's printed QR must not be locked to one language)
     path("atmos/", include("power_up.atmos.urls")),
+    # Pixel War JSON API (language-neutral) + legacy alias redirects
+    path("pixel-war/api/", include("power_up.pixel_war.api_urls")),
+    path("pixelwar/", RedirectView.as_view(url="/pixel-war/", permanent=True)),
+    path("vibe-coding/", RedirectView.as_view(url="/pixel-war/", permanent=True)),
+    path(
+        "vibe-coding/pixel-war/",
+        RedirectView.as_view(url="/pixel-war/", permanent=True),
+    ),
+    path(
+        "vibe-coding/pixel-war/<path:subpath>",
+        RedirectView.as_view(url="/pixel-war/", permanent=True),
+    ),
 ]
 
 # Language-prefixed patterns (user-facing pages)
 # URLs will be: /en/, /de/, /fr/, /en/about/, /de/about/, etc.
 urlpatterns += i18n_patterns(
+    # Pixel War interactive canvas
+    path("pixel-war/", include("power_up.pixel_war.urls")),
     # Power-Up corporate site pages
     path("", include("power_up.urls", namespace="power_up")),
     # Include /en/ prefix even for default language

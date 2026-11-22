@@ -52,8 +52,14 @@ Environment Variables Required:
         az functionapp config appsettings set -g django-app-rg
           -n crush-hybrid-maintenance --settings
           DJANGO_PREMIUM_LAPSE_SWEEP_URL=https://crush.lu/api/admin/premium-lapse-sweep/)
+    - DJANGO_SWIPE_CAMPAIGN_URL: e.g. https://crush.lu/api/admin/swipe-campaign/dispatch/
+      (ships dormant like PremiumLapseSweep: set it BY HAND after the slot
+      swap that puts the route on production:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_SWIPE_CAMPAIGN_URL=https://crush.lu/api/admin/swipe-campaign/dispatch/)
     - DJANGO_ABANDONED_CHECKOUT_SWEEP_URL: e.g. https://crush.lu/api/admin/abandoned-checkout-sweep/
-      (ships dormant like the two above, for the same reason: set it BY HAND
+      (ships dormant like PremiumLapseSweep, for the same reason: set it BY HAND
       after the slot swap that puts the route on production:
         az functionapp config appsettings set -g django-app-rg
           -n crush-hybrid-maintenance --settings
@@ -612,12 +618,42 @@ def premium_lapse_sweep(timer: func.TimerRequest) -> None:
     )
 
 
+@app.function_name(name="SwipeCampaignMessages")
+@app.timer_trigger(
+    # Hourly at :40. Clear of event reminders (:35), lead reminders (:45) and
+    # campaigns (:x2/:x7): the :37 tick's tail ends by :38:50, and this call's
+    # 110 s timeout ends by :41:50, before the :42 tick.
+    schedule="0 40 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def swipe_campaign_messages(timer: func.TimerRequest) -> None:
+    """Send the due messages of the running past-event swipe campaign.
+
+    One bounded batch per call (75 s budget on the Django side); the next
+    hour continues. Does nothing unless a campaign is switched on and inside
+    its window, so it is safe to leave running all year.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("SwipeCampaignMessages: timer past due at %s", ts)
+    logging.info("SwipeCampaignMessages: starting at %s", ts)
+    _call_admin_endpoint(
+        "SwipeCampaignMessages",
+        "DJANGO_SWIPE_CAMPAIGN_URL",
+        timeout=110,
+        dormant_if_unset=True,
+    )
+
+
 @app.function_name(name="AbandonedCheckoutSweep")
 @app.timer_trigger(
     # Every 10 minutes at :x9. Clear of invites (:x0), campaigns (:x2/:x7,
     # whose 110 s tail ends by :x8:50 / :x3:50), echo :05, the lapse sweep :14,
     # SLA :15, recaps :25, SumUp :34, reminders :35, lead reminders :45 and
-    # feedback :55. This call's own 60 s timeout ends before the next :x2 tick.
+    # feedback :55. The :39 run's 60 s timeout ends as the swipe campaign
+    # (:40) starts; both are short, independent HTTP calls.
     schedule="0 9/10 * * * *",
     arg_name="timer",
     run_on_startup=False,

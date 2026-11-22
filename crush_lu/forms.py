@@ -4,6 +4,8 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.contrib.auth.password_validation import validate_password
 from django.utils.translation import gettext_lazy as _
+from django.conf import settings
+from django.core import signing
 from allauth.account.forms import SignupForm
 from .models import (
     CrushProfile,
@@ -19,6 +21,7 @@ from .models import (
 )
 from PIL import Image
 import os
+import time
 
 from .utils.image_processing import process_uploaded_image
 
@@ -65,6 +68,19 @@ class CrushSignupForm(SignupForm):
         label=_("I consent to receive marketing communications (optional)"),
     )
 
+    # Bot traps, rendered by hand in auth.html (not form fields, so allauth
+    # never sees them). HONEYPOT_FIELD is a text input hidden from people and
+    # screen readers: anything typed into it is a bot. STARTED_FIELD carries a
+    # signed render time, so a POST that arrives faster than a person can fill
+    # the form is caught (see CRUSH_SIGNUP_MIN_FILL_SECONDS).
+    # JS_FIELD must hold the STARTED_FIELD value reversed, which only the
+    # page's script writes: the 2026-11 bot waited long enough to pass the
+    # timing check but never ran JavaScript.
+    HONEYPOT_FIELD = "signup_note"
+    STARTED_FIELD = "form_started"
+    JS_FIELD = "js_check"
+    _STARTED_SALT = "crush_lu.signup.form_started"
+
     # Set on the form when clean_email() detects a duplicate. The template uses
     # this flag (rather than parsing the translated error message) to decide
     # whether to render the "Sign in with this email" CTA.
@@ -78,6 +94,52 @@ class CrushSignupForm(SignupForm):
         # only runs when password2 is in cleaned_data. Other domains keep
         # ACCOUNT_SIGNUP_FIELDS' password2 through their own forms.
         self.fields.pop("password2", None)
+
+    @property
+    def started_token(self):
+        """A fresh signed timestamp for the hidden STARTED_FIELD.
+
+        Fresh on every render, so a form re-shown after a validation error
+        restarts the clock instead of carrying the first render's time.
+        """
+        return signing.dumps(round(time.time(), 3), salt=self._STARTED_SALT)
+
+    def bot_signal(self):
+        """Why this bound form's POST looks automated, or ``None``.
+
+        ``"honeypot"``: the hidden field was filled; reject silently.
+        ``"too_fast"`` / ``"no_token"`` / ``"bad_token"`` / ``"expired"`` /
+        ``"no_js"``: the timing or JavaScript check failed; these may be a
+        person (a tab opened before a deploy, or left open overnight), so the
+        view asks them to try again.
+        """
+        if (self.data.get(self.HONEYPOT_FIELD) or "").strip():
+            return "honeypot"
+        min_seconds = getattr(settings, "CRUSH_SIGNUP_MIN_FILL_SECONDS", 3)
+        if not min_seconds:
+            return None
+        token = self.data.get(self.STARTED_FIELD)
+        if not token:
+            return "no_token"
+        try:
+            started = float(
+                signing.loads(
+                    token,
+                    salt=self._STARTED_SALT,
+                    max_age=getattr(
+                        settings, "CRUSH_SIGNUP_FORM_MAX_AGE_SECONDS", 24 * 3600
+                    ),
+                )
+            )
+        except signing.SignatureExpired:
+            return "expired"
+        except (signing.BadSignature, TypeError, ValueError):
+            return "bad_token"
+        if time.time() - started < min_seconds:
+            return "too_fast"
+        if (self.data.get(self.JS_FIELD) or "") != token[::-1]:
+            return "no_js"
+        return None
 
     def clean_email(self):
         """

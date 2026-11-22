@@ -502,6 +502,15 @@ class CrushProfile(models.Model):
         db_index=True,
         help_text=_("User's verification and profile completion state"),
     )
+    submitted_for_verification_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text=_(
+            "When the member last submitted the profile and started waiting to "
+            "get verified. Drives the verification reminders; empty for "
+            "profiles submitted before this field existed."
+        ),
+    )
     verification_method = models.CharField(
         max_length=20,
         choices=VERIFICATION_METHOD_CHOICES,
@@ -3388,6 +3397,12 @@ class ProfileReminder(models.Model):
         ("24h", _("24 Hour")),
         ("72h", _("72 Hour")),
         ("7d", _("7 Day Final")),
+        # Verification reminders: the profile is submitted (pending) but the
+        # member never got verified (LuxID or an entry event).
+        ("v24h", _("Verification 24 Hour")),
+        ("v72h", _("Verification 72 Hour")),
+        ("v7d", _("Verification 7 Day Final")),
+        ("vlegacy", _("Verification catch-up (submitted before reminders)")),
     ]
 
     user = models.ForeignKey(

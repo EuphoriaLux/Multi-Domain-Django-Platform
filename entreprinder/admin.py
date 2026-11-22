@@ -2,22 +2,6 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import EntrepreneurProfile, Skill, Industry
 
-# Import Vibe models and admin classes
-from .vibe.models import (
-    PixelCanvas,
-    Pixel,
-    PixelHistory,
-    UserPixelCooldown,
-    UserPixelStats,
-)
-from .vibe.admin import (
-    PixelCanvasAdmin,
-    PixelAdmin,
-    PixelHistoryAdmin,
-    UserPixelCooldownAdmin,
-    UserPixelStatsAdmin,
-)
-
 # ============================================================================
 # CUSTOM ADMIN SITE - Entreprinder Administration
 # ============================================================================
@@ -42,12 +26,6 @@ class EntreprinderAdminSite(admin.AdminSite):
             # 2. Categories
             "industry": {"order": 20, "icon": "🏭", "group": "Categories"},
             "skill": {"order": 21, "icon": "⚡", "group": "Categories"},
-            # 3. Vibe Coding
-            "pixelcanvas": {"order": 40, "icon": "🎨", "group": "Vibe Coding"},
-            "pixel": {"order": 41, "icon": "🔲", "group": "Vibe Coding"},
-            "pixelhistory": {"order": 42, "icon": "📜", "group": "Vibe Coding"},
-            "userpixelcooldown": {"order": 43, "icon": "⏱️", "group": "Vibe Coding"},
-            "userpixelstats": {"order": 44, "icon": "📊", "group": "Vibe Coding"},
         }
 
         # Create grouped app list
@@ -85,11 +63,10 @@ class EntreprinderAdminSite(admin.AdminSite):
                     groups[group_name].sort(key=lambda x: x.get("_order", 999))
 
                 # Create new apps for each group
-                group_order = ["Profiles", "Categories", "Vibe Coding", "Other"]
+                group_order = ["Profiles", "Categories", "Other"]
                 group_icons = {
                     "Profiles": "👤",
                     "Categories": "🏷️",
-                    "Vibe Coding": "🎮",
                     "Other": "📋",
                 }
 
@@ -181,10 +158,3 @@ entreprinder_admin_site.register(EntrepreneurProfile, EntrepreneurProfileAdmin)
 # Categories
 entreprinder_admin_site.register(Industry, IndustryAdmin)
 entreprinder_admin_site.register(Skill, SkillAdmin)
-
-# Vibe Coding
-entreprinder_admin_site.register(PixelCanvas, PixelCanvasAdmin)
-entreprinder_admin_site.register(Pixel, PixelAdmin)
-entreprinder_admin_site.register(PixelHistory, PixelHistoryAdmin)
-entreprinder_admin_site.register(UserPixelCooldown, UserPixelCooldownAdmin)
-entreprinder_admin_site.register(UserPixelStats, UserPixelStatsAdmin)

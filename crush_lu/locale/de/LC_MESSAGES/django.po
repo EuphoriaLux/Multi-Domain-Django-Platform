@@ -15068,9 +15068,9 @@ msgid "Privacy-first"
 msgstr "Datenschutz zuerst"
 
 #: templates/crush_lu/auth.html:43
-msgid "≈ 15 min to set up · Get verified instantly with LuxID, or at an event"
+msgid "≈ 12 min to set up · Get verified instantly with LuxID, or at an event"
 msgstr ""
-"≈ 15 Min. zum Einrichten · Sofort verifiziert mit LuxID oder bei einem Event"
+"≈ 12 Min. zum Einrichten · Sofort verifiziert mit LuxID oder bei einem Event"
 
 #: templates/crush_lu/auth.html:58
 msgid "Sign up"
@@ -42515,8 +42515,8 @@ msgid "Delete my profile and data"
 msgstr "Mein Profil und meine Daten löschen"
 
 #: templates/crush_lu/auth.html
-msgid "≈ 15 min to set up · Get verified at your first event"
-msgstr "≈ 15 Min. zum Einrichten · Verifiziert bei deinem ersten Event"
+msgid "≈ 12 min to set up · Get verified at your first event"
+msgstr "≈ 12 Min. zum Einrichten · Verifiziert bei deinem ersten Event"
 
 #: crush_lu/templates/crush_lu/event_cancel.html
 msgid "What happens to your payment"
@@ -48421,6 +48421,526 @@ msgstr ""
 
 msgid "Inactive options are hidden from the sign-up form."
 msgstr "Inaktive Optionen werden im Anmeldeformular ausgeblendet."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "or with a code to your phone"
+msgstr "oder mit einem Code auf dein Handy"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "Get my code on WhatsApp"
+msgstr "Code per WhatsApp erhalten"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "We'll send a 6-digit code to your WhatsApp. It takes a few seconds."
+msgstr "Wir schicken dir einen 6-stelligen Code per WhatsApp. Das dauert nur ein paar Sekunden."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "No WhatsApp?"
+msgstr "Kein WhatsApp?"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "Get the code by SMS"
+msgstr "Code per SMS erhalten"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Still not verified?"
+msgstr "Noch nicht verifiziert?"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "One last step"
+msgstr "Nur noch ein Schritt"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your Crush.lu profile is complete. One last step and you're in: get verified, so other members know you're real."
+msgstr "Dein Crush.lu-Profil ist fertig. Nur noch ein Schritt, dann bist du dabei: Lass dich verifizieren, damit die anderen wissen, dass du echt bist."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your profile is ready, but other members can't see you until you're verified. It takes two minutes with LuxID, or one evening at an event."
+msgstr "Dein Profil ist bereit, aber andere Mitglieder sehen dich erst, wenn du verifiziert bist. Mit LuxID dauert das zwei Minuten, oder einen Abend auf einem Event."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your profile has been waiting for a week. This is our last reminder: verify now and start meeting people."
+msgstr "Dein Profil wartet seit einer Woche. Das ist unsere letzte Erinnerung: Verifiziere dich jetzt und lerne Leute kennen."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "You built your Crush.lu profile a while ago, but it was never verified. We've made it easier: pick whichever way suits you below."
+msgstr "Du hast dein Crush.lu-Profil vor einiger Zeit erstellt, aber es wurde nie verifiziert. Wir haben es einfacher gemacht: Wähle unten den Weg, der dir am besten passt."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Fastest: LuxID"
+msgstr "Am schnellsten: LuxID"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "LuxID is POST Luxembourg's free login app. It checks your mobile number in a few taps, Luxembourg or abroad, and your profile is verified right away."
+msgstr "LuxID ist die kostenlose Login-App von POST Luxembourg. Sie prüft deine Handynummer mit wenigen Klicks, egal ob aus Luxemburg oder dem Ausland, und dein Profil ist sofort verifiziert."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Get verified now"
+msgstr "Jetzt verifizieren"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Prefer to meet in person?"
+msgstr "Lieber persönlich?"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Come to an entry event: a Coach verifies you on the spot and you meet people the same evening."
+msgstr "Komm zu einem Einstiegs-Event: Ein Coach verifiziert dich vor Ort, und du lernst noch am selben Abend Leute kennen."
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "See all entry events"
+msgstr "Alle Einstiegs-Events ansehen"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "One last step: get verified on Crush.lu"
+msgstr "Nur noch ein Schritt: Lass dich auf Crush.lu verifizieren"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your Crush.lu profile is ready — it just needs verifying"
+msgstr "Dein Crush.lu-Profil ist bereit – es fehlt nur noch die Verifizierung"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Still not verified? Here's the quickest way"
+msgstr "Noch nicht verifiziert? So geht es am schnellsten"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Your Crush.lu profile is waiting to be verified"
+msgstr "Dein Crush.lu-Profil wartet auf die Verifizierung"
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "WhatsApp codes aren't available for this country. Please verify by SMS instead."
+msgstr "WhatsApp-Codes sind für dieses Land nicht verfügbar. Bitte verifiziere dich per SMS."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "We'll send a 6-digit code by SMS."
+msgstr "Wir schicken dir einen 6-stelligen Code per SMS."
+
+#: crush_lu/templates/crush_lu/onboarding/phone.html
+msgid "Get my code by SMS"
+msgstr "Code per SMS erhalten"
+
+msgid "Swipe"
+msgstr "Swipen"
+
+msgid "Swipe right on the people you'd like to see again, left on the others. Nobody ever learns about a left swipe. If you both swipe right, it's a match and your chat opens right away."
+msgstr "Wische nach rechts bei den Menschen, die du wiedersehen möchtest, und nach links bei den anderen. Niemand erfährt je von einem Links-Wisch. Wischt ihr beide nach rechts, ist es ein Match und euer Chat öffnet sich sofort."
+
+msgid "<strong>%(countdown)s</strong> left to swipe."
+msgstr "Noch <strong>%(countdown)s</strong> zum Swipen."
+
+msgid "%(done)s of %(total)s swiped"
+msgstr "%(done)s von %(total)s geswipt"
+
+msgid "Like"
+msgstr "Like"
+
+msgid "Pass on %(name)s"
+msgstr "%(name)s überspringen"
+
+msgid "Like %(name)s"
+msgstr "%(name)s liken"
+
+msgid "You've seen everyone"
+msgstr "Du hast alle gesehen"
+
+msgid "We'll let you know the moment someone you liked likes you back."
+msgstr "Wir sagen dir sofort Bescheid, wenn dich jemand, den du gelikt hast, auch likt."
+
+msgid "Nobody to show yet"
+msgstr "Noch niemand zu zeigen"
+
+msgid "Check back later: attendees appear here once the coaches have marked them as attended."
+msgstr "Schau später wieder vorbei: Teilnehmer erscheinen hier, sobald die Coaches sie als anwesend markiert haben."
+
+msgid "Your matches from this event"
+msgstr "Deine Matches von diesem Event"
+
+msgid "No matches yet. Keep swiping!"
+msgstr "Noch keine Matches. Swipe weiter!"
+
+msgid "You and __NAME__ liked each other."
+msgstr "Du und __NAME__ habt euch gegenseitig gelikt."
+
+msgid "Say hi"
+msgstr "Sag Hallo"
+
+msgid "Keep swiping"
+msgstr "Weiter swipen"
+
+msgid "Something went wrong. Please try again."
+msgstr "Etwas ist schiefgelaufen. Bitte versuche es erneut."
+
+msgid "Swiping opens once the event ends. During the event, the Event Lobby is where Crush Connect members quietly signal who they'd like to meet."
+msgstr "Das Swipen öffnet, sobald das Event vorbei ist. Während des Events signalisieren Crush-Connect-Mitglieder in der Event-Lobby diskret, wen sie kennenlernen möchten."
+
+msgid "Swiping for this event has closed. Your matches are always available here."
+msgstr "Das Swipen für dieses Event ist beendet. Deine Matches findest du hier jederzeit."
+
+msgid "Choose like or pass."
+msgstr "Wähle Like oder Weiter."
+
+msgid "This person is not available."
+msgstr "Diese Person ist nicht verfügbar."
+
+msgid "It's a match with %(name)s! Your chat is open."
+msgstr "Match mit %(name)s! Euer Chat ist offen."
+
+msgid "Swipe through the attendees — a mutual like opens a chat."
+msgstr "Swipe durch die Teilnehmer – ein gegenseitiges Like öffnet einen Chat."
+
+msgid "You cannot swipe on yourself."
+msgstr "Du kannst dich nicht selbst swipen."
+
+msgid "Swiping is closed for this event."
+msgstr "Das Swipen für dieses Event ist geschlossen."
+
+msgid "You must attend this event to swipe."
+msgstr "Du musst an diesem Event teilgenommen haben, um zu swipen."
+
+msgid "You and %(name)s liked each other at %(event)s. Say hi!"
+msgstr "Du und %(name)s habt euch bei %(event)s gegenseitig gelikt. Sag Hallo!"
+
+msgid "Your chat is open."
+msgstr "Euer Chat ist offen."
+
+msgid "You both swiped right. Say hi to %(name)s — the first message is all it takes."
+msgstr "Ihr habt beide nach rechts gewischt. Sag %(name)s Hallo – die erste Nachricht ist alles, was es braucht."
+
+msgid "Event matches"
+msgstr "Event-Matches"
+
+msgid "Attendees who swiped right on each other after an event. Read-only: matches need no coach step, and their chat stays private."
+msgstr "Teilnehmer, die sich nach einem Event gegenseitig nach rechts gewischt haben. Nur zur Ansicht: Matches brauchen keinen Coach-Schritt, und ihr Chat bleibt privat."
+
+msgid "Show only my events"
+msgstr "Nur meine Events zeigen"
+
+msgid "Members who swiped"
+msgstr "Mitglieder, die geswipt haben"
+
+msgid "Swipes"
+msgstr "Swipes"
+
+msgid "Likes"
+msgstr "Likes"
+
+msgid "No messages yet"
+msgstr "Noch keine Nachrichten"
+
+msgid "No matches yet."
+msgstr "Noch keine Matches."
+
+msgid "See swipe matches"
+msgstr "Swipe-Matches ansehen"
+
+msgid "%(count)s message"
+msgid_plural "%(count)s messages"
+msgstr[0] "%(count)s Nachricht"
+msgstr[1] "%(count)s Nachrichten"
+
+#: templates/crush_lu/create_profile.html
+msgid "Add a few playful flaws"
+msgstr "Ein paar charmante Macken hinzufügen"
+
+msgid "You chose not to appear in past-event decks. Turn that off to swipe your past events."
+msgstr "Du hast entschieden, nicht in den Decks vergangener Events zu erscheinen. Schalte das aus, um deine vergangenen Events zu swipen."
+
+msgid "You appear in past-event decks again."
+msgstr "Du erscheinst wieder in den Decks vergangener Events."
+
+msgid "Done. Nobody will see you in past-event decks any more."
+msgstr "Erledigt. Niemand sieht dich mehr in den Decks vergangener Events."
+
+msgid "Last weekend to swipe your past events"
+msgstr "Letztes Wochenende, um deine vergangenen Events zu swipen"
+
+msgid "Remember {title}?"
+msgstr "Erinnerst du dich an {title}?"
+
+msgid "Swipe your past events"
+msgstr "Swipe deine vergangenen Events"
+
+msgid "Until %(end)s: swipe the people from %(event)s and your other Crush.lu events. A mutual like opens your chat."
+msgstr "Bis %(end)s: Swipe die Leute von %(event)s und deinen anderen Crush.lu-Events. Ein gegenseitiger Like öffnet euren Chat."
+
+msgid "Your weekend plan 💜"
+msgstr "Dein Plan fürs Wochenende 💜"
+
+msgid "People from %(event)s are waiting for your swipe."
+msgstr "Leute von %(event)s warten auf deinen Swipe."
+
+msgid "Profiles left to swipe"
+msgstr "Noch Profile zu swipen"
+
+msgid "You still have people from your past events to swipe, until %(end)s."
+msgstr "Du hast noch Leute von deinen vergangenen Events zu swipen, bis %(end)s."
+
+msgid "There is no past-event swiping right now. Your matches stay available in your connections."
+msgstr "Gerade läuft kein Swipen vergangener Events. Deine Matches findest du weiterhin bei deinen Verbindungen."
+
+msgid "You are taking a break, so past-event decks are closed for you. Resume from your dashboard to swipe."
+msgstr "Du machst gerade Pause, deshalb sind die Decks vergangener Events für dich geschlossen. Beende die Pause im Dashboard, um zu swipen."
+
+msgid "You chose not to appear in past-event decks. Nobody sees you there, and you can't swipe them either."
+msgstr "Du hast entschieden, nicht in den Decks vergangener Events zu erscheinen. Dort sieht dich niemand, und du kannst sie auch nicht swipen."
+
+msgid "Until %(end)s you can swipe the people from your Crush.lu events once more. If you both like each other, your chat opens straight away. Nobody ever sees a one-sided like."
+msgstr "Bis %(end)s kannst du die Leute von deinen Crush.lu-Events noch einmal swipen. Wenn ihr euch beide mögt, öffnet sich sofort euer Chat. Niemand sieht jemals einen einseitigen Like."
+
+msgid "%(counter)s profile left"
+msgid_plural "%(counter)s profiles left"
+msgstr[0] "Noch %(counter)s Profil"
+msgstr[1] "Noch %(counter)s Profile"
+
+msgid "All swiped"
+msgstr "Alle geswipt"
+
+msgid "%(counter)s match"
+msgid_plural "%(counter)s matches"
+msgstr[0] "%(counter)s Match"
+msgstr[1] "%(counter)s Matches"
+
+msgid "You haven't attended an event yet, so there is nothing to swipe."
+msgstr "Du warst noch bei keinem Event, deshalb gibt es nichts zu swipen."
+
+msgid "Visibility"
+msgstr "Sichtbarkeit"
+
+msgid "You are hidden from past-event decks."
+msgstr "Du bist in den Decks vergangener Events ausgeblendet."
+
+msgid "Show me again"
+msgstr "Zeig mich wieder"
+
+msgid "Don't want people from past events to see you here? Hide yourself from every past-event deck. Your normal swiping right after an event is not affected."
+msgstr "Du willst nicht, dass Leute von vergangenen Events dich hier sehen? Blende dich in allen Decks vergangener Events aus. Das normale Swipen direkt nach einem Event bleibt davon unberührt."
+
+msgid "Hide me from past-event decks"
+msgstr "Mich in Decks vergangener Events ausblenden"
+
+msgid "Swipe the people from your past events, until %(end)s."
+msgstr "Swipe die Leute von deinen vergangenen Events, bis %(end)s."
+
+msgid "Matches between Crush Connect members chat in Crush Connect, with venue ideas and a coffee date. Join to get that for your next match."
+msgstr "Matches zwischen Crush-Connect-Mitgliedern chatten in Crush Connect, mit Ideen für den Treffpunkt und einem Kaffee-Date. Tritt bei, damit dein nächster Match das auch bekommt."
+
+msgid "Last weekend to swipe"
+msgstr "Letztes Wochenende zum Swipen"
+
+msgid "Swiping your past Crush.lu events closes on %(end_date)s. You still have people left to swipe — maybe someone from %(event_title)s."
+msgstr "Das Swipen deiner vergangenen Crush.lu-Events endet am %(end_date)s. Du hast noch Leute zu swipen, vielleicht jemanden von %(event_title)s."
+
+msgid "Remember %(event_title)s? Until %(end_date)s you can swipe the people from your Crush.lu events once more."
+msgstr "Erinnerst du dich an %(event_title)s? Bis %(end_date)s kannst du die Leute von deinen Crush.lu-Events noch einmal swipen."
+
+msgid "You only see people who were at the same event as you."
+msgstr "Du siehst nur Leute, die beim selben Event waren wie du."
+
+msgid "If you both like each other, your chat opens straight away."
+msgstr "Wenn ihr euch beide mögt, öffnet sich sofort euer Chat."
+
+msgid "Nobody ever sees a one-sided like."
+msgstr "Niemand sieht jemals einen einseitigen Like."
+
+msgid "Start swiping"
+msgstr "Jetzt swipen"
+
+msgid "Rather not be shown to people from past events? <a href=\"%(hub_url)s\">Hide yourself here</a> with one click."
+msgstr "Lieber nicht für Leute von vergangenen Events sichtbar sein? <a href=\"%(hub_url)s\">Hier ausblenden</a>, mit einem Klick."
+
+# Signup bot traps (2026-11)
+#: crush_lu/views_account.py
+msgid ""
+"Sorry, we couldn't create your account just now. Please check your details "
+"and press Create Account again."
+msgstr "Entschuldigung, wir konnten dein Konto gerade nicht erstellen. Bitte überprüfe deine Angaben und klicke erneut auf Konto erstellen."
+
+#: crush_lu/templates/crush_lu/auth.html
+msgid "Leave this field empty"
+msgstr "Dieses Feld leer lassen"
+
+#: crush_lu/templates/crush_lu/cache/play.html
+msgid "GPS accuracy is too low (±{n} m). Enable Precise Location for Safari in Settings → Privacy & Security → Location Services, or step outdoors."
+msgstr "Die GPS-Genauigkeit ist zu gering (±{n} m). Aktiviere „Genauer Standort“ für Safari unter Einstellungen → Datenschutz & Sicherheit → Ortungsdienste oder geh ins Freie."
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Tap once to start GPS, compass & arrival sound."
+msgstr "Einmal tippen, um GPS, Kompass und Ankunftston zu starten."
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Sound paused — tap to re-enable"
+msgstr "Ton pausiert — zum Reaktivieren tippen"
+
+#: crush_lu/templates/crush_lu/cache/_play_content.html
+msgid "Location is blocked. Allow location access (with Precise Location on) in Settings → Safari → Location or your browser settings, or let a teammate with GPS lead the way."
+msgstr "Standort ist blockiert. Erlaube den Standortzugriff (mit „Genauer Standort“ aktiviert) unter Einstellungen → Safari → Standort oder in den Browser-Einstellungen – oder lass ein Teammitglied mit GPS vorangehen."
+
+#: crush_lu/templates/crush_lu/cache/scanner.html
+msgid "Not a Crush Cache QR code — keep looking!"
+msgstr "Kein Crush-Cache-QR-Code — such weiter!"
+
+# Coach Matches page (2026-11-21)
+msgid "Members who matched after an event, for all coaches. Read-only: you see who matched and how the conversation is going, never the messages."
+msgstr "Mitglieder, die nach einem Event ein Match hatten, für alle Coaches. Nur Lesen: Du siehst, wer ein Match hat und wie das Gespräch läuft, aber nie die Nachrichten."
+
+msgid "Open coach queue"
+msgstr "Coach-Warteschlange öffnen"
+
+msgid "Chatting"
+msgstr "Im Gespräch"
+
+msgid "Date planned"
+msgstr "Date geplant"
+
+msgid "At this event: %(swipers)s members swiped, %(swipes)s swipes, %(likes)s likes."
+msgstr "Bei diesem Event: %(swipers)s Mitglieder haben geswipt, %(swipes)s Swipes, %(likes)s Likes."
+
+msgid "Search a name"
+msgstr "Namen suchen"
+
+msgid "All events"
+msgstr "Alle Events"
+
+msgid "Matched %(when)s ago"
+msgstr "Match vor %(when)s"
+
+msgid "Coach introduction"
+msgstr "Vorstellung durch Coach"
+
+msgid "Chat closed"
+msgstr "Chat geschlossen"
+
+msgid "Last message %(when)s ago"
+msgstr "Letzte Nachricht vor %(when)s"
+
+msgid "Crush Connect chat"
+msgstr "Crush-Connect-Chat"
+
+msgid "Connection chat"
+msgstr "Verbindungs-Chat"
+
+msgid "No matches for these filters."
+msgstr "Keine Matches für diese Filter."
+
+msgid "Page %(page)s of %(pages)s"
+msgstr "Seite %(page)s von %(pages)s"
+
+msgid "Coach queue (older connections)"
+msgstr "Coach-Warteschlange (ältere Verbindungen)"
+
+msgid "See matches"
+msgstr "Matches ansehen"
+
+msgid "New matches from post-event swiping are on the Matches page"
+msgstr "Neue Matches aus dem Swipen nach Events findest du auf der Seite Matches"
+
+msgid "%(counter)s older coach-led connection is still open."
+msgid_plural "%(counter)s older coach-led connections are still open."
+msgstr[0] "%(counter)s ältere Verbindung über Coaches ist noch offen."
+msgstr[1] "%(counter)s ältere Verbindungen über Coaches sind noch offen."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Crush Cache field-test"
+msgstr "Crush-Cache-Feldtest"
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Always-live Crush Cache courses on Safari. Your personal run auto-resets at midnight, or reset any time before walking a route."
+msgstr "Dauerhaft aktive Crush-Cache-Strecken in Safari. Dein persönlicher Durchlauf wird um Mitternacht automatisch zurückgesetzt – oder jederzeit vor dem Losgehen."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Open test.crush.lu in Safari on your phone — Crush Cache is intentionally suppressed inside the native iOS app shell."
+msgstr "Öffne test.crush.lu in Safari auf deinem Handy — Crush Cache ist in der nativen iOS-App absichtlich ausgeblendet."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "CRUSH_CACHE_ENABLED is currently off on this server. Set CRUSH_CACHE_ENABLED=true on staging to open gameplay pages."
+msgstr "CRUSH_CACHE_ENABLED ist auf diesem Server aktuell deaktiviert. Aktiviere CRUSH_CACHE_ENABLED=true auf Staging, um die Spielseiten zu öffnen."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Practising as your practice member — coach controls stay hidden."
+msgstr "Du testest als dein Übungsmitglied — Coach-Steuerungen bleiben ausgeblendet."
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Standard courses"
+msgstr "Standardstrecken"
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Existing staging hunts"
+msgstr "Bestehende Staging-Runden"
+
+#: crush_lu/templates/crush_lu/cache/rehearsal.html
+msgid "Open Coach Playground"
+msgstr "Coach-Playground öffnen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+#, python-format
+msgid "%(count)s station"
+msgid_plural "%(count)s stations"
+msgstr[0] "%(count)s Station"
+msgstr[1] "%(count)s Stationen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+#, python-format
+msgid "Station %(order)s"
+msgstr "Station %(order)s"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "New day auto-reset ready"
+msgstr "Tages-Reset bereit"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Play solo"
+msgstr "Solo spielen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Team Lobby"
+msgstr "Team-Lobby"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Reset my run"
+msgstr "Meinen Lauf zurücksetzen"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_card.html
+msgid "Coach Control"
+msgstr "Coach-Steuerung"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_toolbar.html
+msgid "Field-test"
+msgstr "Feldtest"
+
+#: crush_lu/templates/crush_lu/cache/_rehearsal_toolbar.html
+msgid "All test caches"
+msgstr "Alle Test-Caches"
+
+#: crush_lu/templates/crush_lu/coach_dashboard.html
+msgid "test any course outdoors in Safari with daily auto-reset (staging only)."
+msgstr "teste jede Strecke draußen in Safari mit täglichem Auto-Reset (nur Staging)."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Test GPS & QR scavenger hunts outdoors in Safari. Runs stay live all day and auto-reset overnight."
+msgstr "Teste GPS- & QR-Schnitzeljagden draußen in Safari. Strecken bleiben den ganzen Tag aktiv und werden über Nacht zurückgesetzt."
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Open Crush Cache field-test"
+msgstr "Crush-Cache-Feldtest öffnen"
+
+#: crush_lu/templates/crush_lu/coach_playground.html
+msgid "Crush Cache is switched off on this server. Ask Tom to switch on CRUSH_CACHE_ENABLED, then try again."
+msgstr "Crush Cache ist auf diesem Server deaktiviert. Bitte Tom, CRUSH_CACHE_ENABLED zu aktivieren, und versuche es dann erneut."
+
+#: crush_lu/views_crush_cache.py
+msgid "Crush Cache field-test is only open to active coaches."
+msgstr "Der Crush-Cache-Feldtest steht nur aktiven Coaches offen."
+
+#: crush_lu/views_crush_cache.py
+msgid "New day — your run was reset to Station 1."
+msgstr "Neuer Tag — dein Lauf wurde auf Station 1 zurückgesetzt."
+
+#: crush_lu/views_crush_cache.py
+msgid "Your run has been reset to Station 1."
+msgstr "Dein Lauf wurde auf Station 1 zurückgesetzt."
+
+#: crush_lu/views_crush_cache.py
+msgid "You have not joined this hunt yet — press Play to start."
+msgstr "Du bist dieser Runde noch nicht beigetreten — tippe zum Starten auf Spielen."
 
 msgid "Your seat for {title} is still waiting"
 msgstr "Dein Platz für {title} wartet noch auf dich"

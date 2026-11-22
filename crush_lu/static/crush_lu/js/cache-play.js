@@ -27,6 +27,8 @@ document.addEventListener("alpine:init", function () {
         return {
             geoSupported: !!navigator.geolocation,
             gpsDenied: false,
+            gpsLowAccuracy: false,
+            gpsLowAccuracyMsg: "",
             arrivalCelebrating: false,
             suspended: false,
             distanceM: null,
@@ -39,10 +41,12 @@ document.addEventListener("alpine:init", function () {
             soundNeedsGesture: false,
             audioUnlocking: false,
             audioReady: false,
+            audioPaused: false,
             trackingStarted: false,
             audioUnlockPromise: null,
             compassNeedsPermission: false,
             hasAbsoluteHeading: false,
+            _nativeHeadingActive: false,
             // Continuous (never wrapped at 360°) rotation values for the
             // CSS-transitioned arrow/cone — see _updateArrowRotation().
             arrowRotation: null,
@@ -61,10 +65,14 @@ document.addEventListener("alpine:init", function () {
             lastFixAt: 0,
             watchdogTimer: null,
             wakeLock: null,
+            _wakeLockPending: false,
+            _onResumeAudioGesture: null,
             lastPostAt: 0,
             postBackoffUntil: 0,
             posting: false,
             reloading: false,
+            teamId: null,
+            stationId: null,
             map: null,
             selfMarker: null,
             accuracyCircle: null,
@@ -78,6 +86,8 @@ document.addEventListener("alpine:init", function () {
                 this.stateUrl = root.dataset.stateUrl;
                 this.huntId = root.dataset.huntId;
                 this.huntStatus = root.dataset.huntStatus;
+                this.teamId = root.dataset.teamId || null;
+                this.stationId = root.dataset.stationId || null;
                 this.navMode = root.dataset.navMode;
                 this.needsGps = root.dataset.needsGps === "true";
                 this.unlocked = root.dataset.unlocked === "true";
@@ -90,6 +100,7 @@ document.addEventListener("alpine:init", function () {
                     gpsWaiting: root.dataset.msgGpsWaiting || "Waiting for GPS…",
                     gpsAccuracy: root.dataset.msgGpsAccuracy || "GPS accuracy: ±{n} m",
                     gpsLost: root.dataset.msgGpsLost || "GPS signal lost — searching…",
+                    gpsLowAccuracy: root.dataset.msgGpsLowAccuracy || "GPS accuracy is too low (±{n} m). Enable Precise Location in Settings or step outdoors.",
                 };
                 try {
                     this.completedStations = JSON.parse(root.dataset.completedStations || "[]");
@@ -118,24 +129,20 @@ document.addEventListener("alpine:init", function () {
                 // Screen unlock / return from another app: the browser may
                 // have silently dropped both the geolocation watch and the
                 // wake lock while the page was hidden — rebuild them the
-                // moment the page is visible again.
+                // moment the page is visible again. Never stop GPS if Web Audio
+                // was interrupted by Safari; prompt non-blockingly to resume sound.
                 this._onVisibility = function () {
                     if (document.visibilityState !== "visible") return;
                     if (self.huntStatus !== "live" || self.suspended || self.reloading) return;
+                    self.requestWakeLock();
+                    if (self.trackingStarted && !self.gpsDenied) {
+                        self.restartWatching();
+                    }
                     if (self.needsGps && self.trackingStarted
                         && window._crushAudioCtx
                         && window._crushAudioCtx.state !== "running") {
-                        // WebKit may interrupt Web Audio while Safari is hidden.
-                        // Require a fresh tap instead of letting the GPS callback
-                        // reach an inaudible, suspended AudioContext.
-                        self.stopWatching();
-                        self.trackingStarted = false;
-                        self.soundNeedsGesture = true;
-                        return;
-                    }
-                    self.requestWakeLock();
-                    if (self.watchId !== null && !self.gpsDenied) {
-                        self.restartWatching();
+                        self.audioPaused = true;
+                        self._bindAudioResumeGesture();
                     }
                 };
                 document.addEventListener("visibilitychange", this._onVisibility);
@@ -150,7 +157,7 @@ document.addEventListener("alpine:init", function () {
                 if (document.getElementById("cache-map") && window.L) {
                     this.initMap();
                 }
-                if (this.navMode === "compass") {
+                if (this.navMode === "compass" || this.navMode === "map") {
                     this.listenToCompass();
                 }
             },
@@ -167,6 +174,7 @@ document.addEventListener("alpine:init", function () {
                 if (this._onFirstAudioGesture) {
                     window.removeEventListener("click", this._onFirstAudioGesture);
                 }
+                this._clearAudioResumeGesture();
                 this.releaseWakeLock();
                 if (this.pollTimer !== null) {
                     clearInterval(this.pollTimer);
@@ -225,28 +233,63 @@ document.addEventListener("alpine:init", function () {
             enableSoundAndTracking: function () {
                 if (this.audioUnlocking) return;
                 this.audioUnlocking = true;
+                this.audioPaused = false;
+                this._clearAudioResumeGesture();
                 var self = this;
                 if (this.compassNeedsPermission) {
                     this.enableCompass();
                 } else if (!this._compassAttached) {
                     this.attachCompass();
                 }
-                var preloadDeadline = new Promise(function (resolve) {
-                    setTimeout(function () { resolve(null); }, 2000);
-                });
-                Promise.all([
-                    this.unlockAudio(),
-                    Promise.race([this.preloadAudio(), preloadDeadline]),
-                ]).then(function (results) {
-                    self.audioReady = !!results[0];
-                }).catch(function () {
-                    self.audioReady = false;
-                }).then(function () {
-                    // Audio is enhancement-only: unsupported or failed audio
-                    // must never prevent the team from continuing the hunt.
-                    self.audioUnlocking = false;
-                    self.startGpsTracking();
-                });
+                // Trigger Web Audio unlock, Screen Wake Lock, and GPS watch
+                // synchronously inside the user tap so Safari preserves user
+                // activation for every permissioned API without waiting for MP3 decode.
+                var unlockPromise = this.unlockAudio();
+                this.preloadAudio();
+                this.startGpsTracking();
+                Promise.resolve(unlockPromise)
+                    .then(function (ready) {
+                        self.audioReady = !!ready;
+                    })
+                    .catch(function () {
+                        self.audioReady = false;
+                    })
+                    .then(function () {
+                        self.audioUnlocking = false;
+                    });
+            },
+
+            _clearAudioResumeGesture: function () {
+                if (this._onResumeAudioGesture) {
+                    window.removeEventListener("pointerdown", this._onResumeAudioGesture);
+                    this._onResumeAudioGesture = null;
+                }
+            },
+
+            _bindAudioResumeGesture: function () {
+                if (this._onResumeAudioGesture) return;
+                var self = this;
+                this._onResumeAudioGesture = function () {
+                    self.resumeAudioOnly();
+                };
+                window.addEventListener("pointerdown", this._onResumeAudioGesture, { once: true });
+            },
+
+            resumeAudioOnly: function () {
+                this._clearAudioResumeGesture();
+                var self = this;
+                return Promise.resolve(this.unlockAudio())
+                    .then(function (ready) {
+                        if (ready) {
+                            self.audioPaused = false;
+                        } else if (self.trackingStarted && !self.suspended) {
+                            self._bindAudioResumeGesture();
+                        }
+                        return ready;
+                    })
+                    .catch(function () {
+                        return false;
+                    });
             },
 
             startWatching: function () {
@@ -264,10 +307,18 @@ document.addEventListener("alpine:init", function () {
                         self.onPosition(pos);
                     },
                     function (err) {
-                        self.gpsDenied = err.code === err.PERMISSION_DENIED;
-                        self.gpsStatus = self.gpsDenied
-                            ? self.msgs.gpsDenied
-                            : self.msgs.gpsWaiting;
+                        var deniedCode = typeof err.PERMISSION_DENIED === "number" ? err.PERMISSION_DENIED : 1;
+                        var timeoutCode = typeof err.TIMEOUT === "number" ? err.TIMEOUT : 3;
+                        self.gpsDenied = err.code === deniedCode;
+                        if (self.gpsDenied) {
+                            self.gpsLowAccuracy = false;
+                            self.gpsLowAccuracyMsg = "";
+                            self.gpsStatus = self.msgs.gpsDenied;
+                        } else if (err.code === timeoutCode && self.distanceM !== null) {
+                            // Keep last known readout when standing still between fixes.
+                        } else {
+                            self.gpsStatus = self.msgs.gpsWaiting;
+                        }
                     },
                     { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
                 );
@@ -310,12 +361,39 @@ document.addEventListener("alpine:init", function () {
             // browsers without the API simply skip it.
             requestWakeLock: function () {
                 var self = this;
-                if (!navigator.wakeLock || document.visibilityState !== "visible") return;
+                if (
+                    !navigator.wakeLock ||
+                    document.visibilityState !== "visible" ||
+                    this.wakeLock ||
+                    this._wakeLockPending
+                ) {
+                    return;
+                }
+                this._wakeLockPending = true;
                 try {
-                    navigator.wakeLock.request("screen").then(function (lock) {
-                        self.wakeLock = lock;
-                    }).catch(function () {});
-                } catch (e) {}
+                    navigator.wakeLock
+                        .request("screen")
+                        .then(function (lock) {
+                            self._wakeLockPending = false;
+                            if (self.suspended || self.reloading) {
+                                try { lock.release(); } catch (e) {}
+                                return;
+                            }
+                            self.wakeLock = lock;
+                            if (lock && typeof lock.addEventListener === "function") {
+                                lock.addEventListener("release", function () {
+                                    if (self.wakeLock === lock) {
+                                        self.wakeLock = null;
+                                    }
+                                });
+                            }
+                        })
+                        .catch(function () {
+                            self._wakeLockPending = false;
+                        });
+                } catch (e) {
+                    this._wakeLockPending = false;
+                }
             },
 
             releaseWakeLock: function () {
@@ -405,6 +483,18 @@ document.addEventListener("alpine:init", function () {
                     .then(function (data) {
                         finish();
                         if (!data || !data.ok || self.suspended) return;
+                        if (data.accepted === false && data.reason === "accuracy") {
+                            self.gpsLowAccuracy = true;
+                            self.gpsLowAccuracyMsg = self.msgs.gpsLowAccuracy.replace(
+                                "{n}",
+                                Math.round(accuracy)
+                            );
+                            return;
+                        }
+                        if (data.accepted === true) {
+                            self.gpsLowAccuracy = false;
+                            self.gpsLowAccuracyMsg = "";
+                        }
                         if (typeof data.distance_m === "number") self.distanceM = data.distance_m;
                         if (typeof data.bearing === "number") {
                             self.bearing = data.bearing;
@@ -428,6 +518,13 @@ document.addEventListener("alpine:init", function () {
                 if (this.reloading || this.suspended) return;
                 this.reloading = true;
                 this.stopWatching();
+                if (this.isFullscreenMap) {
+                    this.isFullscreenMap = false;
+                    var mapContainer = document.getElementById("cache-map-container");
+                    if (mapContainer) {
+                        mapContainer.classList.remove("crush-fullscreen-active");
+                    }
+                }
                 this.arrivalCelebrating = true;
                 var soundDurationMs = this.playGpsChime() || 2200;
                 if (navigator.vibrate) {
@@ -488,6 +585,7 @@ document.addEventListener("alpine:init", function () {
                 this.audioUnlockPromise = Promise.resolve(resumeResult)
                     .then(function () {
                         self.audioReady = ctx.state === "running";
+                        if (self.audioReady) self.audioPaused = false;
                         return self.audioReady;
                     })
                     .catch(function () {
@@ -828,14 +926,16 @@ document.addEventListener("alpine:init", function () {
                 this.arrivalCelebrating = false;
                 this.reloading = false;
                 this.stopWatching();
+                this._clearAudioResumeGesture();
+                this.releaseWakeLock();
                 this.playSynthVictorySound();
             },
 
             // --- Compass (device orientation) ---
 
             listenToCompass: function () {
-                if (!window.DeviceOrientationEvent) return;
-                if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                if (typeof DeviceOrientationEvent !== "undefined"
+                    && typeof DeviceOrientationEvent.requestPermission === "function") {
                     // iOS: orientation events only flow after a user-gesture
                     // permission grant — surface an "enable compass" button.
                     this.compassNeedsPermission = true;
@@ -947,7 +1047,7 @@ document.addEventListener("alpine:init", function () {
                 };
 
                 var handler = function (e) {
-                    if (typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
+                    if (!self._nativeHeadingActive && typeof e.webkitCompassHeading === "number" && !isNaN(e.webkitCompassHeading) && e.webkitCompassHeading >= 0) {
                         self._lastCompassAt = Date.now();
                         updateHeading(e.webkitCompassHeading);
                     } else if (!self.hasAbsoluteHeading && e.alpha !== null && e.alpha !== undefined) {
@@ -983,6 +1083,7 @@ document.addEventListener("alpine:init", function () {
                 // Native CoreLocation bridge hook for iOS WKWebView wrapper
                 window.__crushHeadingUpdate = function (deg) {
                     if (typeof deg === "number" && !isNaN(deg) && deg >= 0) {
+                        self._nativeHeadingActive = true;
                         self._lastCompassAt = Date.now();
                         self.hasAbsoluteHeading = true;
                         updateHeading(deg);
@@ -1126,16 +1227,12 @@ document.addEventListener("alpine:init", function () {
                 L.control.zoom({ position: "bottomright" }).addTo(this.map);
                 L.control.attribution({ prefix: false }).addTo(this.map);
 
-                var isDark = document.documentElement.classList.contains("dark");
-                var tileUrl = isDark
-                    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
-
-                L.tileLayer(tileUrl, {
+                // OpenStreetMap raster tiles (no API key required; matches cache-coach.js).
+                // Dark mode styling is handled purely in CSS on .leaflet-tile-pane so
+                // theme toggles adapt live without re-initializing the map layer.
+                L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
                     maxZoom: 19,
-                    subdomains: "abcd",
-                    detectRetina: true,
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
                 }).addTo(this.map);
 
                 // Draw trail connecting completed stations
@@ -1229,7 +1326,6 @@ document.addEventListener("alpine:init", function () {
                     }
                 });
                 this.map.addControl(new FullscreenControl());
-                this.attachCompass();
             },
 
             recenterMap: function () {
@@ -1329,6 +1425,16 @@ document.addEventListener("alpine:init", function () {
                         try { msg = JSON.parse(event.data); } catch (e) { return; }
                         if ((msg.type === "status" || msg.type === "state") && msg.data && msg.data.status && msg.data.status !== self.huntStatus) {
                             self.stopAndReload();
+                            return;
+                        }
+                        if (
+                            msg.type === "progress" &&
+                            msg.data &&
+                            self.teamId &&
+                            String(msg.data.team_id) === String(self.teamId) &&
+                            !document.getElementById("cache-celebration")
+                        ) {
+                            self.stopAndReload();
                         }
                     };
                     this.ws.onclose = function () {
@@ -1356,7 +1462,21 @@ document.addEventListener("alpine:init", function () {
                     fetch(self.stateUrl, { headers: { "Accept": "application/json" } })
                         .then(function (r) { return r.ok ? r.json() : null; })
                         .then(function (data) {
-                            if (data && data.ok && data.status !== self.huntStatus) {
+                            if (!data || !data.ok) return;
+                            if (data.status !== self.huntStatus) {
+                                self.stopAndReload();
+                                return;
+                            }
+                            if (document.getElementById("cache-celebration")) return;
+                            if (data.is_finished === true) {
+                                self.stopAndReload();
+                                return;
+                            }
+                            if (
+                                self.stationId &&
+                                data.current_station_id !== undefined &&
+                                String(data.current_station_id || "") !== String(self.stationId)
+                            ) {
                                 self.stopAndReload();
                             }
                         })

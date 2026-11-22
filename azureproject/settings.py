@@ -104,6 +104,19 @@ HYBRID_COACH_SYSTEM_ENABLED = _env_bool("HYBRID_COACH_SYSTEM_ENABLED", False)
 # unsetting the function app's URL var, and the latter fails silently.
 CRUSH_LEAD_REMINDERS_ENABLED = _env_bool("CRUSH_LEAD_REMINDERS_ENABLED", False)
 
+# Signup bot traps (crush_lu/forms.py CrushSignupForm.bot_signal). A signup
+# posted sooner than this many seconds after the form was rendered is sent
+# back with "please try again" instead of creating an account; the 2026-11
+# bot wave posted ~1.5 s after loading the page. 0 turns the timing check off
+# (the default under pytest, so existing signup tests need no token); the
+# hidden honeypot field is always checked.
+CRUSH_SIGNUP_MIN_FILL_SECONDS = float(
+    os.getenv("CRUSH_SIGNUP_MIN_FILL_SECONDS", "0" if IS_TESTING else "3")
+)
+# A rendered signup form stays valid this long (a tab left open overnight just
+# gets a "please try again" and a fresh form).
+CRUSH_SIGNUP_FORM_MAX_AGE_SECONDS = 24 * 3600
+
 # Multi-channel campaign dispatch (crush_lu campaign dashboard) — gate for the
 # /api/admin/campaigns/dispatch/ endpoint driven by the CampaignDispatch Azure
 # Function timer. Default OFF so scheduled campaigns never send until the
@@ -748,6 +761,11 @@ PREMIUM_REDIRECTS_TO_BETA = _env_bool("PREMIUM_REDIRECTS_TO_BETA", default=True)
 # all cache routes 404 and the event page hides the hunt button.
 CRUSH_CACHE_ENABLED = _env_bool("CRUSH_CACHE_ENABLED", default=False)
 
+# Keep Crush Cache hidden inside the native iOS app shell until an App Store
+# version explicitly lists it; Safari and Android stay playable whenever
+# CRUSH_CACHE_ENABLED is True.
+IOS_NATIVE_CACHE_ENABLED = _env_bool("IOS_NATIVE_CACHE_ENABLED", default=False)
+
 # Crush Connect Event Lobby (Crush.lu) — the live "I'd like to meet you" photo
 # grid for checked-in Connect members (spec 2026-07-17). Global rollout flag
 # (§17 Phase A): it controls launch and never becomes a per-event switch. The
@@ -828,6 +846,17 @@ ACCOUNT_UNIQUE_EMAIL = True
 
 # Email verification mandatory
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+
+# Confirmation emails per address: allauth's default is one per 3 minutes
+# (the resend countdown in crush_lu/views_account.py matches it). Every login
+# attempt of an unverified account re-sends the email, so in the 2026-11 bot
+# wave a bot logging in to the accounts it created kept mailing the same
+# strangers. The daily cap stops that; a send over the cap is skipped silently
+# (the earlier links stay valid). Everything else keeps allauth's defaults.
+# (ACCOUNT_EMAIL_CONFIRMATION_COOLDOWN is deprecated in allauth; the 180 s
+# here must stay in step with RESEND_VERIFICATION_COOLDOWN_SECONDS, which
+# test_ux_wave3_verify_email pins.)
+ACCOUNT_RATE_LIMITS = {"confirm_email": "1/180s/key,3/d/key"}
 
 # Where to send anonymous users after they click the confirmation link.
 # We deliberately do NOT enable ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION so users
@@ -1038,6 +1067,17 @@ WHATSAPP_OTP_TEMPLATE_PREFIX = os.environ.get(
 # Minutes an OTP stays valid — keep in sync with the template's expiration
 # warning and message validity period configured in WhatsApp Manager (3 min).
 WHATSAPP_OTP_TTL_MINUTES = int(os.environ.get("WHATSAPP_OTP_TTL_MINUTES", "3"))
+# Country calling codes allowed to receive a WhatsApp verification code
+# (comma list, with or without "+"). Other numbers verify by SMS or LuxID, and
+# the send endpoint rejects them before any billable Meta call. Default:
+# Luxembourg and its three neighbours, where nearly all members live.
+WHATSAPP_OTP_ALLOWED_COUNTRY_CODES = [
+    code.strip().lstrip("+")
+    for code in os.environ.get(
+        "WHATSAPP_OTP_ALLOWED_COUNTRY_CODES", "352,49,33,32"
+    ).split(",")
+    if code.strip().lstrip("+")
+]
 
 # Name of an APPROVED Meta *Utility* template (en/de/fr variants) used to tell
 # a member that someone sent them a Connect Week request. Empty = channel off.

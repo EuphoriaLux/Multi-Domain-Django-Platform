@@ -27,10 +27,11 @@
     @media (prefers-reduced-motion: reduce) {
         .cache-shake, .cache-pop { animation: none; }
     }
-    /* No dark-mode tile filter here on purpose. This used to invert the
-       light-only OpenStreetMap tiles to fake a dark map; cache-play.js now
-       loads CartoDB Dark Matter directly when the `dark` class is set, so
-       re-applying the filter would double-process already-dark tiles. */
+    /* Dark-mode tile adaptation for OpenStreetMap Leaflet tiles (scoped to
+       the tile pane so markers, polylines, and controls keep full contrast). */
+    .dark #cache-map .leaflet-tile-pane {
+        filter: brightness(0.65) invert(1) contrast(2.5) hue-rotate(190deg) saturate(0.35) brightness(0.85);
+    }
 </style>
 {% endblock %}
 
@@ -45,8 +46,11 @@
          data-msg-gps-waiting="{% trans 'Waiting for GPS…' %}"
          data-msg-gps-accuracy="{% trans 'GPS accuracy: ±{n} m' %}"
          data-msg-gps-lost="{% trans 'GPS signal lost — searching…' %}"
+         data-msg-gps-low-accuracy="{% trans 'GPS accuracy is too low (±{n} m). Enable Precise Location for Safari in Settings → Privacy & Security → Location Services, or step outdoors.' %}"
          data-hunt-id="{{ hunt.id }}"
          data-hunt-status="{{ hunt.status }}"
+         data-team-id="{{ team.id }}"
+         data-station-id="{{ station.id|default:'' }}"
          data-nav-mode="{{ hunt.navigation_mode }}"
          data-needs-gps="{{ needs_gps|yesno:'true,false' }}"
          data-unlocked="{{ attempt.is_unlocked|yesno:'true,false' }}"
@@ -57,6 +61,10 @@
          data-target-radius="{{ station.radius_meters|unlocalize }}"
          {% endif %}
          data-completed-stations="{{ completed_stations_json|default:'[]' }}">
+
+        {% if cache_rehearsal_toolbar %}
+            {% include "crush_lu/cache/_rehearsal_toolbar.html" %}
+        {% endif %}
 
         <div class="mb-4 flex items-center justify-between">
             <div class="flex items-center gap-2">

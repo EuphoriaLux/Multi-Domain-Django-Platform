@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.db import IntegrityError, connection, transaction
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from crush_lu.models.crush_connect_cycle import (
@@ -1105,6 +1106,59 @@ class PartnerClaimAPITests(ThrottleIsolatedTestCase):
         self.assertEqual(released.data["accountManager"], "")
         self.assertFalse(released.data["claimedByMe"])
 
+    def test_reclaiming_your_own_venue_keeps_the_first_claim_time(self):
+        claim_url = f"/hub/locations/{self.venue.pk}/claim"
+        self.client.post(claim_url, format="json")
+        self.venue.refresh_from_db()
+        first = self.venue.claimed_at
+
+        again = self.client.post(claim_url, format="json")
+
+        self.assertEqual(again.status_code, 200, again.data)
+        self.venue.refresh_from_db()
+        self.assertEqual(self.venue.claimed_at, first)
+
+    def test_force_claim_by_another_user_starts_a_new_claim_time(self):
+        claim_url = f"/hub/locations/{self.venue.pk}/claim"
+        self.client.post(claim_url, format="json")
+        Location.objects.filter(pk=self.venue.pk).update(
+            claimed_at=timezone.now() - timedelta(days=5)
+        )
+        self.client.force_authenticate(user=self.superuser)
+
+        self.client.post(claim_url, {"force": True}, format="json")
+
+        self.venue.refresh_from_db()
+        self.assertEqual(self.venue.claimed_by_id, self.superuser.pk)
+        self.assertGreater(self.venue.claimed_at, timezone.now() - timedelta(days=1))
+
+    def test_superuser_claim_with_a_json_array_body_is_not_a_500(self):
+        self.client.post(f"/hub/locations/{self.venue.pk}/claim", format="json")
+        self.client.force_authenticate(user=self.superuser)
+
+        res = self.client.post(
+            f"/hub/locations/{self.venue.pk}/claim", [{"force": True}], format="json"
+        )
+
+        # A list body carries no ``force``, so this is an ordinary conflict.
+        self.assertEqual(res.status_code, 409)
+
+    def test_duplicate_guard_folds_accents_and_spacing(self):
+        dup = self.client.post(
+            "/hub/locations",
+            {
+                "name": "De  Gudde Wellen",
+                "maxCapacity": 50,
+                "addressStreet": "Rue du Saint-Esprit",
+                "addressNumber": "17",
+                "addressPostcode": "1475",
+                "addressTown": "Luxembourg",
+            },
+            format="json",
+        )
+        self.assertEqual(dup.status_code, 400)
+        self.assertIn("name", dup.data)
+
     def test_duplicate_guard_blocks_manual_recreation_of_existing_venue(self):
         self.client.post(f"/hub/locations/{self.venue.pk}/claim", format="json")
         dup = self.client.post(
@@ -1649,3 +1703,48 @@ class LuxembourgVenueEchoLuScanTests(TestCase):
         ):
             call_command("import_luxembourg_venues", with_echo_lu=True)
         self.assertEqual(Location.objects.count(), 0)
+
+
+class EventAdminPartnerAutocompleteTests(TestCase):
+    """The event admin searches ~2,000 partners instead of listing them (#1364)."""
+
+    def setUp(self):
+        self.staff = User.objects.create_user(
+            username="coach", email="coach@crush.lu", password="x", is_staff=True
+        )
+        self.partner = make_partner(name="De Gudde Wëllen")
+        make_partner(name="Café Konrad")
+
+    def test_meetup_event_admin_passes_admin_checks(self):
+        from crush_lu.admin import crush_admin_site
+
+        model_admin = crush_admin_site._registry[MeetupEvent]
+        self.assertEqual(model_admin.check(), [])
+        self.assertEqual(tuple(model_admin.autocomplete_fields), ("partner", "offer"))
+
+    def test_partner_lookup_is_hidden_and_read_only(self):
+        from crush_lu.admin import crush_admin_site
+
+        request = RequestFactory().get("/")
+        request.user = self.staff
+        lookup = crush_admin_site._registry[Location]
+        self.assertFalse(lookup.has_module_permission(request))
+        self.assertFalse(lookup.has_add_permission(request))
+        self.assertFalse(lookup.has_change_permission(request))
+        self.assertTrue(lookup.has_view_permission(request))
+
+    def test_staff_can_search_partners_from_the_event_form(self):
+        self.client.force_login(self.staff)
+        res = self.client.get(
+            "/crush-admin/autocomplete/",
+            {
+                "term": "gudde",
+                "app_label": "crush_lu",
+                "model_name": "meetupevent",
+                "field_name": "partner",
+            },
+            HTTP_HOST="crush.lu",
+        )
+        self.assertEqual(res.status_code, 200, res.content[:300])
+        ids = [r["id"] for r in res.json()["results"]]
+        self.assertEqual(ids, [str(self.partner.pk)])

@@ -2667,6 +2667,7 @@ def send_mutual_match_email(recipient, connection, other_user, request):
         connection_url=connection_url,
         is_same_gender=is_same_gender,
         coach_name=coach_name,
+        is_swipe_match=connection.flow == "swipe",
     )
 
     with translation.override(lang):

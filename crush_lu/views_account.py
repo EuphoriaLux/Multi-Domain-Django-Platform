@@ -563,6 +563,11 @@ ACCOUNT_ERASURE_PURGE = (
     # carry a removal request are kept (moderation record; see the purge loop).
     ("UserBlock", ("blocker", "blocked")),
     ("EventMeetSignal", ("sender", "recipient")),
+    # Post-event swipes (2026-11-20): private per-member decisions, same
+    # treatment as lobby signals — they go with the account.
+    ("EventSwipe", ("swiper", "target")),
+    ("SwipeCampaignMessage", ("user",)),
+    ("PastEventDeckOptOut", ("user",)),
     ("EventMeetingConfirmation", ("confirmer", "other_user")),
     ("ConfirmedEncounter", ("user_low", "user_high")),
     # Devices, push endpoints, phone numbers and activity tracking.
@@ -812,10 +817,11 @@ ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS = (
 # hub.SocialPost, hub.WhatsAppMessage (staff-authored business records),
 # token_blacklist.OutstandingToken (deleting it would un-blacklist refresh
 # tokens; the anonymised user is inactive), and staff-actor SET_NULL links
-# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by,
-# hub.Location.claimed_by). The user row is anonymised, not deleted, so a
-# departed coach's venue claim (and its account_manager name) stays until a
-# superuser releases or force-claims the venue.
+# (arborist.*, onboarding.*, hub.PartnerOnboardingStep.done_by).
+# hub.Location.claimed_by is released instead (_release_venue_claims): the
+# user row is anonymised, not deleted, so SET_NULL never fires and a departed
+# coach's claim and account_manager name would otherwise stay on the venue,
+# blocking other coaches with a 409 (decided 2026-11-21, #1364).
 
 # User-keyed crush_lu models deliberately KEPT after account deletion, and why.
 # ``test_account_deletion`` fails when a new User FK model is in neither list,
@@ -1551,6 +1557,23 @@ def _purge_other_apps_personal_data(user):
         for app_label, model_name, field in ACCOUNT_ERASURE_ANONYMIZE_OTHER_APPS:
             model = apps.get_model(app_label, model_name)
             model.objects.filter(**{field: user}).update(**{field: None})
+        _release_venue_claims(user)
+
+
+def _release_venue_claims(user):
+    """Release a departing coach's Hub venue claims, as a release would.
+
+    ``claimed_by``, ``claimed_at`` and ``account_manager`` are cleared
+    together: nulling only the FK leaves the name behind, and the claim
+    endpoint's legacy-owner check would still refuse every other coach.
+    """
+    from django.utils import timezone
+
+    from hub.models import Location
+
+    return Location.objects.filter(claimed_by=user).update(
+        claimed_by=None, claimed_at=None, account_manager="", updated_at=timezone.now()
+    )
 
 
 def _phone_digits(value):
@@ -2552,7 +2575,30 @@ def signup(request):
         status_code = 429
     elif request.method == "POST":
         signup_form = CrushSignupForm(request.POST)
-        if signup_form.is_valid():
+        bot_reason = signup_form.bot_signal()
+        if bot_reason:
+            email = (request.POST.get("email") or "").strip().lower()
+            logger.warning(
+                "[SIGNUP-BOT] blocked reason=%s email_domain=%s",
+                bot_reason,
+                email.rpartition("@")[2][:100] or "-",
+            )
+        if bot_reason == "honeypot":
+            # Look exactly like a successful signup, so the bot has nothing to
+            # learn from - but create no account and send no email.
+            return redirect("account_email_verification_sent")
+        if bot_reason:
+            # The timing check can catch a person too (a page opened before a
+            # deploy, a tab left open overnight): ask them to submit again on
+            # the re-rendered form, which carries a fresh token.
+            signup_form.add_error(
+                None,
+                _(
+                    "Sorry, we couldn't create your account just now. "
+                    "Please check your details and press Create Account again."
+                ),
+            )
+        elif signup_form.is_valid():
             try:
                 # Allauth's save() method handles EmailAddress creation automatically
                 # This will raise IntegrityError if email/username already exists
@@ -3538,6 +3584,9 @@ def _export_account(user):
             # form is submitted, so it is member-authored data.
             "draft_data": profile.draft_data or None,
             "verification_method": profile.verification_method,
+            "submitted_for_verification_at": _iso_or_none(
+                profile.submitted_for_verification_at
+            ),
             "intent_probe": profile.get_intent_probe_display() or None,
             "first_step_preference": profile.get_first_step_preference_display(),
             "astro_enabled": profile.astro_enabled,

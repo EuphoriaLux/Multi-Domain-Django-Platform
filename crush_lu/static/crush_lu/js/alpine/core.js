@@ -4568,11 +4568,21 @@ document.addEventListener("alpine:init", function () {
                     phoneNumber = phoneEl.value || "";
                 }
 
+                // Event languages live in section 1 now (they used to sit at the
+                // bottom of the Photos section, easy to miss though required).
+                var eventLanguages = [];
+                document
+                    .querySelectorAll('[name="event_languages"]:checked')
+                    .forEach(function (b) {
+                        eventLanguages.push(b.value);
+                    });
+
                 return {
                     phone_number: phoneNumber,
                     date_of_birth: dobEl ? dobEl.value : "",
                     gender: genderEl ? genderEl.value : "",
                     location: locationEl ? locationEl.value : "",
+                    event_languages: eventLanguages,
                 };
             },
 
@@ -4977,6 +4987,11 @@ document.addEventListener("alpine:init", function () {
 
                     // Handle checkbox arrays (like event_languages)
                     if (Array.isArray(value)) {
+                        // An empty saved language list must not clear the
+                        // server-side pre-selection (the site language).
+                        if (key === "event_languages" && value.length === 0) {
+                            continue;
+                        }
                         var checkboxes = form.querySelectorAll('[name="' + key + '"]');
 
                         for (var i = 0; i < checkboxes.length; i++) {
@@ -6269,6 +6284,8 @@ document.addEventListener("alpine:init", function () {
             iti: null,
             phoneInputId: "",
             failureCount: 0,
+            dialCode: "352",
+            whatsAppCountryCodes: [],
 
             // Computed getters for CSP compatibility
             get notVerified() {
@@ -6299,9 +6316,28 @@ document.addEventListener("alpine:init", function () {
             get phoneHintClass() {
                 return !this.verified ? "text-purple-600 font-medium" : "text-gray-500";
             },
+            // WhatsApp codes only go to the countries in data-whatsapp-country-codes
+            // (WHATSAPP_OTP_ALLOWED_COUNTRY_CODES); no attribute = no restriction.
+            get whatsAppAllowed() {
+                if (!this.whatsAppCountryCodes.length) return true;
+                return this.whatsAppCountryCodes.indexOf(this.dialCode) !== -1;
+            },
+            get showWhatsAppOption() {
+                return !this.verified && this.whatsAppAllowed;
+            },
+            get showSmsPrimary() {
+                return !this.verified && !this.whatsAppAllowed;
+            },
 
             init: function () {
                 var self = this;
+
+                var codesAttr = this.$el.getAttribute("data-whatsapp-country-codes");
+                this.whatsAppCountryCodes = codesAttr
+                    ? codesAttr.split(",").filter(function (c) {
+                          return c;
+                      })
+                    : [];
 
                 // Read initial state from data attributes
                 var verifiedAttr = this.$el.getAttribute("data-verified");
@@ -6355,6 +6391,13 @@ document.addEventListener("alpine:init", function () {
                         });
 
                         window.itiInstance = this.iti;
+
+                        var syncDialCode = function () {
+                            var data = self.iti && self.iti.getSelectedCountryData();
+                            self.dialCode = (data && data.dialCode) || "";
+                        };
+                        syncDialCode();
+                        phoneInput.addEventListener("countrychange", syncDialCode);
 
                         this.iti.promise
                             .then(function () {
@@ -6558,6 +6601,10 @@ document.addEventListener("alpine:init", function () {
             // there is no Firebase pre-flight or reCAPTCHA — the backend send
             // already rejects in-use numbers (409), so no check-available call.
             startWhatsAppVerification: function () {
+                if (!this.whatsAppAllowed) {
+                    this.startVerification();
+                    return;
+                }
                 if (this.iti && !this.iti.isValidNumber()) {
                     this.errorMessage = gettext("Please enter a valid phone number");
                     return;

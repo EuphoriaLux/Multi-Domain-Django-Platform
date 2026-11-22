@@ -7,6 +7,14 @@
 
 {% block content %}
 
+{% if connect_invite %}
+{# Swipe match, member not in Crush Connect yet (decision 2026-11-20). #}
+<div class="max-w-5xl mx-auto mb-4 rounded-xl bg-purple-50 dark:bg-purple-900/20 p-4 flex flex-col sm:flex-row sm:items-center gap-3" data-connect-invite>
+    <p class="text-sm text-purple-900 dark:text-purple-200 flex-grow mb-0">{% trans "Matches between Crush Connect members chat in Crush Connect, with venue ideas and a coffee date. Join to get that for your next match." %}</p>
+    <a href="{% url 'crush_lu:crush_connect_onboarding' %}" class="btn-crush-outline btn-sm shrink-0">{% trans "Join Crush Connect" %}</a>
+</div>
+{% endif %}
+
 {# ===== SECTION A: Hero Header ===== #}
 <div class="cta-gradient py-8 px-4 mb-8 -mx-4 sm:-mx-6 lg:-mx-8">
     <div class="cta-gradient-decorations">
