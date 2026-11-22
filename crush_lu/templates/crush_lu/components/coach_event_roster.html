@@ -1,39 +1,58 @@
-{% load i18n %}
-<section class="card p-4 sm:p-5 mb-8" data-coach-event-roster>
-    <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-        <h3 class="font-semibold dark:text-white">{% trans "Payment and attendance" %}</h3>
-        <span class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans count count=rows|length %}{{ count }} registration{% plural %}{{ count }} registrations{% endblocktrans %}</span>
-    </div>
-    <p class="text-sm text-gray-600 dark:text-gray-300 mb-4">{% trans "Payment and check-in are tracked separately. An application is not a confirmed place." %}</p>
+{% load i18n %}{% comment %}
+Compact attendee list on the coach event page, for every event type. One row
+per registration: who, status, payment and arrival, each its own column, so a
+coach can scan 30-70 people at the door or after the event. Expects `rows`,
+`event`, `status_filter`. In the All view rows come grouped by status and
+carry group_start / group_label / group_count for the section headers.
+{% endcomment %}
+<section class="card p-0 sm:p-0 mb-8 overflow-hidden" data-coach-event-roster>
     {% if rows %}
-    <div class="space-y-3 md:hidden">
+    <ul class="divide-y divide-gray-100 dark:divide-gray-700">
         {% for row in rows %}
-        {% with reg=row.registration %}
-        <div class="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-            <a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-semibold text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ reg.get_status_display }}</p>
-            {% include "crush_lu/components/coach_promotion_notice.html" %}
-            <dl class="grid grid-cols-2 gap-2 mt-3 text-sm">
-                <div><dt class="text-xs text-gray-500 dark:text-gray-400">{% trans "Payment" %}</dt><dd class="font-medium dark:text-white">{{ row.payment }}{% if row.attendance_check %} <span class="text-xs font-normal text-gray-500 dark:text-gray-400" data-attendance-check>({{ row.attendance_check }})</span>{% endif %}</dd></div>
-                <div><dt class="text-xs text-gray-500 dark:text-gray-400">{% trans "Attendance" %}</dt><dd class="font-medium dark:text-white">{{ row.arrival }}</dd></div>
-            </dl>
-        </div>
+        {% with reg=row.registration profile=row.registration.user.crushprofile %}
+        {% if row.group_start %}
+        <li class="px-4 py-2 bg-gray-50 dark:bg-gray-900/40 flex items-center gap-2" data-roster-group="{{ reg.status }}">
+            <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full {% include 'crush_lu/components/coach_badge_tone.html' with tone=row.status_tone %}">{{ row.group_label }}</span>
+            <span class="text-xs font-semibold text-gray-500 dark:text-gray-400 tabular-nums">{{ row.group_count }}</span>
+        </li>
+        {% endif %}
+        <li class="px-4 py-3 grid grid-cols-[2.5rem_1fr] md:grid-cols-[2.5rem_minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.6fr)_minmax(0,1.2fr)] gap-x-3 gap-y-1 items-start" data-roster-row="{{ reg.status }}">
+            <div class="row-span-4 md:row-span-1">
+                {% if profile and profile.photo_1 %}
+                <img src="{% url 'crush_lu:serve_profile_photo' reg.user_id 'photo_1' %}" alt="" class="w-10 h-10 rounded-full object-cover object-face" loading="lazy">
+                {% else %}
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-crush-purple/20 to-crush-pink/20 dark:from-crush-purple/30 dark:to-crush-pink/30 flex items-center justify-center"><span class="font-semibold text-crush-purple dark:text-crush-pink">{{ reg.user.first_name|first|upper }}</span></div>
+                {% endif %}
+            </div>
+            <div class="min-w-0">
+                <a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-semibold text-gray-900 dark:text-white hover:text-crush-purple dark:hover:text-purple-400">{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}</a>
+                {% if profile.gender == 'F' %}<span class="text-pink-500 text-xs" title="{% trans 'Female' %}">&#9792;</span>{% elif profile.gender == 'M' %}<span class="text-blue-500 text-xs" title="{% trans 'Male' %}">&#9794;</span>{% elif profile.gender %}<span class="text-purple-500 text-xs" title="{{ profile.get_gender_display }}">&#9898;</span>{% endif %}
+                {% if profile and profile.show_exact_age and profile.age %}<span class="text-xs text-gray-500 dark:text-gray-400">· {{ profile.age }}</span>{% endif %}
+                {% if profile and not profile.is_approved %}<span class="ml-1 inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded">{% trans "Not Verified" %}</span>{% endif %}
+                <p class="text-[11px] text-gray-400 dark:text-gray-500">{% trans "Registered" %} {{ reg.registered_at|date:"M j, H:i" }}{% if reg.menu_option_name %} · 🍷 {{ reg.menu_option_name }}{% if reg.menu_option_price is not None %} — {{ reg.menu_option_price|floatformat:"-2" }} €{% endif %}{% endif %}{% if event.allow_plus_ones and reg.bringing_guest %} · +1 {{ reg.guest_name|default:_("Guest") }}{% endif %}{% if event.has_food_component and reg.dietary_restrictions %} · <span class="text-orange-600 dark:text-orange-400">{{ reg.dietary_restrictions }}</span>{% endif %}</p>
+                {% include "crush_lu/components/registration_preference_chips.html" %}
+            </div>
+            <div class="min-w-0">
+                <span class="md:hidden text-[11px] text-gray-400 dark:text-gray-500">{% trans "Status" %}:</span>
+                <span class="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full {% include 'crush_lu/components/coach_badge_tone.html' with tone=row.status_tone %}" data-roster-status title="{{ reg.get_status_display }}">{{ row.status_label }}</span>
+                {% if reg.status == 'waitlist' and event.gender_limits_active and reg.waitlist_position_in_pool %}<span class="text-[11px] text-gray-500 dark:text-gray-400 tabular-nums">{% if reg.waitlist_pool == 'm' %}♂{% elif reg.waitlist_pool == 'f' %}♀{% elif reg.waitlist_pool == 'nb' %}⚬{% endif %} #{{ reg.waitlist_position_in_pool }}</span>{% endif %}
+                {% include "crush_lu/components/coach_promotion_notice.html" %}
+            </div>
+            <div class="min-w-0">
+                <span class="md:hidden text-[11px] text-gray-400 dark:text-gray-500">{% trans "Payment" %}:</span>
+                <span class="text-sm font-medium {% if row.payment_tone == 'green' %}text-green-700 dark:text-green-400{% elif row.payment_tone == 'amber' %}text-amber-700 dark:text-amber-400{% else %}text-gray-600 dark:text-gray-300{% endif %}" data-roster-payment>{{ row.payment }}</span>
+                {% if row.attendance_check %} <span class="text-xs text-gray-500 dark:text-gray-400" data-attendance-check>({{ row.attendance_check }})</span>{% endif %}
+                {% for note in row.payment_notes %}<p class="text-[11px] text-gray-500 dark:text-gray-400" data-roster-payment-note>{{ note }}</p>{% endfor %}
+            </div>
+            <div class="min-w-0 text-sm">
+                <span class="md:hidden text-[11px] text-gray-400 dark:text-gray-500">{% trans "Attendance" %}:</span>
+                {% if reg.checked_in_at %}<span class="text-emerald-700 dark:text-emerald-400 font-medium" data-roster-checkin>{% blocktrans with time=reg.checked_in_at|date:"H:i" %}In at {{ time }}{% endblocktrans %}</span>{% else %}<span class="text-gray-600 dark:text-gray-300">{{ row.arrival }}</span>{% endif %}
+            </div>
+        </li>
         {% endwith %}
         {% endfor %}
-    </div>
-    <div class="hidden md:block overflow-x-auto">
-        <table class="w-full text-sm">
-            <thead><tr class="border-b border-gray-200 dark:border-gray-700 text-left text-gray-500 dark:text-gray-400"><th class="py-2 pr-4">{% trans "Member" %}</th><th class="py-2 pr-4">{% trans "Registration" %}</th><th class="py-2 pr-4">{% trans "Payment" %}</th><th class="py-2">{% trans "Attendance" %}</th></tr></thead>
-            <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
-                {% for row in rows %}
-                {% with reg=row.registration %}
-                <tr><td class="py-3 pr-4"><a href="{% url 'crush_lu:coach_member_overview' reg.user_id %}" class="font-medium text-crush-purple dark:text-purple-400">{% with profile=reg.user.crushprofile %}{% if profile %}{{ profile.display_name }}{% else %}{{ reg.user.first_name|default:reg.user.username }}{% endif %}{% endwith %}</a></td><td class="py-3 pr-4 dark:text-white">{{ reg.get_status_display }}{% include "crush_lu/components/coach_promotion_notice.html" %}</td><td class="py-3 pr-4 dark:text-white">{{ row.payment }}{% if row.attendance_check %} <span class="text-xs text-gray-500 dark:text-gray-400" data-attendance-check>({{ row.attendance_check }})</span>{% endif %}</td><td class="py-3 dark:text-white">{{ row.arrival }}</td></tr>
-                {% endwith %}
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    </ul>
     {% else %}
-    <p class="text-sm text-gray-500 dark:text-gray-400">{% trans "No registrations yet." %}</p>
+    <p class="p-6 text-sm text-center text-gray-500 dark:text-gray-400">{% if status_filter == 'all' %}{% trans "No registrations yet." %}{% else %}{% trans "Nobody in this group." %}{% endif %}</p>
     {% endif %}
 </section>
