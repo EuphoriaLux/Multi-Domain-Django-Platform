@@ -162,6 +162,32 @@ def pytest_configure(config):
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _no_azure_retry_backoff():
+    """Make the Azure SDK give up at once instead of sleeping between retries.
+
+    pytest_configure sets AZURE_ACCOUNT_NAME, so code gated on that env var
+    (e.g. ``crush_lu.storage.delete_user_storage`` on account deletion) builds a
+    real BlobServiceClient for an unreachable account. The storage retry policy
+    then backs off 15s, 18s, 24s... per request before the error is swallowed:
+    ~170s for each GDPR-deletion test, which dominated CI wall time. Every sync
+    Azure SDK backoff goes through ``HttpTransport.sleep``; skipping it keeps the
+    retries and the final error, just without the wait.
+    """
+    try:
+        from azure.core.pipeline.transport import HttpTransport
+    except ImportError:
+        yield
+        return
+
+    original = HttpTransport.sleep
+    HttpTransport.sleep = lambda self, duration: None
+    try:
+        yield
+    finally:
+        HttpTransport.sleep = original
+
+
+@pytest.fixture(scope="session", autouse=True)
 def _patch_static_storage():
     """
     Patch the static files storage to use simple storage.
