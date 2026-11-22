@@ -440,6 +440,30 @@ class AbandonedCheckoutTests(CreditFixture):
         self.assertEqual(self.seat.status, "waitlist")
         self.assertFalse(self.seat.payment_confirmed)
 
+    def test_late_payment_after_a_later_member_cancellation_is_credited(self):
+        self._release()
+        # Signed up again, then cancelled themselves; a seat is free.
+        EventRegistration.objects.filter(pk=self.seat.pk).update(
+            checkout_released_at=timezone.now() - timedelta(minutes=10),
+            cancelled_at=timezone.now() - timedelta(minutes=1),
+            registered_at=timezone.now() - timedelta(minutes=5),
+        )
+        self.seat.refresh_from_db()
+        tx = self._checkout(
+            PaymentTransaction.Status.PENDING, minutes_ago=1, payment_id="tr_latepay01"
+        )
+        PaymentTransaction.objects.filter(pk=tx.pk).update(
+            created_at=self.seat.checkout_released_at - timedelta(minutes=5)
+        )
+        with mock.patch(
+            REQUEST, return_value=_payment("paid", payment_id="tr_latepay01")
+        ), self.captureOnCommitCallbacks(execute=True):
+            Client(HTTP_HOST="crush.lu").post(WEBHOOK, {"id": "tr_latepay01"})
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.status, "cancelled")
+        credit = CrushCredit.objects.get(user=self.buyer)
+        self.assertEqual(credit.reason, CrushCredit.Reason.SEAT_RELEASED_UNPAID)
+
     def test_restored_replacement_settles_the_resale_claim_it_carried(self):
         self._release()
         with mock.patch(

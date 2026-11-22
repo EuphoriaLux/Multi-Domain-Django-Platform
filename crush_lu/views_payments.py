@@ -1895,7 +1895,9 @@ def _capture_is_for_released_seat(locked, reg):
 def _settle_capture_for_released_seat(locked, reg, resale_source=None):
     """Apply a capture for a seat the abandoned-checkout sweep released.
 
-    Re-confirms the seat when the event has not started, the amount still
+    Re-confirms the seat when the sweep's own cancellation still stands (no
+    later re-registration or member cancellation), the event has not started,
+    the amount still
     matches the fee and a seat is free for this member, and then settles any
     resale claim the seat carried (it may itself have been a waitlist
     replacement for a late canceller), as the ordinary confirmation does.
@@ -1911,8 +1913,15 @@ def _settle_capture_for_released_seat(locked, reg, resale_source=None):
     now = timezone.now()
     reg.payment_confirmed = True
     reg.payment_date = now
+    # Only the sweep's own cancellation may be undone. A member who signed up
+    # again and then cancelled, or who is waiting on the waitlist, made a later
+    # choice that a late payment must not overturn: they get the credit.
+    released_by_sweep = (
+        reg.status == "cancelled" and reg.cancelled_at == reg.checkout_released_at
+    )
     if (
-        event.date_time > now
+        released_by_sweep
+        and event.date_time > now
         and locked.amount == event.registration_fee
         and _released_seat_is_free(reg)
     ):
