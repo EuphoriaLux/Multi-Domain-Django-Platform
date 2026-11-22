@@ -37,8 +37,9 @@ on request.
 
 import logging
 import time as monotonic_clock
-from datetime import timedelta
+from datetime import datetime, timedelta
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
@@ -55,8 +56,10 @@ REMINDER_AFTER = timedelta(minutes=15)
 RELEASE_AFTER = timedelta(minutes=30)
 # The reminder promises the seat for a little longer; keep that promise.
 RELEASE_AFTER_REMINDER = timedelta(minutes=15)
-# When the reminder keeps failing to send, do not hold the seat for ever.
-RELEASE_WITHOUT_REMINDER_AFTER = timedelta(minutes=90)
+# When the reminder has been tried and keeps failing to send, do not hold the
+# seat for ever. Only a real failed send starts this clock: a seat whose
+# checkout ended late, or that the sweep reaches late, still gets its email.
+REMINDER_FAILING_FOR = timedelta(minutes=60)
 # A row written before Mollie was asked has no payment id for a moment; past
 # this it is a request that died between the two writes (as in views_mollie).
 PREPARING_GRACE = timedelta(seconds=120)
@@ -65,6 +68,10 @@ PREPARING_GRACE = timedelta(seconds=120)
 # each take seconds, so stop starting new seats well before that.
 BUDGET_SECONDS = 40
 MAX_REGISTRATIONS_PER_RUN = 50
+# Where the last run stopped, so seats past a long run of waiting ones (open
+# checkouts, Pay by Bank) are reached on the next runs instead of never.
+CURSOR_KEY = "abandoned-checkout-sweep:cursor"
+CURSOR_TTL_SECONDS = 24 * 60 * 60
 
 
 class Outcome:
@@ -174,6 +181,53 @@ def _checkouts_settled(registration, now):
     return max(tx.created_at for tx in online)
 
 
+def _failed_key(registration):
+    # Keyed on the cycle too, so a re-registration starts with a clean slate.
+    return (
+        f"abandoned-checkout-reminder-failed:{registration.pk}:"
+        f"{registration.registered_at.timestamp():.0f}"
+    )
+
+
+def _reminder_failing_since(registration):
+    """When a reminder send for this cycle first failed, or None."""
+    try:
+        value = cache.get(_failed_key(registration))
+    except Exception:  # noqa: BLE001 - cache down: behave as never failed
+        return None
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _record_reminder_failure(registration, now):
+    try:
+        cache.add(_failed_key(registration), now.isoformat(), CURSOR_TTL_SECONDS)
+    except Exception:  # noqa: BLE001 - cache down: the seat simply keeps waiting
+        logger.warning(
+            "[abandoned_checkouts] could not record the failed reminder for %s",
+            registration.pk,
+        )
+
+
+def release_due(latest, reminder_at, failing_since, now):
+    """Whether a seat whose latest checkout opened at ``latest`` may go now.
+
+    One rule, used both to decide and again under the checkout locks: about
+    30 minutes after the checkout and 15 after the reminder; or, only when the
+    reminder has really been tried and kept failing for an hour, without it.
+    """
+    age = now - latest
+    if age < RELEASE_AFTER:
+        return False
+    if reminder_at is not None:
+        return now - reminder_at >= RELEASE_AFTER_REMINDER
+    return failing_since is not None and now - failing_since >= REMINDER_FAILING_FOR
+
+
 def _send_reminder(registration, now):
     """Send the one "finish your payment" email and stamp the step."""
     from crush_lu import email_helpers
@@ -186,11 +240,13 @@ def _send_reminder(registration, now):
             registration.pk,
             type(exc).__name__,
         )
+        _record_reminder_failure(registration, now)
         return Outcome.REMINDER_FAILED
     if not delivered and email_helpers.can_send_email(
         registration.user, "event_checkout_reminder"
     ):
         # 0 for a member who may receive it is a swallowed send failure.
+        _record_reminder_failure(registration, now)
         return Outcome.REMINDER_FAILED
     # Stamped for an unsubscribed member too: the step is done, and the
     # release then follows on the normal clock. The filter re-checks the seat,
@@ -205,22 +261,23 @@ def _send_reminder(registration, now):
     return Outcome.REMINDED if delivered else Outcome.REMINDER_SKIPPED
 
 
-def release_seat(registration_id, *, now=None):
+def release_seat(registration_id, *, registered_at, now=None):
     """Release one abandoned seat under the checkout locks. Returns True if done.
 
     Takes the payment-first lock order of the checkout itself
     (``_lock_event_checkout_state``), so a checkout being opened at the same
     moment either commits first, and this sees its PENDING row and stands
-    down, or waits and then finds the seat no longer payable.
+    down, or waits and then finds the seat no longer payable. Everything the
+    decision rests on is read again under the locks: the registration cycle
+    that was inspected (``registered_at``), the latest checkout (a newer one
+    that already failed restarts the clock) and the reminder.
     """
     from crush_lu.notification_service import announce_waitlist_promotions
     from crush_lu.views_events import _promote_from_waitlist
     from crush_lu.views_payments import _lock_event_checkout_state
 
     now = now or timezone.now()
-    snapshot = EventRegistration.objects.only("event_id", "registered_at").get(
-        pk=registration_id
-    )
+    snapshot = EventRegistration.objects.only("event_id").get(pk=registration_id)
     for _attempt in range(3):
         with transaction.atomic():
             payments, event, registration, scope_changed = _lock_event_checkout_state(
@@ -232,7 +289,7 @@ def release_seat(registration_id, *, now=None):
                 registration.status != "pending"
                 or registration.payment_confirmed
                 or registration.checkout_released_at is not None
-                or registration.registered_at != snapshot.registered_at
+                or registration.registered_at != registered_at
                 or event.is_cancelled
                 or event.uses_curated_registration
                 or event.date_time <= now
@@ -250,6 +307,18 @@ def release_seat(registration_id, *, now=None):
             if EventCheckoutCreationClaim.objects.filter(
                 registration_id=registration.pk
             ).exists():
+                return False
+            latest = max(
+                p.created_at
+                for p in cycle
+                if p.provider == PaymentTransaction.Provider.MOLLIE
+            )
+            if not release_due(
+                latest,
+                registration.checkout_reminder_at,
+                _reminder_failing_since(registration),
+                now,
+            ):
                 return False
 
             registration.status = "cancelled"
@@ -292,17 +361,15 @@ def process_registration(registration, *, now=None):
     )
     if registration.status != "pending" or registration.payment_confirmed:
         return Outcome.SKIPPED
-    age = now - latest
-    if age < REMINDER_AFTER:
+    if now - latest < REMINDER_AFTER:
         return Outcome.WAITING
-    if registration.checkout_reminder_at is None:
-        if age < RELEASE_WITHOUT_REMINDER_AFTER:
+    reminder_at = registration.checkout_reminder_at
+    failing_since = _reminder_failing_since(registration)
+    if not release_due(latest, reminder_at, failing_since, now):
+        if reminder_at is None:
             return _send_reminder(registration, now)
-    elif age < RELEASE_AFTER or (
-        now - registration.checkout_reminder_at < RELEASE_AFTER_REMINDER
-    ):
         return Outcome.WAITING
-    if release_seat(registration.pk, now=now):
+    if release_seat(registration.pk, registered_at=registration.registered_at, now=now):
         return Outcome.RELEASED
     return Outcome.SKIPPED
 
@@ -317,7 +384,17 @@ def run_sweep(*, dry_run=False, now=None, budget_seconds=BUDGET_SECONDS):
         return counts
     now = now or timezone.now()
     started = monotonic_clock.monotonic()
-    for index, registration in enumerate(candidate_registrations(now)):
+    try:
+        cursor = int(cache.get(CURSOR_KEY) or 0)
+    except Exception:  # noqa: BLE001 - cache down: start from the beginning
+        cursor = 0
+    candidates = list(candidate_registrations(now))
+    # Resume after the last seat looked at, then wrap round to the start.
+    ordered = [r for r in candidates if r.pk > cursor] + [
+        r for r in candidates if r.pk <= cursor
+    ]
+    last_seen = None
+    for index, registration in enumerate(ordered):
         if (
             index >= MAX_REGISTRATIONS_PER_RUN
             or monotonic_clock.monotonic() - started > budget_seconds
@@ -327,6 +404,7 @@ def run_sweep(*, dry_run=False, now=None, budget_seconds=BUDGET_SECONDS):
         if dry_run:
             counts["candidates"] = counts.get("candidates", 0) + 1
             continue
+        last_seen = registration.pk
         try:
             outcome = process_registration(registration, now=now)
         except Exception:  # noqa: BLE001 - one seat must not stop the run
@@ -335,4 +413,12 @@ def run_sweep(*, dry_run=False, now=None, budget_seconds=BUDGET_SECONDS):
             )
             outcome = Outcome.ERROR
         counts[outcome] = counts.get(outcome, 0) + 1
+    if last_seen is not None:
+        # A full pass starts from the beginning next time; a cut-off one
+        # resumes after the last seat it reached.
+        next_cursor = last_seen if counts.get("deferred") else 0
+        try:
+            cache.set(CURSOR_KEY, next_cursor, CURSOR_TTL_SECONDS)
+        except Exception:  # noqa: BLE001 - cache down: next run starts over
+            pass
     return counts

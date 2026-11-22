@@ -223,6 +223,78 @@ class AbandonedCheckoutTests(CreditFixture):
             self.assertEqual(self._run(), {sweep.Outcome.REMINDER_FAILED: 1})
             self.assertEqual(self._run(minutes_later=80), {sweep.Outcome.RELEASED: 1})
 
+    def test_checkout_that_ended_late_still_gets_its_reminder(self):
+        """A checkout open for two hours, then expired: email first, not release."""
+        self._checkout(PaymentTransaction.Status.PENDING, minutes_ago=120)
+        with mock.patch(REQUEST, return_value=_payment("expired", checkout=False)):
+            counts = self._run()
+        self.assertEqual(counts, {sweep.Outcome.REMINDED: 1})
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.status, "pending")
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(self._run(minutes_later=10), {sweep.Outcome.WAITING: 1})
+        self.assertEqual(self._run(minutes_later=16), {sweep.Outcome.RELEASED: 1})
+
+    def test_release_rechecks_the_latest_checkout_under_the_locks(self):
+        self._checkout(PaymentTransaction.Status.CANCELLED, minutes_ago=200)
+        self._run()  # reminder
+        # The member tries again and backs out just before the release.
+        self._checkout(
+            PaymentTransaction.Status.CANCELLED,
+            minutes_ago=0,
+            payment_id="tr_retry0001",
+        )
+        released = sweep.release_seat(
+            self.seat.pk,
+            registered_at=self.seat.registered_at,
+            now=self.now + timedelta(minutes=20),
+        )
+        self.assertFalse(released)
+        self.seat.refresh_from_db()
+        self.assertEqual(self.seat.status, "pending")
+
+    def test_release_refuses_a_cycle_it_did_not_inspect(self):
+        self._checkout(PaymentTransaction.Status.CANCELLED, minutes_ago=200)
+        self._run()
+        released = sweep.release_seat(
+            self.seat.pk,
+            registered_at=self.seat.registered_at - timedelta(days=3),
+            now=self.now + timedelta(minutes=20),
+        )
+        self.assertFalse(released)
+
+    def test_seats_past_the_per_run_cap_are_reached_on_the_next_run(self):
+        other = self._user("second@crush.lu")
+        second = self._registration(self.target, other, status="pending")
+        EventRegistration.objects.filter(pk=second.pk).update(
+            registered_at=self.now - timedelta(days=1)
+        )
+        # The first seat's checkout stays open, so it waits on every run.
+        self._checkout(PaymentTransaction.Status.PENDING, minutes_ago=40)
+        tx = PaymentTransaction.objects.create(
+            transaction_reference="CRUSH-EVT-second",
+            provider=PaymentTransaction.Provider.MOLLIE,
+            mollie_payment_id="tr_second001",
+            amount=FEE,
+            currency="EUR",
+            status=PaymentTransaction.Status.CANCELLED,
+            purpose=PaymentTransaction.Purpose.EVENT_REGISTRATION,
+            user=other,
+            event_registration=second,
+        )
+        PaymentTransaction.objects.filter(pk=tx.pk).update(
+            created_at=self.now - timedelta(minutes=20)
+        )
+        with mock.patch.object(sweep, "MAX_REGISTRATIONS_PER_RUN", 1), mock.patch(
+            REQUEST, return_value=_payment("open")
+        ):
+            first = self._run()
+            second_run = self._run()
+        self.assertEqual(first, {sweep.Outcome.WAITING: 1, "deferred": 1})
+        self.assertEqual(second_run, {sweep.Outcome.REMINDED: 1, "deferred": 1})
+        second.refresh_from_db()
+        self.assertIsNotNone(second.checkout_reminder_at)
+
     def test_unsubscribed_member_is_released_on_the_normal_clock(self):
         self._checkout(PaymentTransaction.Status.CANCELLED, minutes_ago=16)
         with mock.patch("crush_lu.email_helpers.can_send_email", return_value=False):
