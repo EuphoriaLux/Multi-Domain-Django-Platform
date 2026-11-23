@@ -19,8 +19,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{% block title %}Crush.lu - Meet New People{% endblock %}</title>
 
-    <!-- Favicon (SVG preferred by capable browsers, .ico as fallback) -->
-    <link rel="icon" type="image/svg+xml" href="{% static 'crush_lu/favicon.svg' %}">
+    <!-- Favicon: the neon logo (ghost + heart in the glowing ring), same artwork
+         as the PWA / apple-touch icons. PNG preferred, .ico as fallback. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="{% static 'crush_lu/icons/ios/32.png' %}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{% static 'crush_lu/icons/ios/16.png' %}">
     <link rel="icon" type="image/x-icon" href="{% static 'crush_lu/crush_favicon.ico' %}">
 
     <!-- Performance: Resource Hints.

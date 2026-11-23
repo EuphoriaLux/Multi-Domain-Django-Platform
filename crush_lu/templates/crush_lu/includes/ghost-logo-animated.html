@@ -16,11 +16,13 @@
 
       {% include "crush_lu/includes/ghost-core.html" with variant="animated" %}
 
-      <!-- Heart - beats in place above ghost head -->
-      <g transform="translate(248,120)">
+      <!-- Heart - beats in place to the ghost's right (logo resting position) -->
+      <g transform="translate(371,225)">
         {% include "crush_lu/includes/ghost-heart.html" with pulse=True %}
-        <!-- Heartbeat scale - quick double-beat like a real heart -->
-        <animateTransform attributeName="transform" type="scale"
+        <!-- Heartbeat scale - quick double-beat like a real heart. additive="sum"
+             stacks it on the translate above; without it the scale REPLACES the
+             transform and the heart renders at the SVG origin, outside the viewBox. -->
+        <animateTransform attributeName="transform" type="scale" additive="sum"
           values="1;1.25;1;1.15;1;1;1;1"
           dur="1.5s" repeatCount="indefinite" calcMode="spline"
           keySplines="0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1"/>

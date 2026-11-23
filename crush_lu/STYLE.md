@@ -605,15 +605,30 @@ because the ~30 `ghost-story-*` decorations already live there.
 | Include | Look | Use for | Default size |
 |---|---|---|---|
 | `ghost-logo.html` | Static body, orbiting heart, eyes follow it | Navbar / footer / inline brand | `w-7 h-7` |
-| `ghost-logo-animated.html` | Float, blink, heartbeat, sparkles (SMIL) | Loading overlay, celebrations on gradient | `w-7 h-7` |
+| `ghost-logo-animated.html` | Float, blink, sparkles, heart beating at the ghost's right (SMIL) | Loading overlay, celebrations on gradient | `w-7 h-7` |
 | `ghost-logo-hero.html` | Animated + cursor-tracked eyes/heart | Home hero **only** | `w-7 h-7` |
-| `ghost-logo-icon.html` | No animation, outline baked in | Tiny badges (`w-4`/`w-8`) — the only variant for icon sizes | `w-4 h-4` |
-| `ghost-logo-mono.html` | Single color via `currentColor`, mask-punched face | Single-color contexts (emails, watermarks) | `w-7 h-7` |
+| `ghost-logo-icon.html` | No animation, outline baked in, heart at the ghost's right | Tiny badges (`w-4`/`w-8`) — the only variant for icon sizes | `w-4 h-4` |
+| `ghost-logo-mono.html` | Ghost + heart in a single color via `currentColor`, mask-punched face | Single-color contexts (emails, watermarks) | `w-7 h-7` |
 
 `ghost-logo-hero.html` has a JS contract: the `ghostEyes` Alpine
 component (`js/alpine/core.js`) queries `.ghost-eye` / `.ghost-heart`
 inside the hero section and rewrites their transforms per frame. That
 markup — and the heartbeat's `additive="sum"` — is load-bearing.
+
+### One logo, two forms
+
+- **No background:** the ghost with the pink heart floating to its
+  **right** (`translate(371,225)` in the `89 75 318 325` viewBox). That is
+  the resting position in `ghost-logo-icon`, `ghost-logo-animated` and
+  `ghost-logo-mono` — keep the three in sync. `ghost-logo` orbits the heart
+  around the head, and `ghost-logo-hero` still rests it above the head
+  (`translate(248,120)`, mirrored as `heartBaseX/Y` in `core.js`) because
+  the cursor tracker drifts it ±130 units around that point.
+- **Background needed** (favicon, app/PWA icons, anything that must be an
+  opaque tile): the **neon** artwork — the same ghost and heart inside the
+  glowing ring on dark purple. It exists as raster only; the master is
+  `static/crush_lu/icons/ios/1024.png`. Don't put the logo on any other
+  background tile (no gradient or flat-purple squares).
 
 ### Params of `ghost-core.html`
 
@@ -651,9 +666,12 @@ untouched — glow is applied at the call site.
 
 ### Brand asset inventory
 
-- Favicon: `static/crush_lu/favicon.svg` (preferred) + `crush_favicon.ico`
-  (fallback), both linked in `base.html`. The SVG mirrors `ghost-core.html`
-  shapes — keep in sync; no SMIL (Firefox animates favicons).
+- Favicon: the neon logo — `icons/ios/32.png` + `16.png` (preferred) and
+  `crush_favicon.ico` (fallback, 16–256 px, built from the same `icons/ios/`
+  set), all linked in `base.html`. There is no SVG favicon: the neon
+  artwork is raster only.
+- `static/crush_lu/logo.png`: 1024 px copy of the neon master
+  (`icons/ios/1024.png`).
 - PWA: maskable 192/512 icons + apple-touch set, served via the
   `pwa_manifest` view (`views_pwa.py`).
 - Social/OG: `static/crush_lu/crush_social_preview.jpg` (1200×630), wired
