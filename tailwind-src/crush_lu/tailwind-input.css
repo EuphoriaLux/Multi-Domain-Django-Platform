@@ -5518,9 +5518,10 @@ html.dark .poll-results-bar {
     }
 
     /* A pillar the member cannot use yet (Connect before approval, Coaching
-       before launch): dimmed, still tappable to its teaser page. */
-    .bottom-nav-item-locked:not(.bottom-nav-item-active) {
-        opacity: 0.6;
+       before launch): icon dimmed, still tappable to its teaser page. Only
+       the icon fades; the label keeps full colour for text contrast (axe). */
+    .bottom-nav-item-locked:not(.bottom-nav-item-active) > svg {
+        opacity: 0.5;
     }
 
     /* --- Slim Mobile Top Bar --- */
