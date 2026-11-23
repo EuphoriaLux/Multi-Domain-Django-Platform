@@ -84,14 +84,15 @@ def test_hub_requires_login(client):
 
 
 @pytest.mark.django_db
-def test_approved_member_with_luxid_is_level_3(client):
+def test_luxid_alone_is_level_2(client):
+    """LuxID puts a member in the Connect mix; Connect Week needs a coach
+    to have met them (Tom, 2026-11-23)."""
     _approved_member(client, has_luxid=True)
 
     body = _body(client.get(HUB_URL))
 
-    assert _level(body) == 3
-    assert "Verified and identity confirmed" in body
-    assert "data-crush-id-next" not in body
+    assert _level(body) == 2
+    assert "data-crush-id-next" in body
     assert "?section=privacy" in _hub(body)
 
 
@@ -101,7 +102,10 @@ def test_event_check_in_confirms_identity(client):
     user = _approved_member(client, username="cid_door", has_luxid=False)
     _mark_attended(user)
 
-    assert _level(_body(client.get(HUB_URL))) == 3
+    body = _body(client.get(HUB_URL))
+    assert _level(body) == 3
+    assert "Verified and identity confirmed" in body
+    assert "data-crush-id-next" not in body
 
 
 @pytest.mark.django_db

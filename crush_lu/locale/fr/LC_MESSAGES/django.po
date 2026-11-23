@@ -49400,3 +49400,12 @@ msgstr "Votre vérification, votre profil et vos données personnelles, au même
 msgctxt "coming soon badge"
 msgid "Soon"
 msgstr "Bientôt"
+
+msgid "A short video check with a coach opens Connect Week. Checking in with a coach at an event works too."
+msgstr "Une courte vérification vidéo avec un coach ouvre la Connect Week. Un check-in avec un coach lors d'un événement fonctionne aussi."
+
+msgid "Check in with a coach at one of our events to confirm your identity and open Connect Week."
+msgstr "Faites votre check-in avec un coach à l'un de nos événements pour confirmer votre identité et ouvrir la Connect Week."
+
+msgid "A coach met you: an event check-in or a coach video check. Opens Connect Week."
+msgstr "Un coach vous a rencontré : check-in à un événement ou vérification vidéo avec un coach. Ouvre la Connect Week."

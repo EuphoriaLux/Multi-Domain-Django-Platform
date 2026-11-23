@@ -9,8 +9,12 @@ Levels (shared with the 2027 Coaching plan):
   1 Account            - signed up, phone confirmed
   2 Approved           - profile and photos approved (coach call, LuxID or
                          event door). Event tickets and Crush Connect.
-  3 Identity confirmed - LuxID, Connect video check or coach-attested event
-                         check-in. Connect Week and Coaching Blind Dates.
+  3 Identity confirmed - a coach saw the member: coach-attested event
+                         check-in or Connect video check. Connect Week and
+                         Coaching Blind Dates. LuxID alone does not count: it
+                         approves and puts a member in the Connect mix, but
+                         Connect Week needs a real-life check (Tom,
+                         2026-11-23).
 """
 
 from django.shortcuts import render
@@ -22,12 +26,12 @@ from crush_lu.decorators import crush_login_required
 
 
 def identity_confirmed(user, profile):
-    """Level 3: LuxID linked, or a coach-attested event / valid video check."""
+    """Level 3: a coach-attested event check-in or a valid video check."""
     from crush_lu.services.connect_verification import human_verification_method
 
     if not profile or not profile.is_approved:
         return False
-    return bool(profile.has_luxid_connected or human_verification_method(user))
+    return bool(human_verification_method(user))
 
 
 def verification_level(user, profile):
@@ -72,7 +76,7 @@ def _next_step(user, profile, level):
                 _("Confirm your identity"),
                 _(
                     "A short video check with a coach opens Connect Week. "
-                    "LuxID or checking in at an event works too."
+                    "Checking in with a coach at an event works too."
                 ),
                 reverse("crush_lu:connect_verification"),
                 _("Open video check"),
@@ -80,8 +84,8 @@ def _next_step(user, profile, level):
         return (
             _("Confirm your identity"),
             _(
-                "Link LuxID or check in at an event with a coach to confirm "
-                "your identity."
+                "Check in with a coach at one of our events to confirm your "
+                "identity and open Connect Week."
             ),
             reverse("crush_lu:event_list"),
             _("Browse events"),

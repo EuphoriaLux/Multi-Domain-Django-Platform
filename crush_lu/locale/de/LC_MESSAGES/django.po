@@ -49289,3 +49289,12 @@ msgstr "Deine Verifizierung, dein Profil und deine persönlichen Daten an einem 
 msgctxt "coming soon badge"
 msgid "Soon"
 msgstr "Bald"
+
+msgid "A short video check with a coach opens Connect Week. Checking in with a coach at an event works too."
+msgstr "Ein kurzer Video-Check mit einem Coach öffnet die Connect Week. Ein Check-in mit einem Coach bei einem Event funktioniert auch."
+
+msgid "Check in with a coach at one of our events to confirm your identity and open Connect Week."
+msgstr "Checke bei einem unserer Events mit einem Coach ein, um deine Identität zu bestätigen und die Connect Week zu öffnen."
+
+msgid "A coach met you: an event check-in or a coach video check. Opens Connect Week."
+msgstr "Ein Coach hat dich getroffen: Check-in bei einem Event oder Video-Check mit einem Coach. Öffnet die Connect Week."
