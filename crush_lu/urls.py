@@ -31,6 +31,7 @@ from . import views_coach_real_person
 from . import views_coach_whatsapp
 from . import views_real_person_call
 from . import views_verification_funnel
+from . import views_crush_id
 from . import views_video_call
 from . import views_connect_showcase
 from . import views_quiz_config
@@ -656,6 +657,9 @@ urlpatterns = [
         name="profile",
     ),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
+    # Crush ID: verification, approval and personal data (fourth pillar).
+    path("id/", views_crush_id.crush_id_hub, name="crush_id"),
+    path("coaching/", views_crush_id.coaching_coming_soon, name="coaching"),
     path("profile/preferences/", views.crush_preferences, name="crush_preferences"),
     path(
         "matches/",

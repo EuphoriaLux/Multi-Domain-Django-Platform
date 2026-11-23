@@ -14,10 +14,20 @@
             {% trans "Your registrations, waitlist spots, and past meetups." %}
         </p>
     </div>
+    <div class="flex flex-wrap gap-2">
     <a href="{% url 'crush_lu:event_list' %}" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
         {% include "shared/icons/calendar.html" with class="w-4 h-4" %}
         {% trans "Browse Events" %}
     </a>
+    {% if profile_is_approved %}
+    {# Matches belong to the Events pillar (2026-11-23). #}
+    <a href="{% url 'crush_lu:my_connections' %}" data-nav="matches" class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg text-sm font-medium transition-colors">
+        {% include "shared/icons/users.html" with class="w-4 h-4" %}
+        {% trans "My matches" %}
+        {% if pending_requests_count > 0 %}<span class="badge badge-danger">{{ pending_requests_count }}</span>{% endif %}
+    </a>
+    {% endif %}
+    </div>
 </div>
 
 {# Upcoming section #}

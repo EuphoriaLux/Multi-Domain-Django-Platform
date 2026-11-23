@@ -5507,6 +5507,22 @@ html.dark .poll-results-bar {
         text-align: center;
     }
 
+    /* Crush ID tab status: green tick when approved, amber "!" when the
+       member has a verification step to take. */
+    .bottom-nav-badge-ok {
+        background: #16a34a;
+    }
+
+    .bottom-nav-badge-warn {
+        background: #d97706;
+    }
+
+    /* A pillar the member cannot use yet (Connect before approval, Coaching
+       before launch): dimmed, still tappable to its teaser page. */
+    .bottom-nav-item-locked:not(.bottom-nav-item-active) {
+        opacity: 0.6;
+    }
+
     /* --- Slim Mobile Top Bar --- */
     .top-bar-mobile {
         position: sticky;
@@ -5856,6 +5872,25 @@ html.dark .poll-results-bar {
 
     .section-edit-card:active {
         transform: scale(0.98);
+    }
+
+    /* Crush ID level marks (hub status card) */
+    .crush-id-mark {
+        width: 1.25rem;
+        height: 1.25rem;
+        border-radius: 9999px;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0.1rem;
+    }
+    .crush-id-mark-done {
+        background: #16a34a;
+        color: #fff;
+    }
+    .crush-id-mark-todo {
+        border: 1.5px solid #9ca3af;
     }
 
     html.dark .section-edit-card {
