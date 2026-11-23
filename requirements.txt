@@ -71,7 +71,7 @@ pywebpush==2.5.0
 azure-monitor-opentelemetry==1.8.12
 
 # Cookie Consent (GDPR/ePrivacy)
-django-cookie-consent==1.0.0
+django-cookie-consent==2.0.1
 
 # Internationalization - Model Field Translations
 django-modeltranslation==0.20.6
