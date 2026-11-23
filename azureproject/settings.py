@@ -804,6 +804,15 @@ CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED = _env_bool(
     "CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED", default=False
 )
 
+# Let a submitted ("pending") member ask for a coach video call to get
+# verified, instead of only LuxID or an event. The request opens an unassigned
+# ProfileSubmission, so it lands in the coach Verification Channel and runs
+# through the existing screening-call review. Off by default; pin it
+# slot-sticky before setting it on one slot (slotConfigNames).
+VERIFICATION_COACH_CALL_REQUESTS_ENABLED = _env_bool(
+    "VERIFICATION_COACH_CALL_REQUESTS_ENABLED", default=False
+)
+
 # Event Check-In Configuration
 EVENT_CHECKIN_WINDOW_HOURS = int(os.getenv("EVENT_CHECKIN_WINDOW_HOURS", "12"))
 

@@ -45,4 +45,10 @@
 {% endif %}
 
 <p><a href="{{ entry_events_url }}">{% trans "See all entry events" %}</a></p>
+
+{% if coach_call_available %}
+<h2>{% trans "No LuxID and no event coming up?" %}</h2>
+<p>{% trans 'Ask for a short call with a Crush Coach, by video or phone. Open your profile page and tap "Request a call with a Coach".' %}</p>
+<p><a href="{{ verify_url }}">{% trans "Request a call with a Coach" %}</a></p>
+{% endif %}
 {% endblock %}

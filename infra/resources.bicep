@@ -541,6 +541,9 @@ resource slotConfigNames 'Microsoft.Web/sites/config@2023-12-01' = {
       // into production. Defaults are off/False; no existing badge is a grant.
       'CONNECT_VIDEO_VERIFICATION_MODE'
       'CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED'
+      // Pending members may request a coach call to get verified. Pin before
+      // setting it on one slot so staging's value never swaps into production.
+      'VERIFICATION_COACH_CALL_REQUESTS_ENABLED'
       // In-app video calls (crush_lu/services/turn_credentials.py): the
       // Cloudflare Realtime TURN key id and its API token. A separate key per
       // slot, so staging must never hold production's and a swap must never

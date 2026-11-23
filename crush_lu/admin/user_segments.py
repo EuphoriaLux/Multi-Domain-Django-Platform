@@ -372,6 +372,15 @@ def get_segment_definitions(include_counts=True):
         )
         .distinct()
     )
+    # Verified members who have never been checked in at any event, whether
+    # they never booked or booked and did not come. The activation audience:
+    # most verified members never attend (2026-11-21 stats review), and a
+    # campaign takes one segment, so the women/men split is its own card.
+    verified_never_attended = approved.exclude(
+        user__eventregistration__status="attended"
+    )
+    verified_never_attended_women = verified_never_attended.filter(gender="F")
+    verified_never_attended_men = verified_never_attended.filter(gender="M")
     event_upcoming_registrants = approved.filter(
         user__eventregistration__status__in=door_roster_statuses,
         user__eventregistration__event_id__in=current_event_ids,
@@ -1044,6 +1053,30 @@ def get_segment_definitions(include_counts=True):
                     "queryset": event_registered_never_attended,
                     "count": _count(event_registered_never_attended),
                     "color": "orange",
+                },
+                {
+                    "name": "Verified, Never Attended",
+                    "key": "verified_never_attended",
+                    "description": "Verified profiles never checked in at an event (booked or not)",
+                    "queryset": verified_never_attended,
+                    "count": _count(verified_never_attended),
+                    "color": "orange",
+                },
+                {
+                    "name": "Verified, Never Attended (women)",
+                    "key": "verified_never_attended_women",
+                    "description": "Verified women never checked in at an event",
+                    "queryset": verified_never_attended_women,
+                    "count": _count(verified_never_attended_women),
+                    "color": "pink",
+                },
+                {
+                    "name": "Verified, Never Attended (men)",
+                    "key": "verified_never_attended_men",
+                    "description": "Verified men never checked in at an event",
+                    "queryset": verified_never_attended_men,
+                    "count": _count(verified_never_attended_men),
+                    "color": "blue",
                 },
                 {
                     "name": "Upcoming Registrants",

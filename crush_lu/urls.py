@@ -620,6 +620,11 @@ urlpatterns = [
     ),
     path("profile-submitted/", views_crush_id.legacy_verify_redirect),
     path(
+        "profile-submitted/request-call/",
+        views.request_verification_call,
+        name="request_verification_call",
+    ),
+    path(
         "onboarding/screening-call/",
         views_profile.screening_call_step,
         name="onboarding_screening_call",
