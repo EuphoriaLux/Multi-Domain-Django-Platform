@@ -992,11 +992,16 @@ class EventRegistrationForm(forms.ModelForm):
 
             # Events with menu options (Wine Tasting formulas) make the guest
             # pick one. Paid to the venue on site, never through crush.lu.
-            menu_options = event.active_menu_options
+            # A formula marked as the minimum narrows the choice to it and
+            # the pricier ones (plus any exempt, e.g. alcohol-free), and is
+            # preselected so a guest who just wants to take part can go on.
+            menu_options = event.signup_menu_options
             if menu_options.exists():
+                minimum = event.minimum_menu_option
                 self.fields["menu_option"] = MenuOptionChoiceField(
                     queryset=menu_options,
                     required=True,
+                    initial=minimum.pk if minimum else None,
                     label=_("Your tasting formula"),
                     empty_label=None,
                     widget=forms.RadioSelect(

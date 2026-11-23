@@ -49226,3 +49226,21 @@ msgstr "Annulé %(time)s"
 #, python-format
 msgid "In at %(time)s"
 msgstr "Arrivé à %(time)s"
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+msgid "Required to take part"
+msgstr "Obligatoire pour participer"
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+msgid "Available instead of the minimum formula"
+msgstr "Possible à la place de la formule minimum"
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+#, python-format
+msgid "To take part, the %(name)s formula (%(price)s €) is the minimum. Drinks are paid on site directly to %(venue)s, separately from your Crush.lu registration."
+msgstr "Pour participer, la formule %(name)s (%(price)s €) est le minimum. Les boissons se règlent sur place directement auprès de %(venue)s, séparément de votre inscription Crush.lu."
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+#, python-format
+msgid "The %(name)s formula (%(price)s €) is the minimum to take part. Your drinks are paid on site directly to %(venue)s, not to Crush.lu."
+msgstr "La formule %(name)s (%(price)s €) est le minimum pour participer. Tes boissons se règlent sur place directement auprès de %(venue)s, pas à Crush.lu."
