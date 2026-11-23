@@ -49115,3 +49115,21 @@ msgstr "Storniert %(time)s"
 #, python-format
 msgid "In at %(time)s"
 msgstr "Da seit %(time)s"
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+msgid "Required to take part"
+msgstr "Pflicht für die Teilnahme"
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+msgid "Available instead of the minimum formula"
+msgstr "Statt der Mindestformel möglich"
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+#, python-format
+msgid "To take part, the %(name)s formula (%(price)s €) is the minimum. Drinks are paid on site directly to %(venue)s, separately from your Crush.lu registration."
+msgstr "Für die Teilnahme ist die Formel %(name)s (%(price)s €) das Minimum. Die Getränke bezahlst du vor Ort direkt bei %(venue)s, getrennt von deiner Crush.lu-Anmeldung."
+
+#: crush_lu/templates/crush_lu/components/event_menu_list.html
+#, python-format
+msgid "The %(name)s formula (%(price)s €) is the minimum to take part. Your drinks are paid on site directly to %(venue)s, not to Crush.lu."
+msgstr "Die Formel %(name)s (%(price)s €) ist das Minimum für die Teilnahme. Deine Getränke bezahlst du vor Ort direkt bei %(venue)s, nicht an Crush.lu."
