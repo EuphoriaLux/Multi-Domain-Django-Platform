@@ -1226,17 +1226,23 @@ document.addEventListener("alpine:init", function () {
                 if (!eyes.length && !heart) return;
 
                 // Heart's resting position in the SVG (matches the original
-                // transform="translate(248,120)" on the .ghost-heart element).
+                // transform="translate(371,225)" on the .ghost-heart element):
+                // to the ghost's right, like every other logo variant.
                 // JS rewrites this transform every frame as base + offset; the
                 // heartbeat SMIL on the same element uses additive="sum" so
                 // its scale rides on top of our translate without clobbering it.
-                var heartBaseX = 248,
-                    heartBaseY = 120;
+                var heartBaseX = 371,
+                    heartBaseY = 225;
 
-                // Eyes drift subtly; heart drifts much more so it visibly
-                // follows the cursor and the eyes appear to chase it.
+                // Eyes drift subtly; the heart drifts more so it visibly
+                // leans toward the cursor, but it stays beside the ghost:
+                // it may move away to the right and up/down, and only a few
+                // units to the left so it never slides across the body.
                 var eyeOffset = 11; // SVG user units (~16 CSS px)
-                var heartOffset = 130; // SVG user units — heart drifts well outside the ghost silhouette
+                var heartOffsetRight = 45; // SVG user units, away from the ghost
+                var heartOffsetLeft = 6; // toward the ghost: stop short of the body
+                var heartOffsetUp = 70; // beside the ghost's head
+                var heartOffsetDown = 30; // less: the ghost's hem flares out below
                 var falloffRange = 320; // px from hero center → full deflection
                 var eyeEase = 0.22; // pupils react quickly
                 var heartEase = 0.08; // heart drifts lazily, like it's drawn along
@@ -1264,8 +1270,10 @@ document.addEventListener("alpine:init", function () {
                 var tick = function () {
                     var targetEyeX = targetUx * eyeOffset;
                     var targetEyeY = targetUy * eyeOffset;
-                    var targetHeartX = targetUx * heartOffset;
-                    var targetHeartY = targetUy * heartOffset;
+                    var targetHeartX =
+                        targetUx * (targetUx > 0 ? heartOffsetRight : heartOffsetLeft);
+                    var targetHeartY =
+                        targetUy * (targetUy < 0 ? heartOffsetUp : heartOffsetDown);
 
                     eyeX += (targetEyeX - eyeX) * eyeEase;
                     eyeY += (targetEyeY - eyeY) * eyeEase;
