@@ -9,6 +9,8 @@
   keeps the two-card layout):
     luxid_connected — the member already linked LuxID: the LuxID card says so
       instead of offering (or apologising for) the connect button.
+    coach_call_available — adds the "Talk to a Coach" card (a coach-call
+      verification request, VERIFICATION_COACH_CALL_REQUESTS_ENABLED).
     collapse_luxid — LuxID is unavailable for this member (not linked AND no
       connect URL): the LuxID card collapses to a one-line note,
       "Come to an event" becomes the single highlighted path and the
@@ -54,7 +56,7 @@
     {% else %}
     <div class="mb-4 text-center">
       <h2 class="text-lg font-bold text-gray-900 dark:text-white">
-        {% trans "Two ways to get verified" %}
+        {% if coach_call_available %}{% trans "Three ways to get verified" %}{% else %}{% trans "Two ways to get verified" %}{% endif %}
       </h2>
       <p class="text-sm text-gray-500 dark:text-gray-400">
         {% trans "Pick whichever suits you — you only need one." %}
@@ -124,6 +126,25 @@
           {% if next_entry_events %}{% trans "See all entry events" %}{% else %}{% trans "Browse Events" %}{% endif %}
         </a>
       </div>
+
+      {% if coach_call_available %}
+      {# ── 3. A call with a coach (VERIFICATION_COACH_CALL_REQUESTS_ENABLED): opens a coach review in the Verification Channel ── #}
+      <div data-verification-option="coach-call" class="flex flex-col rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+        <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-pink-100 text-pink-600 dark:bg-pink-900/40 dark:text-pink-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+        </div>
+        <h3 class="mb-1 text-xl font-bold text-gray-900 dark:text-white">{% trans "Talk to a Coach" %}</h3>
+        <p class="mb-4 flex-1 text-xs text-gray-500 dark:text-gray-400">
+          {% trans "No LuxID and no event coming up? Ask for a short call. A Crush Coach contacts you, you talk for a few minutes by video or phone, and your profile is verified." %}
+        </p>
+        <form method="post" action="{% url 'crush_lu:request_verification_call' %}">
+          {% csrf_token %}
+          <button type="submit" class="inline-flex w-full items-center justify-center rounded-lg bg-pink-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-pink-700">
+            {% trans "Request a call with a Coach" %}
+          </button>
+        </form>
+      </div>
+      {% endif %}
 
       {% if collapse_luxid %}
       {# ── LuxID, collapsed: unavailable for this member, so a muted one-line note instead of a promoted card with no action ── #}

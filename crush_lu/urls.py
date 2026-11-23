@@ -619,6 +619,11 @@ urlpatterns = [
     ),
     path("profile-submitted/", views.profile_submitted, name="profile_submitted"),
     path(
+        "profile-submitted/request-call/",
+        views.request_verification_call,
+        name="request_verification_call",
+    ),
+    path(
         "onboarding/screening-call/",
         views_profile.screening_call_step,
         name="onboarding_screening_call",

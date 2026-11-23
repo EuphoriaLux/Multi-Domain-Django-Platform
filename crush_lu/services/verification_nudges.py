@@ -178,6 +178,7 @@ def _subject(reminder_type):
 def build_context(user, profile, lang):
     from crush_lu.email_helpers import get_social_links, normalize_greeting_name
     from crush_lu.models import EmailPreference
+    from crush_lu.services.verification_call_request import can_request_coach_call
     from crush_lu.utils.i18n import build_absolute_url
 
     email_prefs = EmailPreference.get_or_create_for_user(user)
@@ -198,6 +199,8 @@ def build_context(user, profile, lang):
         "greeting_name": normalize_greeting_name(user.first_name),
         "verify_url": build_absolute_url("crush_lu:profile_submitted", lang=lang),
         "entry_events": events,
+        # The "talk to a Coach" path, only while coach-call requests are on.
+        "coach_call_available": can_request_coach_call(profile),
         "entry_events_url": build_absolute_url("crush_lu:event_list", lang=lang)
         + "?entry=1",
         "unsubscribe_url": build_absolute_url(
