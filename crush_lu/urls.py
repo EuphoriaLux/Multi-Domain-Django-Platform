@@ -31,6 +31,7 @@ from . import views_coach_real_person
 from . import views_coach_whatsapp
 from . import views_real_person_call
 from . import views_verification_funnel
+from . import views_crush_id
 from . import views_video_call
 from . import views_connect_showcase
 from . import views_quiz_config
@@ -240,10 +241,10 @@ def _legacy_account_delete(request, *args, **kwargs):
 
 
 urlpatterns = [
+    # Crush ID step 2: the Connect video check lives at /id/verify/ now.
     path(
         "crush-connect/verification/",
-        views_verification_funnel.connect_verification,
-        name="connect_verification",
+        views_crush_id.legacy_verify_redirect,
     ),
     path(
         "crush-connect/verification/request/",
@@ -617,7 +618,7 @@ urlpatterns = [
         views_profile.meet_coach_step,
         name="onboarding_meet_coach",
     ),
-    path("profile-submitted/", views.profile_submitted, name="profile_submitted"),
+    path("profile-submitted/", views_crush_id.legacy_verify_redirect),
     path(
         "profile-submitted/request-call/",
         views.request_verification_call,
@@ -661,6 +662,15 @@ urlpatterns = [
         name="profile",
     ),
     path("profile/edit/", views.edit_profile, name="edit_profile"),
+    # Crush ID: verification, approval and personal data (fourth pillar).
+    path("id/", views_crush_id.crush_id_hub, name="crush_id"),
+    # One verification page for every route (LuxID, event door, coach call,
+    # Connect video check). The old names point here too, so every existing
+    # reverse() and {% url %} (emails, push, onboarding) lands on it.
+    path("id/verify/", views_crush_id.crush_id_verify, name="crush_id_verify"),
+    path("id/verify/", views_crush_id.crush_id_verify, name="profile_submitted"),
+    path("id/verify/", views_crush_id.crush_id_verify, name="connect_verification"),
+    path("coaching/", views_crush_id.coaching_coming_soon, name="coaching"),
     path("profile/preferences/", views.crush_preferences, name="crush_preferences"),
     path(
         "matches/",

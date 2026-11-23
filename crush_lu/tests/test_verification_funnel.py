@@ -235,7 +235,7 @@ def test_member_page_waiting_and_no_private_notes(client, journey):
     check.notes = "PRIVATE ASSESSMENT"
     check.save(update_fields=["notes"])
     client.force_login(member)
-    response = client.get("/en/crush-connect/verification/", HTTP_HOST="crush.lu")
+    response = client.get("/en/id/verify/", HTTP_HOST="crush.lu")
     assert response.status_code == 200
     assert b'data-verification-state="waiting"' in response.content
     assert b"PRIVATE ASSESSMENT" not in response.content
@@ -314,9 +314,7 @@ def test_approved_video_with_missing_setup_has_honest_next_step(journey):
 def test_member_page_renders_all_languages(client, journey, language):
     member, _ = journey
     client.force_login(member)
-    response = client.get(
-        f"/{language}/crush-connect/verification/", HTTP_HOST="crush.lu"
-    )
+    response = client.get(f"/{language}/id/verify/", HTTP_HOST="crush.lu")
     assert response.status_code == 200
     assert (
         b"Request a video verification" not in response.content
@@ -332,5 +330,6 @@ def test_outside_rollout_keeps_existing_experience(client, journey):
         CONNECT_VIDEO_VERIFICATION_MODE="off",
         CONNECT_WEEK_HUMAN_VERIFICATION_REQUIRED=False,
     ):
-        response = client.get("/en/crush-connect/verification/", HTTP_HOST="crush.lu")
-        assert response.status_code == 302 and response.url.endswith("/dashboard/")
+        response = client.get("/en/id/verify/", HTTP_HOST="crush.lu")
+        # Verified, nothing left to do: the Crush ID hub (step 2).
+        assert response.status_code == 302 and response.url.endswith("/id/")

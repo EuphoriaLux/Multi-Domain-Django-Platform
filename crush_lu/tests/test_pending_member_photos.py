@@ -114,7 +114,7 @@ def test_other_sections_still_send_a_pending_member_to_the_status_page(
     for section in ("", "?section=privacy", "?section=event_identity"):
         response = client.get(f"/en/profile/edit/{section}")
         assert response.status_code == 302
-        assert response["Location"] == "/en/profile-submitted/"
+        assert response["Location"] == "/en/id/verify/"
 
 
 @pytest.mark.django_db

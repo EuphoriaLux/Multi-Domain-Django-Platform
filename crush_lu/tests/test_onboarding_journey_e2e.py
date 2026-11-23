@@ -499,7 +499,7 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
     (the pre-event coach-review queue is gone):
       - incomplete (e.g. after a legacy revision) → step 4, /create-profile/.
       - rejected → /onboarding/ routes to /profile/rejected/, not a step.
-      - pending → the final "get verified" step, /profile-submitted/.
+      - pending → the final "get verified" step, /id/verify/.
     A legacy revision resubmit still flips an in-flight submission row back to
     'pending' for any coach mid-review.
     """
@@ -629,7 +629,7 @@ class SubmissionStateRoutingTests(_SiteMixin, TestCase):
             status="pending",
             assigned_at=timezone.now(),
         )
-        self.assertIn("/profile-submitted/", self._final_path("/onboarding/"))
+        self.assertIn("/id/verify/", self._final_path("/onboarding/"))
 
     def test_meet_coach_step_renders_coach_bio(self):
         profile = self._make_complete_profile()

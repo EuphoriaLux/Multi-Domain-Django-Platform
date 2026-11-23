@@ -73,7 +73,9 @@ def test_coach_workspace_lists_all_assignments_and_unifies_navigation(
     assigned = page.locator("#assigned-work")
     expect(assigned.get_by_role("heading", name="In your queue (3)")).to_be_visible()
     expect(assigned.locator("[data-assigned-kind]")).to_have_count(3)
-    expect(page.locator("nav.bottom-nav")).to_have_attribute("data-screening-count", "3")
+    expect(page.locator("nav.bottom-nav")).to_have_attribute(
+        "data-screening-count", "3"
+    )
     assert page.evaluate("document.documentElement.scrollWidth <= innerWidth")
     output = Path("screenshots/verification-workspace")
     output.mkdir(parents=True, exist_ok=True)
@@ -130,7 +132,7 @@ def test_mobile_member_request_coach_appointment_and_retry(
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     login(page.context, url, member)
-    page.goto(f"{url}/en/crush-connect/verification/")
+    page.goto(f"{url}/en/id/verify/")
     page.locator("#cookie-btn-decline").click()
     expect(
         page.get_by_role("button", name="Request a video verification")

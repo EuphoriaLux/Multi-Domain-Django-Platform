@@ -546,7 +546,9 @@ document.addEventListener("alpine:init", function () {
                 return (
                     this.currentPath === "/events/" ||
                     this.currentPath.indexOf("/events/") === 0 ||
-                    this.currentPath.indexOf("/my-events/") === 0
+                    this.currentPath.indexOf("/my-events/") === 0 ||
+                    // Matches live under the Events pillar (2026-11-23).
+                    this.currentPath.indexOf("/connections/") === 0
                 );
             },
             get isConnectionsActive() {
@@ -557,6 +559,18 @@ document.addEventListener("alpine:init", function () {
             },
             get isProfileActive() {
                 return this.currentPath.indexOf("/profile/") === 0;
+            },
+            get isCrushIdActive() {
+                // Crush ID hub plus the pages it links to in step 1.
+                return (
+                    this.currentPath.indexOf("/id/") === 0 ||
+                    this.currentPath.indexOf("/profile/") === 0 ||
+                    this.currentPath.indexOf("/profile-submitted/") === 0 ||
+                    this.currentPath.indexOf("/account/") === 0
+                );
+            },
+            get isCoachingActive() {
+                return this.currentPath.indexOf("/coaching/") === 0;
             },
             get isCoachActive() {
                 return this.currentPath.indexOf("/coach/") === 0;
@@ -583,12 +597,22 @@ document.addEventListener("alpine:init", function () {
             get crushConnectActiveClass() {
                 return this.isCrushConnectActive ? "bottom-nav-item-active" : "";
             },
+            get crushIdActiveClass() {
+                return this.isCrushIdActive ? "bottom-nav-item-active" : "";
+            },
+            get coachingActiveClass() {
+                return this.isCoachingActive ? "bottom-nav-item-active" : "";
+            },
 
             get hasEventsBadge() {
                 return this.eventsCount > 0;
             },
             get hasRequestsBadge() {
                 return this.requestsCount > 0;
+            },
+            get showEventsCountBadge() {
+                // One badge on the Events tab: waiting match requests win.
+                return this.eventsCount > 0 && this.requestsCount === 0;
             },
             get hasScreeningBadge() {
                 return this.screeningCount > 0;

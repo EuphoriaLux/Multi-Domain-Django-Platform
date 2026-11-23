@@ -85,8 +85,21 @@
             </div>
 
             {# Section: Personal Account Navigation #}
-            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% trans "Account Settings" %}</span>
+            <span class="block px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-fg mb-2">{% trans "Crush ID" %}</span>
             <div class="space-y-1">
+                <a href="{% url 'crush_lu:crush_id' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm" data-drawer="crush-id">
+                    {% include "shared/icons/identification.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "My Crush ID" %}</span>
+                    {% include "crush_lu/partials/crush_id_status_badge.html" %}
+                </a>
+                {% if profile_is_approved %}
+                {# Matches moved off the bottom bar into the Events pillar (2026-11-23). #}
+                <a href="{% url 'crush_lu:my_connections' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm" data-drawer="matches">
+                    {% include "shared/icons/users.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
+                    <span>{% trans "My matches" %}</span>
+                    {% if pending_requests_count > 0 %}<span class="badge badge-danger">{{ pending_requests_count }}</span>{% endif %}
+                </a>
+                {% endif %}
                 <a href="{% url 'crush_lu:edit_profile' %}" @click="closeDrawer" class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800/60 active:bg-gray-100 dark:active:bg-gray-800 transition-colors font-medium text-sm">
                     {% include "shared/icons/user-circle.html" with class="w-5 h-5 text-gray-400 dark:text-gray-500" %}
                     <span>{% trans "Edit Profile" %}</span>

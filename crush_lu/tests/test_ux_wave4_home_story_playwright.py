@@ -3,7 +3,7 @@
 The home carousel and its controls were removed from the ``ghostStory``
 Alpine component. These check in a real browser that the home page renders
 the new strip without Alpine errors, and that the compact story on
-/profile-submitted/ (the component's remaining consumer) still auto-plays.
+/id/verify/ (the component's remaining consumer) still auto-plays.
 
 Excluded from the default run (``-m "not playwright"`` in pytest.ini). Run:
     pytest -m playwright crush_lu/tests/test_ux_wave4_home_story_playwright.py -n 0 --create-db
@@ -100,7 +100,7 @@ def test_compact_ghost_story_still_auto_advances(page, live_server):
     errors = _collect_errors(page)
     page.set_viewport_size(PHONE)
     _log_in(page, live_server.url, user)
-    page.goto(f"{live_server.url}/en/profile-submitted/")
+    page.goto(f"{live_server.url}/en/id/verify/")
 
     story = page.locator(".ghost-story-compact").first
     story.scroll_into_view_if_needed()

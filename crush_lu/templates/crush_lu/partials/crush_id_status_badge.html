@@ -1,0 +1,4 @@
+{% load i18n %}{% comment %}
+Status mark on every Crush ID entry (top bar, menu, bottom tab). Green tick when
+the profile is approved, orange "!" when the member has something to do.
+{% endcomment %}{% if profile_is_approved %}<span class="badge badge-success" data-crush-id-status="approved" title="{% trans 'Profile approved' %}">✓</span>{% else %}<span class="badge badge-warning" data-crush-id-status="action" title="{% trans 'Your verification needs a step from you' %}">!</span>{% endif %}
