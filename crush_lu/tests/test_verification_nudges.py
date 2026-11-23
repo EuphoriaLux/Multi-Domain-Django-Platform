@@ -151,7 +151,7 @@ class SendTests(TestCase):
         self.assertEqual(message.to, ["anna@example.com"])
         self.assertEqual(message.subject, "One last step: get verified on Crush.lu")
         html = message.alternatives[0][0]
-        self.assertIn("/en/profile-submitted/", html)
+        self.assertIn("/en/id/verify/", html)
         self.assertIn(f"/en/events/{event.id}/", html)
         self.assertIn("Entry Mixer", html)
         self.assertNotIn("Members only", html)
@@ -166,7 +166,7 @@ class SendTests(TestCase):
         user = make_pending_user("lena", lang="de")
         nudges.send_verification_reminder(user, "v24h")
         self.assertIn("verifizieren", mail.outbox[0].subject)
-        self.assertIn("/de/profile-submitted/", mail.outbox[0].alternatives[0][0])
+        self.assertIn("/de/id/verify/", mail.outbox[0].alternatives[0][0])
 
     def test_skips_verified_and_unsubscribed(self):
         verified = make_pending_user("ver", verification_status="verified")
@@ -250,7 +250,7 @@ class EntryEventsTests(TestCase):
         event = make_entry_event()
         client = Client()
         client.force_login(user)
-        response = client.get("/en/profile-submitted/", HTTP_HOST="crush.lu")
+        response = client.get("/en/id/verify/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
         self.assertIn("data-entry-events", html)

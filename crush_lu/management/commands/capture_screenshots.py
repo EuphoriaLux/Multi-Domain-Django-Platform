@@ -130,7 +130,7 @@ PAGES = [
     ("Onboarding", "create-profile", "/create-profile/", ONBOARDING),
     # The real end of the default flow: profile done, awaiting event/LuxID
     # verification (no submission → "get verified" state, not coach review).
-    ("Onboarding", "get-verified", "/profile-submitted/", VERIFY),
+    ("Onboarding", "get-verified", "/id/verify/", VERIFY),
     # ── Premium coach path (post-submission user; NOT the default flow) ──────
     # Coach review only exists on the paid/Premium path. Grouped on its own so
     # the gallery never presents it as the normal onboarding journey.
@@ -140,7 +140,7 @@ PAGES = [
         "/onboarding/meet-coach/",
         REVIEW,
     ),
-    ("Premium (coach path)", "profile-submitted", "/profile-submitted/", REVIEW),
+    ("Premium (coach path)", "profile-submitted", "/id/verify/", REVIEW),
 ]
 
 # Which named page set maps to which user keys.

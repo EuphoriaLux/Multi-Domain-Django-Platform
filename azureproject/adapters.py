@@ -658,7 +658,7 @@ class MultiDomainSocialAccountAdapter(DefaultSocialAccountAdapter):
                             profile=_profile, status="pending"
                         ).exists()
                     ):
-                        return "/profile-submitted/"
+                        return "/id/verify/"  # Crush ID verify page (was /profile-submitted/)
                     # No submission at all — user connected LuxID during onboarding
                     # (e.g. Step 2 phone verification).  Route back to onboarding so
                     # they see their verified phone and can continue to Step 3.

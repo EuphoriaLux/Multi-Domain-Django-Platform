@@ -17,7 +17,7 @@ Levels (shared with the 2027 Coaching plan):
                          2026-11-23).
 """
 
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
@@ -67,7 +67,7 @@ def _next_step(user, profile, level):
                 "Pick one way to get verified: LuxID, coming to an event, or a "
                 "call with a coach. You only need one."
             ),
-            reverse("crush_lu:profile_submitted"),
+            reverse("crush_lu:crush_id_verify"),
             _("Choose how to get verified"),
         )
     if level < 3:
@@ -78,7 +78,7 @@ def _next_step(user, profile, level):
                     "A short video check with a coach opens Connect Week. "
                     "Checking in with a coach at an event works too."
                 ),
-                reverse("crush_lu:connect_verification"),
+                reverse("crush_lu:crush_id_verify"),
                 _("Open video check"),
             )
         return (
@@ -120,6 +120,35 @@ def crush_id_hub(request):
         "connect_onboarded": bool(membership and membership.is_onboarded),
     }
     return render(request, "crush_lu/crush_id/hub.html", context)
+
+
+@crush_login_required
+@never_cache
+def crush_id_verify(request):
+    """Step 2: one page for every way to get verified.
+
+    Members inside the Connect video-verification funnel get the funnel page;
+    everyone else gets the get-verified page (LuxID, entry event at the door,
+    coach call). Approved members with nothing left to do go to the hub.
+    """
+    from crush_lu import views, views_verification_funnel
+    from crush_lu.services.verification_funnel import funnel_visible
+
+    if funnel_visible(request.user):
+        return views_verification_funnel.connect_verification(request)
+    return views.profile_submitted(request)
+
+
+def legacy_verify_redirect(request, *args, **kwargs):
+    """/profile-submitted/ and /crush-connect/verification/ moved to /id/verify/.
+
+    Permanent, query string kept, so links in sent emails and push messages
+    keep working in the reader's language.
+    """
+    url = reverse("crush_lu:crush_id_verify")
+    if request.META.get("QUERY_STRING"):
+        url = f"{url}?{request.META['QUERY_STRING']}"
+    return redirect(url, permanent=True)
 
 
 def coaching_coming_soon(request):

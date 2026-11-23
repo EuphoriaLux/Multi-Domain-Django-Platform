@@ -128,7 +128,7 @@ class TestHeadingOutlines:
             is_approved=False, verification_status="pending"
         )
         _login(client, user)
-        html = _body(client.get("/en/profile-submitted/", HTTP_HOST=HOST))
+        html = _body(client.get("/en/id/verify/", HTTP_HOST=HOST))
         headings = _headings(html)
         page_h1 = [text for level, text in headings if level == 1]
         assert any(text.startswith("Your profile is ready") for text in page_h1)
@@ -147,7 +147,7 @@ class TestHeadingOutlines:
             profile=profile, status="pending", is_paused=True
         )
         _login(client, user)
-        response = client.get("/en/profile-submitted/", HTTP_HOST=HOST)
+        response = client.get("/en/id/verify/", HTTP_HOST=HOST)
         assert response.status_code == 200
         headings = _headings(_body(response))
         assert [text for level, text in headings if level == 1] == ["Profile paused"]

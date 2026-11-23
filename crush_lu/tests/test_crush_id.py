@@ -128,7 +128,7 @@ def test_pending_member_gets_the_hub_and_one_next_step(client):
 
     assert _level(body) == 1
     assert "Profile submitted, not verified yet" in body
-    assert 'href="/en/profile-submitted/"' in body
+    assert 'href="/en/id/verify/"' in body
     # Privacy edits need an approved profile; the card stays hidden until then.
     assert "?section=privacy" not in _hub(body)
     assert "?section=account&sub=danger" in _hub(body)

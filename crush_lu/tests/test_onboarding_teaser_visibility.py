@@ -55,7 +55,7 @@ class OnboardingTeaserVisibilityTests(TestCase):
     def _submitted_context(self):
         client = Client()
         client.force_login(self.user)
-        response = client.get("/en/profile-submitted/", HTTP_HOST="crush.lu")
+        response = client.get("/en/id/verify/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
         return response
 

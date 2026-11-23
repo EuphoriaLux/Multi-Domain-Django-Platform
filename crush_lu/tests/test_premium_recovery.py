@@ -531,7 +531,7 @@ class PendingVerificationNoticeTests(_Base):
         self.assertIn('data-testid="premium-recovery-path"', html)
 
     def test_profile_submitted_shows_notice_not_payment_pending(self):
-        response = self.client.get("/en/profile-submitted/")
+        response = self.client.get("/en/id/verify/")
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
         self.assertNotIn("Payment pending", html)

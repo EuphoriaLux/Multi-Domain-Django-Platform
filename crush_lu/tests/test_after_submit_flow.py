@@ -96,13 +96,13 @@ class LegacyStepRedirectTests(_MemberMixin, TestCase):
     def test_screening_call_without_submission_redirects_to_get_verified(self):
         response = self._get("/en/onboarding/screening-call/")
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/profile-submitted/", response["Location"])
+        self.assertIn("/id/verify/", response["Location"])
 
     def test_screening_call_with_expired_submission_redirects(self):
         ProfileSubmission.objects.create(profile=self.profile, status="expired")
         response = self._get("/en/onboarding/screening-call/")
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/profile-submitted/", response["Location"])
+        self.assertIn("/id/verify/", response["Location"])
 
     def test_screening_call_with_premium_submission_redirects(self):
         # Wave 5 (R13): no page promises "a day or two" of coach approval.
@@ -111,12 +111,12 @@ class LegacyStepRedirectTests(_MemberMixin, TestCase):
         )
         response = self._get("/en/onboarding/screening-call/")
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/profile-submitted/", response["Location"])
+        self.assertIn("/id/verify/", response["Location"])
 
     def test_meet_coach_without_submission_redirects_to_get_verified(self):
         response = self._get("/en/onboarding/meet-coach/")
         self.assertEqual(response.status_code, 302)
-        self.assertIn("/profile-submitted/", response["Location"])
+        self.assertIn("/id/verify/", response["Location"])
 
     def test_meet_coach_with_premium_submission_renders(self):
         ProfileSubmission.objects.create(
@@ -134,7 +134,7 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
     """3-02: one status line, then the verification paths, then Premium."""
 
     def test_status_line_leads_then_paths_then_premium_teaser(self):
-        response = self._get("/en/profile-submitted/")
+        response = self._get("/en/id/verify/")
         self.assertEqual(response.status_code, 200)
         html = response.content.decode()
 
@@ -158,7 +158,7 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
 
     def test_status_line_names_luxid_only_when_configured(self):
         _add_luxid_app()
-        response = self._get("/en/profile-submitted/")
+        response = self._get("/en/id/verify/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
@@ -174,7 +174,7 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
         PremiumMembership.objects.create(
             user=self.user, coach=self._make_coach(), status="pending"
         )
-        response = self._get("/en/profile-submitted/")
+        response = self._get("/en/id/verify/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "re on the Premium path")
         self.assertContains(
@@ -189,7 +189,7 @@ class ProfileSubmittedOrderTests(_MemberMixin, TestCase):
         PremiumMembership.objects.create(
             user=self.user, coach=self._make_coach(), status="active"
         )
-        response = self._get("/en/profile-submitted/")
+        response = self._get("/en/id/verify/")
         self.assertEqual(response.status_code, 200)
         self.assertContains(
             response,
@@ -208,7 +208,7 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         ProfileSubmission.objects.create(profile=self.profile, status="rejected")
 
     def test_profile_submitted_redirects_rejected_to_verdict_page(self):
-        response = self._get("/en/profile-submitted/")
+        response = self._get("/en/id/verify/")
         self.assertEqual(response.status_code, 302)
         self.assertIn("/profile/rejected/", response["Location"])
 
@@ -278,7 +278,7 @@ class RejectedProfileWithoutSubmissionTests(_MemberMixin, TestCase):
         )
 
     def test_profile_submitted_redirects_to_verdict_page(self):
-        response = self._get("/en/profile-submitted/")
+        response = self._get("/en/id/verify/")
         self.assertEqual(response.status_code, 302)
         self.assertIn("/profile/rejected/", response["Location"])
 
