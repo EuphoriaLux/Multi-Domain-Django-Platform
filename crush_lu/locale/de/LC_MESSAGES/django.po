@@ -49115,3 +49115,25 @@ msgstr "Storniert %(time)s"
 #, python-format
 msgid "In at %(time)s"
 msgstr "Da seit %(time)s"
+
+#, python-format
+msgid "Hi %(coach)s, it's %(member)s from Crush.lu Premium."
+msgstr "Hallo %(coach)s, hier ist %(member)s von Crush.lu Premium."
+
+#, python-format
+msgid "Hi, it's %(member)s, a Crush.lu Premium member. I'd like to talk to my coach %(coach)s."
+msgstr "Hallo, hier ist %(member)s, Premium-Mitglied bei Crush.lu. Ich möchte mit meinem Coach %(coach)s sprechen."
+
+#, python-format
+msgid "Message %(name)s on WhatsApp"
+msgstr "%(name)s auf WhatsApp schreiben"
+
+#, python-format
+msgid "Goes to the Crush.lu team, who pass it on to %(name)s."
+msgstr "Geht an das Crush.lu-Team, das es an %(name)s weitergibt."
+
+msgid "Your coach answers from Crush.lu, usually within a day."
+msgstr "Dein Coach antwortet über Crush.lu, meist innerhalb eines Tages."
+
+msgid "Questions about your pick? Write to your coach."
+msgstr "Fragen zu deinem Vorschlag? Schreib deinem Coach."

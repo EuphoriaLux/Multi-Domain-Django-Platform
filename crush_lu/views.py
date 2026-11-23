@@ -47,6 +47,7 @@ from .coach_notifications import (
     broadcast_new_submission_to_channel,
 )
 from .utils.i18n import is_valid_language
+from .services.premium_coach_contact import premium_coach_whatsapp
 
 # =============================================================================
 # Re-export all views from split modules so urls.py continues to work
@@ -654,6 +655,11 @@ def dashboard(request):
             "profile": profile,
             "submission": latest_submission,
             "coach": coach,
+            # Premium: WhatsApp link to the coach the member chose (their Crush
+            # number, else the main number). Rendered next to that coach only.
+            "coach_whatsapp": (
+                premium_coach_whatsapp(request.user) if is_premium else None
+            ),
             # The single next seat, plus honest counts. The template no longer
             # loops the whole history — my_events owns that.
             "next_registration": next_registration,

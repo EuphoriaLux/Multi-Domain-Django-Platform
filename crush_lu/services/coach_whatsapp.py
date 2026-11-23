@@ -135,6 +135,8 @@ class Conversation:
     # from it) and, in the support inbox, who sent the last reply.
     last_number_id: str = ""
     last_sender: str = ""
+    # The member holds active Premium (they chose this coach at checkout).
+    premium: bool = False
 
 
 @dataclass
@@ -348,6 +350,9 @@ def conversations_for(coach) -> list[Conversation]:
     for msg in _outbound_for(coach, numbers).order_by("created_at"):
         last_out[_digits(msg.recipient)] = msg
     profiles = profiles_by_digits(numbers)
+    from crush_lu.services.premium_coach_contact import premium_user_ids
+
+    premium_ids = premium_user_ids(p.user_id for p in profiles.values())
     now = timezone.now()
     support = is_support(coach)
 
@@ -381,6 +386,7 @@ def conversations_for(coach) -> list[Conversation]:
                 window_open=window_open(g["last_inbound_at"], now),
                 last_number_id=last_in.business_phone_number_id,
                 last_sender=last_sender,
+                premium=bool(profile and profile.user_id in premium_ids),
             )
         )
     conversations.sort(key=lambda c: c.last_at, reverse=True)

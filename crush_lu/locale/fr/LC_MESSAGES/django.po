@@ -49226,3 +49226,25 @@ msgstr "Annulé %(time)s"
 #, python-format
 msgid "In at %(time)s"
 msgstr "Arrivé à %(time)s"
+
+#, python-format
+msgid "Hi %(coach)s, it's %(member)s from Crush.lu Premium."
+msgstr "Bonjour %(coach)s, c'est %(member)s de Crush.lu Premium."
+
+#, python-format
+msgid "Hi, it's %(member)s, a Crush.lu Premium member. I'd like to talk to my coach %(coach)s."
+msgstr "Bonjour, c'est %(member)s, membre Premium de Crush.lu. J'aimerais parler à mon coach %(coach)s."
+
+#, python-format
+msgid "Message %(name)s on WhatsApp"
+msgstr "Écrire à %(name)s sur WhatsApp"
+
+#, python-format
+msgid "Goes to the Crush.lu team, who pass it on to %(name)s."
+msgstr "Arrive à l'équipe Crush.lu, qui transmet à %(name)s."
+
+msgid "Your coach answers from Crush.lu, usually within a day."
+msgstr "Votre coach répond depuis Crush.lu, en général dans la journée."
+
+msgid "Questions about your pick? Write to your coach."
+msgstr "Des questions sur votre proposition ? Écrivez à votre coach."

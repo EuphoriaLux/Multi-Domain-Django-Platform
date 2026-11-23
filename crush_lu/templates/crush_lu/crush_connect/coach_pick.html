@@ -64,5 +64,11 @@
             </a>
         </div>
     {% endif %}
+    {% if coach_whatsapp %}
+    <div class="mt-6 text-center">
+        <p class="text-sm text-gray-700 dark:text-gray-200 mb-0">{% trans "Questions about your pick? Write to your coach." %}</p>
+        {% include "crush_lu/partials/_premium_coach_whatsapp.html" with wrapper_class="mt-2" %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

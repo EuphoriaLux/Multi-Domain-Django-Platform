@@ -39,6 +39,9 @@
     {% if verifier.detail %}
     <p class="mb-0 truncate text-xs text-gray-500 dark:text-gray-400">{{ verifier.detail }}</p>
     {% endif %}
+    {% if coach_whatsapp and verifier.kind == 'coach' and verifier.coach_id == coach_whatsapp.coach_id %}
+    {% include "crush_lu/partials/_premium_coach_whatsapp.html" with wrapper_class="mt-2" %}
+    {% endif %}
     {% if verifier.languages %}
     <div class="mt-1 flex flex-wrap gap-1">
       {% for lang in verifier.languages %}
