@@ -16,7 +16,7 @@ django-htmx==1.29.0  # HTMX server-side integration
 psycopg2-binary==2.9.13  # Updated from 2.9.10 (security & bug fixes)
 
 # Authentication
-django-allauth==65.22.0  # Updated from 65.1.0 (latest stable)
+django-allauth==65.22.1  # Updated from 65.1.0 (latest stable)
 PyJWT==2.15.1  # Updated from 2.11.0 (CVE-2026-32597: crit header bypass)
 cryptography>=50.0.2  # Required for JWT token verification with RSA keys (CVE-2026-26007, OpenSSL fixes)
 google-auth==2.62.2  # Required for Google Wallet API authentication
@@ -82,4 +82,4 @@ pytest==9.1.1
 pytest-django==4.14.0
 pytest-playwright==0.10.0
 pytest-mock==3.17.0  # Provides 'mocker' fixture for mocking
-playwright==1.65.1
+playwright==1.65.2
