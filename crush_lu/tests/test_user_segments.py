@@ -568,3 +568,48 @@ class SegmentPageTests(SegmentFixturesMixin, TestCase):
                     ),
                     {profile.pk for profile in profiles},
                 )
+
+
+@override_settings(**CRUSH_LU_URL_SETTINGS)
+class VerifiedNeverAttendedSegmentTests(SegmentFixturesMixin, TestCase):
+    """The activation audience: verified, never checked in, split by gender."""
+
+    def setUp(self):
+        Site.objects.get_or_create(
+            id=1, defaults={"domain": "testserver", "name": "Test Server"}
+        )
+        self.event = self._event("Mixer", timezone.now() - timedelta(days=3))
+
+    def _verified(self, email, gender):
+        profile = self._profile(email, status="verified", approved_at=timezone.now())
+        profile.gender = gender
+        profile.save(update_fields=["gender"])
+        return profile
+
+    def test_never_booked_and_no_show_count_attendees_do_not(self):
+        never_booked = self._verified("never@example.com", "F")
+        no_show = self._verified("noshow@example.com", "F")
+        self._register(no_show, self.event, "confirmed")
+        came = self._verified("came@example.com", "F")
+        self._register(came, self.event, "attended")
+        pending = self._profile("pending@example.com")
+
+        members = _members("verified_never_attended_women")
+
+        self.assertEqual(members, {never_booked.pk, no_show.pk})
+        self.assertNotIn(came.pk, _members("verified_never_attended"))
+        self.assertNotIn(pending.pk, _members("verified_never_attended"))
+
+    def test_split_by_gender(self):
+        woman = self._verified("w@example.com", "F")
+        man = self._verified("m@example.com", "M")
+
+        self.assertEqual(_members("verified_never_attended_women"), {woman.pk})
+        self.assertEqual(_members("verified_never_attended_men"), {man.pk})
+        self.assertEqual(_members("verified_never_attended"), {woman.pk, man.pk})
+
+    def test_campaign_audience_resolves_the_segment(self):
+        woman = self._verified("consent@example.com", "F")
+        self.assertIn(
+            woman.user, _get_segment_users("verified_never_attended_women")
+        )

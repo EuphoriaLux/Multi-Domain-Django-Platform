@@ -49116,6 +49116,54 @@ msgstr "Storniert %(time)s"
 msgid "In at %(time)s"
 msgstr "Da seit %(time)s"
 
+#: crush_lu/views.py
+msgid ""
+"Request sent. A Crush Coach will contact you to arrange a short call to "
+"verify your profile."
+msgstr ""
+"Anfrage gesendet. Ein Crush Coach meldet sich bei dir, um ein kurzes "
+"Gespräch zur Verifizierung deines Profils zu vereinbaren."
+
+#: crush_lu/views.py
+msgid "A call with a coach can't be requested for your profile right now."
+msgstr ""
+"Für dein Profil kann gerade kein Gespräch mit einem Coach angefragt werden."
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+msgid "Three ways to get verified"
+msgstr "Drei Wege, dich zu verifizieren"
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+msgid "Talk to a Coach"
+msgstr "Sprich mit einem Coach"
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+msgid ""
+"No LuxID and no event coming up? Ask for a short call. A Crush Coach "
+"contacts you, you talk for a few minutes by video or phone, and your profile "
+"is verified."
+msgstr ""
+"Kein LuxID und kein Event in Sicht? Frag ein kurzes Gespräch an. Ein Crush "
+"Coach meldet sich, ihr sprecht ein paar Minuten per Video oder Telefon, und "
+"dein Profil ist verifiziert."
+
+#: crush_lu/templates/crush_lu/partials/_verification_options.html
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "Request a call with a Coach"
+msgstr "Gespräch mit einem Coach anfragen"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid "No LuxID and no event coming up?"
+msgstr "Kein LuxID und kein Event in Sicht?"
+
+#: crush_lu/templates/crush_lu/emails/verification_reminder.html
+msgid ""
+"Ask for a short call with a Crush Coach, by video or phone. Open your "
+"profile page and tap \"Request a call with a Coach\"."
+msgstr ""
+"Frag ein kurzes Gespräch mit einem Crush Coach an, per Video oder Telefon. "
+"Öffne deine Profilseite und tippe auf „Gespräch mit einem Coach anfragen“."
+
 #: crush_lu/templates/crush_lu/components/event_menu_list.html
 msgid "Required to take part"
 msgstr "Pflicht für die Teilnahme"
