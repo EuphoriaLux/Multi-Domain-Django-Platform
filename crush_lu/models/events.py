@@ -1373,16 +1373,48 @@ class MeetupEvent(models.Model):
         return self.menu_options.filter(is_active=True).order_by("sort_order", "pk")
 
     @property
-    def menu_showcase(self):
-        """Active formulas split for display: the one to promote, then the rest.
+    def minimum_menu_option(self):
+        """The active formula marked as the minimum to take part, if any.
 
-        The featured formula is the single most expensive one, shown first with
-        the wine-ghost animation. With fewer than two formulas, or a tie for the
-        top price, nothing is featured and every formula is listed plainly.
+        If several are marked, the most expensive one is the minimum.
         """
-        options = list(self.active_menu_options)
+        return (
+            self.active_menu_options.filter(is_minimum=True)
+            .order_by("-price", "sort_order", "pk")
+            .first()
+        )
+
+    @property
+    def signup_menu_options(self):
+        """Formulas a guest may pick at sign-up, in display order.
+
+        Without a minimum, every active formula. With one, only the formulas
+        that cost at least as much as the minimum, plus any marked
+        ``exempt_from_minimum`` (e.g. an alcohol-free tasting for drivers).
+        """
+        options = self.active_menu_options
+        minimum = self.minimum_menu_option
+        if minimum is None:
+            return options
+        return options.filter(
+            models.Q(price__gte=minimum.price) | models.Q(exempt_from_minimum=True)
+        )
+
+    @property
+    def menu_showcase(self):
+        """Sign-up formulas split for display: the one to promote, then the rest.
+
+        The featured formula is shown first with the wine-ghost animation. It
+        is the minimum formula when the event has one; otherwise the single
+        most expensive one. With fewer than two formulas, or a tie for the top
+        price, nothing is featured and every formula is listed plainly.
+        """
+        options = list(self.signup_menu_options)
+        minimum = self.minimum_menu_option
         featured = None
-        if len(options) >= 2:
+        if minimum is not None:
+            featured = next((o for o in options if o.pk == minimum.pk), None)
+        elif len(options) >= 2:
             top = max(options, key=lambda option: option.price)
             if sum(1 for option in options if option.price == top.price) == 1:
                 featured = top
@@ -1390,6 +1422,7 @@ class MeetupEvent(models.Model):
             "featured": featured,
             "others": [option for option in options if option is not featured],
             "count": len(options),
+            "minimum": minimum,
         }
 
     @property
@@ -1616,7 +1649,9 @@ class EventMenuOption(models.Model):
     The venue gets the per-guest list from the attendee CSV export.
 
     Any event that has at least one active option makes the choice required
-    on its registration form, whatever its event_type.
+    on its registration form, whatever its event_type. Marking one option
+    ``is_minimum`` makes it the minimum to take part: cheaper options drop
+    out of the sign-up form unless they are ``exempt_from_minimum``.
     """
 
     event = models.ForeignKey(
@@ -1640,6 +1675,24 @@ class EventMenuOption(models.Model):
     is_active = models.BooleanField(
         default=True,
         help_text=_("Inactive options are hidden from the sign-up form."),
+    )
+    # db_default: an older release re-swapped in (or the warm-up before a
+    # swap) inserts rows without these columns; they must not fail NOT NULL.
+    is_minimum = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text=_(
+            "Minimum to take part. Guests must pick this formula or a more "
+            "expensive one; cheaper formulas are hidden from the sign-up form."
+        ),
+    )
+    exempt_from_minimum = models.BooleanField(
+        default=False,
+        db_default=False,
+        help_text=_(
+            "Stays selectable even when cheaper than the minimum formula, "
+            "e.g. an alcohol-free tasting for drivers and non-drinkers."
+        ),
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

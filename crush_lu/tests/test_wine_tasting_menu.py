@@ -100,6 +100,95 @@ class MenuFormTests(WineTastingFixtures, TestCase):
         self.assertNotIn("menu_option", EventRegistrationForm(event=event).fields)
 
 
+class MinimumFormulaTests(WineTastingFixtures, TestCase):
+    """One formula can be the minimum to take part (Vinsmoselle, Dec 2026).
+
+    Cheaper formulas drop out of the sign-up form unless exempt, so an
+    alcohol-free tasting can stay open to drivers and non-drinkers.
+    """
+
+    def minimum_event(self):
+        event = self.wine_event()
+        self.wine_lover.is_minimum = True
+        self.wine_lover.save()
+        self.cremant = EventMenuOption.objects.create(
+            event=event, name="Crémant tasting", price=Decimal("14"), sort_order=3
+        )
+        self.alcohol_free = EventMenuOption.objects.create(
+            event=event,
+            name="Alcohol-free tasting",
+            price=Decimal("6"),
+            sort_order=4,
+            exempt_from_minimum=True,
+        )
+        return event
+
+    def test_without_minimum_every_active_option_is_offered(self):
+        event = self.wine_event()
+        self.assertIsNone(event.minimum_menu_option)
+        self.assertEqual(
+            list(event.signup_menu_options), [self.discovery, self.wine_lover]
+        )
+
+    def test_cheaper_options_drop_out_except_exempt(self):
+        event = self.minimum_event()
+        form = EventRegistrationForm(event=event)
+        self.assertEqual(
+            list(form.fields["menu_option"].queryset),
+            [self.wine_lover, self.alcohol_free],
+        )
+
+    def test_minimum_is_preselected(self):
+        event = self.minimum_event()
+        form = EventRegistrationForm(event=event)
+        self.assertEqual(form.fields["menu_option"].initial, self.wine_lover.pk)
+
+    def test_cheaper_option_is_rejected(self):
+        event = self.minimum_event()
+        form = EventRegistrationForm({"menu_option": self.discovery.pk}, event=event)
+        self.assertFalse(form.is_valid())
+        self.assertIn("menu_option", form.errors)
+
+    def test_inactive_minimum_is_ignored(self):
+        event = self.minimum_event()
+        self.wine_lover.is_active = False
+        self.wine_lover.save()
+        self.assertIsNone(event.minimum_menu_option)
+        self.assertIn(self.discovery, event.signup_menu_options)
+
+    def test_showcase_features_the_minimum(self):
+        event = self.minimum_event()
+        showcase = event.menu_showcase
+        self.assertEqual(showcase["featured"], self.wine_lover)
+        self.assertEqual(showcase["minimum"], self.wine_lover)
+        self.assertEqual(showcase["others"], [self.alcohol_free])
+
+    def test_signup_with_exempt_option_succeeds(self):
+        event = self.minimum_event()
+        self.register(self.client_for(), event, menu_option=self.alcohol_free.pk)
+        reg = EventRegistration.objects.get(event=event, user=self.user)
+        self.assertEqual(reg.menu_option, self.alcohol_free)
+
+    def test_signup_with_cheaper_option_creates_nothing(self):
+        event = self.minimum_event()
+        response = self.register(
+            self.client_for(), event, menu_option=self.discovery.pk
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(
+            EventRegistration.objects.filter(event=event, user=self.user).exists()
+        )
+
+    def test_event_page_says_required(self):
+        event = self.minimum_event()
+        response = self.client_for().get(f"/en/events/{event.pk}/")
+        self.assertContains(response, "Required to take part")
+        self.assertContains(response, "is the minimum")
+        self.assertNotContains(response, "Discovery tasting")
+        self.assertNotContains(response, "Crémant tasting")
+        self.assertContains(response, "Alcohol-free tasting")
+
+
 class MenuRegistrationTests(WineTastingFixtures, TestCase):
     def test_signup_stores_choice_and_snapshot(self):
         event = self.wine_event()

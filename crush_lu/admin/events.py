@@ -614,7 +614,15 @@ class EventMenuOptionInline(AutoTranslateMixin, TranslationTabularInline):
 
     model = EventMenuOption
     extra = 0
-    fields = ("name", "description", "price", "sort_order", "is_active")
+    fields = (
+        "name",
+        "description",
+        "price",
+        "sort_order",
+        "is_active",
+        "is_minimum",
+        "exempt_from_minimum",
+    )
     verbose_name = _("Menu / tasting formula")
     verbose_name_plural = _(
         "Menu / tasting formulas (guests pick one at sign-up, pay the venue on site)"
