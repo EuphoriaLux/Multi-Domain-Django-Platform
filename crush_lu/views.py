@@ -2224,7 +2224,8 @@ def profile_submitted(request):
     if profile.verification_status == "incomplete":
         return redirect("crush_lu:create_profile")
     if profile.verification_status == "verified":
-        return redirect("crush_lu:dashboard")
+        # Nothing left to verify: the Crush ID hub shows how they were approved.
+        return redirect("crush_lu:crush_id")
 
     # Submission only exists for the paid coach path or revision re-submits.
     # For free LuxId verification, submission is None. An expired latest

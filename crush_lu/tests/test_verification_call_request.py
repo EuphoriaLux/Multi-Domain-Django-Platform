@@ -16,7 +16,7 @@ from crush_lu.services import verification_nudges as nudges
 from crush_lu.tests.test_verification_nudges import make_pending_user
 
 URL = "/en/profile-submitted/request-call/"
-PAGE = "/en/profile-submitted/"
+PAGE = "/en/id/verify/"
 BROADCAST = "crush_lu.coach_notifications.broadcast_new_submission_to_channel"
 
 

@@ -1,0 +1,15 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Coaching - Crush.lu" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Coaching" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-10 text-center space-y-4" data-coaching-soon>
+    <span class="inline-block text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200">{% trans "Coming in 2027" %}</span>
+    <h1 class="text-3xl font-bold dark:text-white">{% trans "Crush Coaching" %}</h1>
+    <p class="text-gray-600 dark:text-gray-300">{% trans "Short lessons and missions with our coaches, to help you get ready for dating. Along the way you unlock a personal presentation made with a coach and selected blind dates organised by Crush.lu." %}</p>
+    <p class="text-gray-500 dark:text-gray-400 text-sm">{% trans "We will let you know when it opens. Until then, come and meet people at one of our events." %}</p>
+    <a href="{% url 'crush_lu:event_list' %}" class="btn-crush-primary inline-flex items-center gap-2 px-5 py-2">{% trans "Browse Events" %}</a>
+</div>
+{% endblock %}

@@ -7,7 +7,7 @@ UX Wave 4 · WP6, finding 1-09 and issue #1055 (About page age range).
     existing ghost SVGs, replaces the six-slide "A Lonely Ghost" carousel.
   - The carousel's section partial, its controls in the ``ghostStory`` Alpine
     component and their CSS are removed. The compact story on
-    /profile-submitted/ keeps its auto-play (same component).
+    /id/verify/ keeps its auto-play (same component).
   - About no longer shows a hardcoded "19-67" age range.
 """
 
@@ -205,7 +205,7 @@ class HomeStoryTests(TestCase):
     def test_carousel_partial_is_deleted(self):
         with self.assertRaises(TemplateDoesNotExist):
             get_template("crush_lu/includes/ghost-story-section.html")
-        # The compact story on /profile-submitted/ stays.
+        # The compact story on /id/verify/ stays.
         get_template("crush_lu/includes/ghost-story-compact.html")
 
     def test_carousel_controls_removed_from_component_and_css(self):

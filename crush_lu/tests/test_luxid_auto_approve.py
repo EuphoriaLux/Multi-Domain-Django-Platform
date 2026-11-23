@@ -376,7 +376,7 @@ class TestGetConnectRedirectUrl(TestCase):
         request = _make_request(host="crush.lu")
         sa = _make_social_account(self.user, provider="luxid")
         url = self.adapter.get_connect_redirect_url(request, sa)
-        self.assertEqual(url, "/profile-submitted/")
+        self.assertEqual(url, "/id/verify/")
 
     def test_session_flag_redirects_to_profile_submitted_when_no_pending(self):
         """Session flag (set by signal) redirects even after submission is approved."""
@@ -388,7 +388,7 @@ class TestGetConnectRedirectUrl(TestCase):
         sa = _make_social_account(self.user, provider="luxid")
 
         url = self.adapter.get_connect_redirect_url(request, sa)
-        self.assertEqual(url, "/profile-submitted/")
+        self.assertEqual(url, "/id/verify/")
 
     def test_session_flag_is_consumed_after_redirect(self):
         """Pop() ensures the flag is one-shot."""
@@ -423,14 +423,14 @@ class TestGetConnectRedirectUrl(TestCase):
         request = _make_request(host="entreprinder.lu")
         sa = _make_social_account(self.user, provider="luxid")
         url = self.adapter.get_connect_redirect_url(request, sa)
-        self.assertNotEqual(url, "/profile-submitted/")
+        self.assertNotEqual(url, "/id/verify/")
 
     def test_crush_subdomain_redirects_to_profile_submitted(self):
         """*.crush.lu subdomains are treated as crush domains."""
         request = _make_request(host="test.crush.lu")
         sa = _make_social_account(self.user, provider="luxid")
         url = self.adapter.get_connect_redirect_url(request, sa)
-        self.assertEqual(url, "/profile-submitted/")
+        self.assertEqual(url, "/id/verify/")
 
     def test_mid_onboarding_no_submission_redirects_to_onboarding(self):
         """Connecting LuxID during Step 2 (before submission) routes back to onboarding."""
@@ -482,7 +482,7 @@ class TestProfileSubmittedLuxidContext(_SiteMixin, TestCase):
         self.client.force_login(self.user)
 
     def _get_profile_submitted(self):
-        return self.client.get("/en/profile-submitted/", HTTP_HOST="crush.lu")
+        return self.client.get("/en/id/verify/", HTTP_HOST="crush.lu")
 
     def test_no_luxid_configured_no_cta(self):
         """When no LuxID SocialApp is configured, luxid_connect_url is None."""
@@ -623,7 +623,7 @@ def _link_luxid_through_oidc_app(user):
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)
 class TestDashboardLuxidLazyFixup(_SiteMixin, TestCase):
-    """The dashboard runs the same lazy fix-up as /profile-submitted/.
+    """The dashboard runs the same lazy fix-up as /id/verify/.
 
     It is the page a pending member lands on after logging in, so a member
     whose LuxID link never verified them used to stay pending until they

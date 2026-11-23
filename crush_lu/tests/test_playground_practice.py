@@ -756,7 +756,7 @@ def _send(recipients, **kwargs):
 
     return send_domain_email(
         "Your video verification",
-        "Open https://test.crush.lu/en/crush-connect/verification/ to see it.",
+        "Open https://test.crush.lu/en/id/verify/ to see it.",
         recipients,
         domain="crush.lu",
         html_message="<p>hello</p>",
@@ -819,7 +819,7 @@ class TestInbox:
         _send([member.email])
         page = _coach_client(coach).get(PLAYGROUND).content.decode()
         assert "Your video verification" in page
-        assert "https://test.crush.lu/en/crush-connect/verification/" in page
+        assert "https://test.crush.lu/en/id/verify/" in page
 
 
 # ---------------------------------------------------------------------------

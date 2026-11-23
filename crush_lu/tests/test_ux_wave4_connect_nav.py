@@ -180,8 +180,10 @@ def test_member_connections_are_labelled_matches(client, settings):
 
     assert "<title>My Matches" in body or "My Matches |" in body
     assert "My Matches 💕" in body
-    nav = body[body.index('class="bottom-nav') :]
-    assert "<span>Matches</span>" in nav
+    # Matches moved off the bottom bar into the Events pillar (2026-11-23);
+    # the desktop Events menu carries the entry.
+    assert 'data-nav="matches"' in body
+    assert "My matches" in body
     assert "<span>Connections</span>" not in body
 
 
@@ -192,9 +194,9 @@ def test_matches_label_is_translated(client, settings):
     fr = _body(client.get("/fr/connections/"))
     de = _body(client.get("/de/connections/"))
 
-    assert "<span>Affinités</span>" in fr
+    assert "Mes affinités" in fr
     assert "Mes affinités 💕" in fr
-    assert "<span>Matches</span>" in de
+    assert "Meine Matches" in de
     assert "Meine Matches 💕" in de
 
 

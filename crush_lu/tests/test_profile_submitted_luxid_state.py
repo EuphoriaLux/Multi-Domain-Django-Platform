@@ -1,5 +1,5 @@
 """
-/profile-submitted/ must tell the truth about LuxID (UX review finding 3-01).
+/id/verify/ must tell the truth about LuxID (UX review finding 3-01).
 
   - The green "LuxID connected — verification is processing" banner renders
     only for a member who actually linked LuxID. It used to key on an empty
@@ -35,7 +35,7 @@ User = get_user_model()
 
 CRUSH_LU_URL_SETTINGS = {"ROOT_URLCONF": "azureproject.urls_crush"}
 
-PROFILE_SUBMITTED_PATH = "/en/profile-submitted/"
+PROFILE_SUBMITTED_PATH = "/en/id/verify/"
 
 BANNER_TEXT = "LuxID connected"
 PROCESSING_TEXT = "Your profile verification is processing."
@@ -204,7 +204,7 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         self.assertIn('class="grid grid-cols-1 gap-4"', html)
 
     def test_collapsed_state_renders_translated_in_german(self):
-        response = self._get("/de/profile-submitted/")
+        response = self._get("/de/id/verify/")
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, "LuxID verbunden")
@@ -322,7 +322,8 @@ class TestProfileSubmittedLuxidBanner(_SiteMixin, TestCase):
         response = self._get()
 
         self.assertEqual(response.status_code, 302)
-        self.assertIn("dashboard", response["Location"])
+        # Verified members go to the Crush ID hub (step 2).
+        self.assertTrue(response["Location"].endswith("/id/"))
 
 
 @override_settings(**CRUSH_LU_URL_SETTINGS)

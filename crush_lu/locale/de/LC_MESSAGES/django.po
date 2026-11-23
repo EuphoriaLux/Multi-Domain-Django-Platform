@@ -49181,3 +49181,168 @@ msgstr "Für die Teilnahme ist die Formel %(name)s (%(price)s €) das Minimum. 
 #, python-format
 msgid "The %(name)s formula (%(price)s €) is the minimum to take part. Your drinks are paid on site directly to %(venue)s, not to Crush.lu."
 msgstr "Die Formel %(name)s (%(price)s €) ist das Minimum für die Teilnahme. Deine Getränke bezahlst du vor Ort direkt bei %(venue)s, nicht an Crush.lu."
+
+#. Crush ID pillar (four-pillar menu, 2026-11-23)
+msgid "A short video check with a coach opens Connect Week. LuxID or checking in at an event works too."
+msgstr "Ein kurzer Video-Check mit einem Coach öffnet die Connect Week. LuxID oder ein Check-in bei einem Event funktionieren auch."
+
+msgid "Account and login"
+msgstr "Konto und Anmeldung"
+
+msgid "Choose how to get verified"
+msgstr "Wähle, wie du dich verifizierst"
+
+msgid "Coach call"
+msgstr "Coach-Anruf"
+
+msgid "Coach review"
+msgstr "Coach-Prüfung"
+
+msgid "Coaching - Crush.lu"
+msgstr "Coaching - Crush.lu"
+
+msgid "Coaching"
+msgstr "Coaching"
+
+msgid "Coming in 2027"
+msgstr "Kommt 2027"
+
+msgid "Complete and submit your profile to start your verification."
+msgstr "Vervollständige dein Profil und reiche es ein, um deine Verifizierung zu starten."
+
+msgid "Continue setup"
+msgstr "Einrichtung fortsetzen"
+
+msgid "Crush Coaching"
+msgstr "Crush Coaching"
+
+msgid "Crush ID - Crush.lu"
+msgstr "Crush ID - Crush.lu"
+
+msgid "Crush ID"
+msgstr "Crush ID"
+
+msgid "Email, linked accounts, password, notifications"
+msgstr "E-Mail, verknüpfte Konten, Passwort, Benachrichtigungen"
+
+msgid "Event check-in"
+msgstr "Event-Check-in"
+
+msgid "Get approved"
+msgstr "Freigabe erhalten"
+
+msgid "Level 1 · Account"
+msgstr "Stufe 1 · Konto"
+
+msgid "Level 2 · Approved"
+msgstr "Stufe 2 · Freigegeben"
+
+msgid "Level 3 · Identity confirmed"
+msgstr "Stufe 3 · Identität bestätigt"
+
+msgid "Link LuxID or check in at an event with a coach to confirm your identity."
+msgstr "Verknüpfe LuxID oder checke bei einem Event mit einem Coach ein, um deine Identität zu bestätigen."
+
+msgid "LuxID"
+msgstr "LuxID"
+
+msgid "LuxID, a coach video check or an event check-in. Opens Connect Week."
+msgstr "LuxID, ein Video-Check mit einem Coach oder ein Event-Check-in. Öffnet die Connect Week."
+
+msgid "Match requests waiting"
+msgstr "Offene Match-Anfragen"
+
+msgid "My Crush ID"
+msgstr "Meine Crush ID"
+
+msgid "My data"
+msgstr "Meine Daten"
+
+msgid "My matches"
+msgstr "Meine Matches"
+
+msgid "My profile"
+msgstr "Mein Profil"
+
+msgid "Not approved"
+msgstr "Nicht freigegeben"
+
+msgid "Open video check"
+msgstr "Video-Check öffnen"
+
+msgid "Opens once your profile is approved"
+msgstr "Öffnet sich, sobald dein Profil freigegeben ist"
+
+msgid "Photos, event identity, contact and region"
+msgstr "Fotos, Event-Identität, Kontakt und Region"
+
+msgid "Pick one way to get verified: LuxID, coming to an event, or a call with a coach. You only need one."
+msgstr "Wähle einen Weg zur Verifizierung: LuxID, ein Event-Besuch oder ein Anruf mit einem Coach. Einer reicht."
+
+msgid "Privacy and visibility"
+msgstr "Privatsphäre und Sichtbarkeit"
+
+msgid "Profile and photos approved. Opens event tickets and Crush Connect."
+msgstr "Profil und Fotos freigegeben. Öffnet Event-Tickets und Crush Connect."
+
+msgid "Profile not finished"
+msgstr "Profil nicht fertig"
+
+msgid "Profile submitted, not verified yet"
+msgstr "Profil eingereicht, noch nicht verifiziert"
+
+msgid "See the details and what you can do next."
+msgstr "Sieh dir die Details an und was du als Nächstes tun kannst."
+
+msgid "Short lessons and missions with our coaches, to help you get ready for dating. Along the way you unlock a personal presentation made with a coach and selected blind dates organised by Crush.lu."
+msgstr "Kurze Lektionen und Missionen mit unseren Coaches, die dich aufs Dating vorbereiten. Unterwegs schaltest du eine persönliche Präsentation frei, die du mit einem Coach erstellst, und ausgewählte Blind Dates, organisiert von Crush.lu."
+
+msgid "Signed up and phone confirmed"
+msgstr "Registriert und Telefonnummer bestätigt"
+
+msgid "Take a break, blocked members, download or delete your data"
+msgstr "Pause einlegen, blockierte Mitglieder, Daten herunterladen oder löschen"
+
+msgid "Verification levels"
+msgstr "Verifizierungsstufen"
+
+msgid "Verified and approved"
+msgstr "Verifiziert und freigegeben"
+
+msgid "Verified and identity confirmed"
+msgstr "Verifiziert, Identität bestätigt"
+
+#, python-format
+msgid "Verified by: %(method)s"
+msgstr "Verifiziert über: %(method)s"
+
+msgid "View details"
+msgstr "Details ansehen"
+
+msgid "We will let you know when it opens. Until then, come and meet people at one of our events."
+msgstr "Wir sagen dir Bescheid, sobald es losgeht. Bis dahin: Lerne Leute bei einem unserer Events kennen."
+
+msgid "Your data"
+msgstr "Deine Daten"
+
+msgid "Your profile was not approved"
+msgstr "Dein Profil wurde nicht freigegeben"
+
+msgid "Your verification needs a step from you"
+msgstr "Für deine Verifizierung fehlt ein Schritt von dir"
+
+msgid "Your verification, your profile and your personal data, in one place."
+msgstr "Deine Verifizierung, dein Profil und deine persönlichen Daten an einem Ort."
+
+msgctxt "coming soon badge"
+msgid "Soon"
+msgstr "Bald"
+
+msgid "A short video check with a coach opens Connect Week. Checking in with a coach at an event works too."
+msgstr "Ein kurzer Video-Check mit einem Coach öffnet die Connect Week. Ein Check-in mit einem Coach bei einem Event funktioniert auch."
+
+msgid "Check in with a coach at one of our events to confirm your identity and open Connect Week."
+msgstr "Checke bei einem unserer Events mit einem Coach ein, um deine Identität zu bestätigen und die Connect Week zu öffnen."
+
+msgid "A coach met you: an event check-in or a coach video check. Opens Connect Week."
+msgstr "Ein Coach hat dich getroffen: Check-in bei einem Event oder Video-Check mit einem Coach. Öffnet die Connect Week."

@@ -1,0 +1,126 @@
+{% extends 'crush_lu/base.html' %}
+{% load i18n crush_connect_tags %}
+
+{% block title %}{% trans "Crush ID - Crush.lu" %}{% endblock %}
+{% block mobile_page_title %}{% trans "Crush ID" %}{% endblock %}
+{% block meta_robots %}noindex, nofollow{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-6" data-crush-id-level="{{ level }}">
+
+    <div>
+        <h1 class="text-2xl font-bold dark:text-white">{% trans "Crush ID" %}</h1>
+        <p class="text-gray-500 dark:text-gray-400">{% trans "Your verification, your profile and your personal data, in one place." %}</p>
+    </div>
+
+    {# Status card: one level, one next action #}
+    <section class="section-edit-card flex-col items-stretch gap-4" aria-labelledby="crush-id-status">
+        <div class="flex items-center gap-3">
+            {% if level == 3 %}
+            <span class="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center flex-shrink-0">{% include "shared/icons/check-badge.html" with class="w-6 h-6" %}</span>
+            {% elif level == 2 %}
+            <span class="w-10 h-10 rounded-full bg-green-600 text-white flex items-center justify-center flex-shrink-0">{% include "shared/icons/check.html" with class="w-6 h-6" %}</span>
+            {% else %}
+            <span class="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center flex-shrink-0">{% include "shared/icons/exclamation-circle.html" with class="w-6 h-6" %}</span>
+            {% endif %}
+            <div>
+                <p id="crush-id-status" role="heading" aria-level="2" class="text-lg font-semibold leading-snug text-gray-900 dark:text-white">
+                    {% if level == 3 %}{% trans "Verified and identity confirmed" %}
+                    {% elif level == 2 %}{% trans "Verified and approved" %}
+                    {% elif crush_profile and crush_profile.verification_status == "rejected" %}{% trans "Not approved" %}
+                    {% elif crush_profile and crush_profile.verification_status != "incomplete" %}{% trans "Profile submitted, not verified yet" %}
+                    {% else %}{% trans "Profile not finished" %}{% endif %}
+                </p>
+                {% if verification_method_label %}
+                <p class="text-sm text-gray-500 dark:text-gray-400">{% blocktrans with method=verification_method_label %}Verified by: {{ method }}{% endblocktrans %}{% if crush_profile.approved_at %} · {{ crush_profile.approved_at|date:"SHORT_DATE_FORMAT" }}{% endif %}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <ol class="space-y-2 text-sm" aria-label="{% trans 'Verification levels' %}">
+            <li class="flex items-start gap-2" data-level="1">
+                {% if level >= 1 %}<span class="crush-id-mark crush-id-mark-done">{% include "shared/icons/check.html" with class="w-3 h-3" %}</span>{% else %}<span class="crush-id-mark crush-id-mark-todo"></span>{% endif %}
+                <span><strong class="text-gray-900 dark:text-white">{% trans "Level 1 · Account" %}</strong><span class="block text-gray-500 dark:text-gray-400">{% trans "Signed up and phone confirmed" %}</span></span>
+            </li>
+            <li class="flex items-start gap-2" data-level="2">
+                {% if level >= 2 %}<span class="crush-id-mark crush-id-mark-done">{% include "shared/icons/check.html" with class="w-3 h-3" %}</span>{% else %}<span class="crush-id-mark crush-id-mark-todo"></span>{% endif %}
+                <span><strong class="text-gray-900 dark:text-white">{% trans "Level 2 · Approved" %}</strong><span class="block text-gray-500 dark:text-gray-400">{% trans "Profile and photos approved. Opens event tickets and Crush Connect." %}</span></span>
+            </li>
+            <li class="flex items-start gap-2" data-level="3">
+                {% if level >= 3 %}<span class="crush-id-mark crush-id-mark-done">{% include "shared/icons/check.html" with class="w-3 h-3" %}</span>{% else %}<span class="crush-id-mark crush-id-mark-todo"></span>{% endif %}
+                <span><strong class="text-gray-900 dark:text-white">{% trans "Level 3 · Identity confirmed" %}</strong><span class="block text-gray-500 dark:text-gray-400">{% trans "A coach met you: an event check-in or a coach video check. Opens Connect Week." %}</span></span>
+            </li>
+        </ol>
+
+        {% if next_step %}
+        <div class="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-4 space-y-2" data-crush-id-next>
+            <p class="font-semibold text-amber-900 dark:text-amber-100">{{ next_step.0 }}</p>
+            <p class="text-sm text-amber-800 dark:text-amber-200">{{ next_step.1 }}</p>
+            <a href="{{ next_step.2 }}" class="btn-crush-primary inline-flex items-center gap-2 px-4 py-2">{{ next_step.3 }} {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}</a>
+        </div>
+        {% endif %}
+    </section>
+
+    {# Personal data sections. Pages stay where they are in step 1. #}
+    <section class="space-y-3" aria-label="{% trans 'Your data' %}">
+        <a href="{% url 'crush_lu:edit_profile' %}" class="section-edit-card card-tappable">
+            <div class="flex items-center gap-3">
+                <div class="section-edit-card-icon bg-pink-100 dark:bg-pink-900/30 text-pink-600 dark:text-pink-400">{% include "shared/icons/user-circle.html" with class="w-5 h-5" %}</div>
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">{% trans "My profile" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Photos, event identity, contact and region" %}</div>
+                </div>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 flex-shrink-0" %}
+        </a>
+
+        {% if connect_onboarded %}
+        <a href="{% url 'crush_lu:crush_connect_profile_edit' %}" class="section-edit-card card-tappable">
+            <div class="flex items-center gap-3">
+                <div class="section-edit-card-icon bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400">{% include "shared/icons/sparkles.html" with class="w-5 h-5" %}</div>
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">{% trans "Crush Connect Profile" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Story, lifestyle, ideal match — what your matches see" %}</div>
+                </div>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 flex-shrink-0" %}
+        </a>
+        {% endif %}
+
+        {% if crush_profile.is_approved %}
+        <a href="{% url 'crush_lu:edit_profile' %}?section=privacy" class="section-edit-card card-tappable">
+            <div class="flex items-center gap-3">
+                <div class="section-edit-card-icon bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400">{% include "shared/icons/eye.html" with class="w-5 h-5" %}</div>
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">{% trans "Privacy and visibility" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Name visibility and age display" %}</div>
+                </div>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 flex-shrink-0" %}
+        </a>
+        {% endif %}
+
+        <a href="{% url 'crush_lu:edit_profile' %}?section=account&sub=danger" class="section-edit-card card-tappable">
+            <div class="flex items-center gap-3">
+                <div class="section-edit-card-icon bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">{% include "shared/icons/shield-check.html" with class="w-5 h-5" %}</div>
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">{% trans "My data" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Take a break, blocked members, download or delete your data" %}</div>
+                </div>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 flex-shrink-0" %}
+        </a>
+
+        <a href="{% url 'crush_lu:edit_profile' %}?section=account" class="section-edit-card card-tappable">
+            <div class="flex items-center gap-3">
+                <div class="section-edit-card-icon bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">{% include "shared/icons/cog.html" with class="w-5 h-5" %}</div>
+                <div>
+                    <div class="font-medium text-gray-900 dark:text-white">{% trans "Account and login" %}</div>
+                    <div class="text-sm text-gray-500 dark:text-gray-400">{% trans "Email, linked accounts, password, notifications" %}</div>
+                </div>
+            </div>
+            {% include "shared/icons/chevron-right.html" with class="w-5 h-5 text-gray-400 flex-shrink-0" %}
+        </a>
+    </section>
+</div>
+{% endblock %}
