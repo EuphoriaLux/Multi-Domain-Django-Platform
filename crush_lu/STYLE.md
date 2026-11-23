@@ -604,7 +604,7 @@ because the ~30 `ghost-story-*` decorations already live there.
 
 | Include | Look | Use for | Default size |
 |---|---|---|---|
-| `ghost-logo.html` | Static body, orbiting heart, eyes follow it | Navbar / footer / inline brand | `w-7 h-7` |
+| `ghost-logo.html` | Static body, eyes wiggle, heart beating at the ghost's right | Navbar / footer / inline brand | `w-7 h-7` |
 | `ghost-logo-animated.html` | Float, blink, sparkles, heart beating at the ghost's right (SMIL) | Loading overlay, celebrations on gradient | `w-7 h-7` |
 | `ghost-logo-hero.html` | Animated + cursor-tracked eyes/heart | Home hero **only** | `w-7 h-7` |
 | `ghost-logo-icon.html` | No animation, outline baked in, heart at the ghost's right | Tiny badges (`w-4`/`w-8`) — the only variant for icon sizes | `w-4 h-4` |
@@ -619,11 +619,11 @@ markup — and the heartbeat's `additive="sum"` — is load-bearing.
 
 - **No background:** the ghost with the pink heart floating to its
   **right** (`translate(371,225)` in the `89 75 318 325` viewBox). That is
-  the resting position in `ghost-logo-icon`, `ghost-logo-animated` and
-  `ghost-logo-mono` — keep the three in sync. `ghost-logo` orbits the heart
-  around the head, and `ghost-logo-hero` still rests it above the head
-  (`translate(248,120)`, mirrored as `heartBaseX/Y` in `core.js`) because
-  the cursor tracker drifts it ±130 units around that point.
+  the resting position in every variant — `ghost-logo`, `ghost-logo-icon`,
+  `ghost-logo-animated`, `ghost-logo-hero` and `ghost-logo-mono` — keep them
+  in sync. The hero duplicates it as `heartBaseX/Y` in `core.js`, where the
+  cursor tracker lets the heart lean toward the pointer without ever
+  crossing the body (45 units right, 6 left, 70 up, 30 down).
 - **Background needed** (favicon, app/PWA icons, anything that must be an
   opaque tile): the **neon** artwork — the same ghost and heart inside the
   glowing ring on dark purple. It exists as raster only; the master is

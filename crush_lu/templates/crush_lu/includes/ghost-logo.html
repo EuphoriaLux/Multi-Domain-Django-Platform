@@ -1,10 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="89 75 318 325" class="{{ class|default:'w-7 h-7' }}" aria-hidden="true">
   {% include "crush_lu/includes/ghost-core.html" with variant="static" %}
-  <!-- Heart orbiting around ghost head -->
-  <g transform="translate(248,165)">
-    <g>
-      {% include "crush_lu/includes/ghost-heart.html" %}
-      <animateMotion dur="4s" repeatCount="indefinite" path="M85,0 C85,30 46,55 0,55 C-46,55 -85,30 -85,0 C-85,-30 -46,-55 0,-55 C46,-55 85,-30 85,0Z"/>
-    </g>
+  <!-- Heart floating to the ghost's right (the logo's resting position, same as
+       the neon app icons), with a slow heartbeat. additive="sum" stacks the
+       scale on the translate instead of replacing it. Keep the position in
+       sync with -icon, -animated, -hero and -mono. -->
+  <g transform="translate(371,225)">
+    {% include "crush_lu/includes/ghost-heart.html" %}
+    <animateTransform attributeName="transform" type="scale" additive="sum"
+      values="1;1.18;1;1.1;1;1;1;1"
+      dur="2.4s" repeatCount="indefinite" calcMode="spline"
+      keySplines="0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1;0.22 0.61 0.36 1"/>
   </g>
 </svg>

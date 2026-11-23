@@ -12,14 +12,14 @@
 
               Use it wherever the icon sits on a surface that already shows
               the brand mark. Ghost + heart IS the Crush logo — the heart floats
-              to the ghost's right (`ghost-logo` orbits it in the navbar) — so a second
+              to the ghost's right (`ghost-logo` adds a heartbeat in the navbar) — so a second
               ghost carrying a heart in page content reads as a broken copy of
               the logo rather than as its own illustration.
   {% endcomment %}
   {% include "crush_lu/includes/ghost-core.html" with variant="icon" %}
   {% if not no_heart %}
   <!-- Heart floating to the ghost's right (static) — the logo's resting position,
-       same as the neon app icons. Keep in sync with -animated and -mono. -->
+       same as the neon app icons. Keep in sync with ghost-logo, -animated, -hero and -mono. -->
   <g transform="translate(371,225)">
     {% include "crush_lu/includes/ghost-heart.html" %}
   </g>

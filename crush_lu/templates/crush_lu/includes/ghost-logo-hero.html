@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="89 75 318 325" class="{{ class|default:'w-7 h-7' }}" aria-hidden="true">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="89 75 318 325" overflow="visible" class="{{ class|default:'w-7 h-7' }}" aria-hidden="true">
 
   <!-- Hero variant of ghost-logo-animated. The two eye groups are wrapped in
        <g class="ghost-eye"> so the hero's ghostEyes Alpine component can
@@ -19,10 +19,14 @@
 
       {% include "crush_lu/includes/ghost-core.html" with variant="hero" %}
 
-      <!-- Heart (cursor-tracked: JS rewrites the transform attribute on every
-           frame; the heartbeat SMIL uses additive="sum" so it stacks on top
-           of whatever translate JS sets, instead of replacing it). -->
-      <g class="ghost-heart" transform="translate(248,120)">
+      <!-- Heart, resting to the ghost's right like every other logo variant
+           (371,225 — duplicated as heartBaseX/Y in core.js). Cursor-tracked:
+           JS rewrites the transform attribute on every frame, drifting the
+           heart a little around that spot; the heartbeat SMIL uses
+           additive="sum" so it stacks on top of whatever translate JS sets.
+           The <svg> has overflow="visible" so the drift to the right isn't
+           clipped at the viewBox edge. -->
+      <g class="ghost-heart" transform="translate(371,225)">
         {% include "crush_lu/includes/ghost-heart.html" with pulse=True %}
         <animateTransform attributeName="transform" type="scale" additive="sum"
           values="1;1.25;1;1.15;1;1;1;1"
