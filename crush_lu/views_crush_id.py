@@ -19,6 +19,7 @@ Levels (shared with the 2027 Coaching plan):
 
 from django.shortcuts import redirect, render
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 from django.views.decorators.cache import never_cache
 
@@ -145,9 +146,11 @@ def legacy_verify_redirect(request, *args, **kwargs):
     Permanent, query string kept, so links in sent emails and push messages
     keep working in the reader's language.
     """
-    url = reverse("crush_lu:crush_id_verify")
-    if request.META.get("QUERY_STRING"):
-        url = f"{url}?{request.META['QUERY_STRING']}"
+    target = reverse("crush_lu:crush_id_verify")
+    query = request.GET.urlencode()
+    url = f"{target}?{query}" if query else target
+    if not url_has_allowed_host_and_scheme(url, allowed_hosts=None):
+        url = target
     return redirect(url, permanent=True)
 
 

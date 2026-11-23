@@ -219,3 +219,17 @@ def test_hub_is_translated(client, lang, expected):
     body = _body(client.get(f"/{lang}/id/"))
 
     assert expected in body
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "old_path", ("/en/profile-submitted/", "/en/crush-connect/verification/")
+)
+def test_old_verify_pages_redirect_permanently_with_query(client, old_path):
+    """Step 2: links in sent emails and push messages keep working."""
+    resp = client.get(f"{old_path}?utm_source=email&next=//evil.example")
+
+    assert resp.status_code == 301
+    location = resp["Location"]
+    assert location.startswith("/en/id/verify/?")
+    assert "utm_source=email" in location
