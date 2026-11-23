@@ -709,13 +709,15 @@ class SetupCookieGroupsCommandTests(TestCase):
         before the commit, so a request served meanwhile can cache the groups
         without the new row for an hour. The command clears it again once
         every write has committed, even when it wrote nothing."""
-        from cookie_consent.cache import CACHE_KEY, _get_cache
+        from cookie_consent.cache import _CACHE_VERSION, CACHE_KEY, _get_cache
 
+        # 2.0 stores the groups under a versioned key; write and read that one.
+        cache_args = {"version": _CACHE_VERSION}
         self._run()
-        _get_cache().set(CACHE_KEY, {"stale": "snapshot"})
+        _get_cache().set(CACHE_KEY, {"stale": "snapshot"}, **cache_args)
         self._run()  # every row exists: no save() clears the cache this time
 
-        self.assertIsNone(_get_cache().get(CACHE_KEY))
+        self.assertIsNone(_get_cache().get(CACHE_KEY, **cache_args))
 
     def test_a_same_name_row_on_another_domain_does_not_stop_the_run(self):
         """Cookies are looked up by (group, name), so an admin-added row that
