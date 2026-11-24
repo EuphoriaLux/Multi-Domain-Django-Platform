@@ -413,7 +413,7 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
                 "home_url": "https://crush.lu",
                 "about_url": "https://crush.lu/about/",
                 "events_url": "https://crush.lu/events/",
-                "settings_url": "https://crush.lu/profile/edit/?section=account&sub=notifications",
+                "settings_url": "https://crush.lu/id/account/?sub=notifications",
                 "LANGUAGE_CODE": lang,
             }
             return render_to_string(template_name, context)
@@ -442,7 +442,7 @@ class NewsletterAdmin(AutoTranslateMixin, TranslationAdmin):
                 "home_url": "https://crush.lu",
                 "about_url": "https://crush.lu/about/",
                 "events_url": "https://crush.lu/events/",
-                "settings_url": "https://crush.lu/profile/edit/?section=account&sub=notifications",
+                "settings_url": "https://crush.lu/id/account/?sub=notifications",
                 "LANGUAGE_CODE": lang,
             }
             return render_to_string("crush_lu/emails/event_announcement.html", context)

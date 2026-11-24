@@ -1541,7 +1541,7 @@ class EmailBaseURLsTests(SiteTestMixin, TestCase):
         self.assertIn("/de/about/", base_urls["about_url"])
         self.assertIn("/de/events/", base_urls["events_url"])
         self.assertIn(
-            "/de/profile/edit/?section=account&sub=notifications",
+            "/de/id/profile/?section=account&sub=notifications",
             base_urls["settings_url"],
         )
 

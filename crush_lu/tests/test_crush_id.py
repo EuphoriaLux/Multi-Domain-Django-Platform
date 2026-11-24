@@ -93,7 +93,7 @@ def test_luxid_alone_is_level_2(client):
 
     assert _level(body) == 2
     assert "data-crush-id-next" in body
-    assert "?section=privacy" in _hub(body)
+    assert 'href="/en/id/privacy/"' in _hub(body)
 
 
 @pytest.mark.django_db
@@ -130,8 +130,8 @@ def test_pending_member_gets_the_hub_and_one_next_step(client):
     assert "Profile submitted, not verified yet" in body
     assert 'href="/en/id/verify/"' in body
     # Privacy edits need an approved profile; the card stays hidden until then.
-    assert "?section=privacy" not in _hub(body)
-    assert "?section=account&sub=danger" in _hub(body)
+    assert "/en/id/privacy/" not in _hub(body)
+    assert 'href="/en/id/data/"' in _hub(body)
 
 
 @pytest.mark.django_db
@@ -233,3 +233,121 @@ def test_old_verify_pages_redirect_permanently_with_query(client, old_path):
     location = resp["Location"]
     assert location.startswith("/en/id/verify/?")
     assert "utm_source=email" in location
+
+
+# ---------------------------------------------------------------------------
+# Step 4: profile, privacy, data and account under /id/
+# ---------------------------------------------------------------------------
+
+
+def _templates(resp):
+    assert resp.status_code == 200, resp.status_code
+    return {t.name for t in resp.templates}
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("path", "partial"),
+    (
+        ("/en/id/privacy/", "crush_lu/partials/edit_privacy.html"),
+        ("/en/id/account/", "crush_lu/partials/edit_account.html"),
+        ("/en/id/data/", "crush_lu/partials/edit_account_danger.html"),
+        (
+            "/en/id/account/?sub=notifications",
+            "crush_lu/partials/edit_account_notifications.html",
+        ),
+    ),
+)
+def test_short_addresses_open_their_section(client, path, partial):
+    _approved_member(client, username="cid_s4_" + re.sub(r"\W", "_", path))
+
+    assert partial in _templates(client.get(path))
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "path",
+    (
+        "/en/id/profile/",
+        "/en/id/data/gdpr/",
+        # Old addresses: same pages, no redirect (apps, emails, open forms).
+        "/en/profile/edit/",
+        "/en/account/gdpr/",
+    ),
+)
+def test_new_and_old_addresses_both_serve(client, path):
+    _approved_member(
+        client, username="cid_s4_both_" + path.strip("/").replace("/", "_")
+    )
+
+    assert client.get(path).status_code == 200
+
+
+def test_url_names_point_under_id():
+    from django.urls import reverse
+    from django.utils import translation
+
+    expected = {
+        "edit_profile": "/en/id/profile/",
+        "crush_id_privacy": "/en/id/privacy/",
+        "crush_id_account": "/en/id/account/",
+        "crush_id_data": "/en/id/data/",
+        "set_password": "/en/id/account/password/",
+        "apple_link_prompt": "/en/id/account/link-apple/",
+        "update_whatsapp_preference": "/en/id/account/whatsapp-preference/",
+        "delete_crushlu_profile": "/en/id/data/delete-profile/",
+        "take_a_break": "/en/id/data/take-a-break/",
+        "resume_from_break": "/en/id/data/resume/",
+        "gdpr_data_management": "/en/id/data/gdpr/",
+        "export_user_data": "/en/id/data/gdpr/export/",
+    }
+    with translation.override("en"):
+        for name, path in expected.items():
+            assert (
+                reverse(f"crush_lu:{name}", urlconf="azureproject.urls_crush") == path
+            )
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "name"),
+    (
+        ("/en/account/gdpr/", "/en/id/data/gdpr/", "gdpr_data_management"),
+        ("/en/account/set-password/", "/en/id/account/password/", "set_password"),
+        (
+            "/en/account/delete-profile/",
+            "/en/id/data/delete-profile/",
+            "delete_crushlu_profile",
+        ),
+    ),
+)
+def test_old_and_new_paths_share_the_guarded_url_name(old, new, name):
+    """The playground practice guard blocks by url_name: both paths must
+    carry it, or the old one would slip past the guard."""
+    from django.urls import resolve
+
+    from crush_lu.middleware import PracticeModeGuardMiddleware as Guard
+
+    for path in (old, new):
+        assert resolve(path, urlconf="azureproject.urls_crush").url_name == name
+    assert name in Guard.BLOCKED_URL_NAMES | Guard.BLOCKED_POST_URL_NAMES
+
+
+@pytest.mark.parametrize(
+    ("path", "query", "allowed"),
+    (
+        ("/en/id/data/", None, True),
+        ("/en/id/data/gdpr/", None, True),
+        ("/en/id/data/delete-profile/", None, True),
+        ("/en/id/account/", {}, True),
+        ("/en/id/account/", {"sub": "settings"}, False),
+        ("/en/id/profile/", {"section": "account", "sub": "danger"}, True),
+        ("/en/id/profile/", {"section": "privacy"}, False),
+        ("/en/id/privacy/", None, False),
+    ),
+)
+def test_paused_deletion_can_finish_from_the_new_addresses(path, query, allowed):
+    from crush_lu.consent_middleware import CrushConsentMiddleware
+
+    middleware = CrushConsentMiddleware(lambda request: None)
+
+    assert middleware._is_deletion_retry_path(path, query) is allowed

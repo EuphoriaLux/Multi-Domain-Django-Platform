@@ -70,7 +70,7 @@ def test_refusal_email_and_bell_use_member_language_with_internal_notes(
     assert fragments[language] in email["html_message"]
     assert fragments[language] in email["message"]
     assert notes not in email["html_message"]
-    assert f"/{language}/profile/edit/" in email["html_message"]
+    assert f"/{language}/id/profile/" in email["html_message"]
     log = ProfilePhotoReviewLog.objects.get(profile=profile)
     assert log.reason == reason
     assert log.notes == notes

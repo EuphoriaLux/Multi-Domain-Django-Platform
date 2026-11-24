@@ -63,14 +63,14 @@ def test_legacy_account_delete_redirects_to_profile_deletion(client, lang):
     _login(client)
     resp = client.get(f"/{lang}/account/delete/", **HOST)
     assert resp.status_code == 302
-    assert resp["Location"] == f"/{lang}/account/delete-profile/"
+    assert resp["Location"] == f"/{lang}/id/data/delete-profile/"
 
 
 def test_legacy_account_delete_head_redirects(client):
     _login(client)
     resp = client.head("/en/account/delete/", **HOST)
     assert resp.status_code == 302
-    assert resp["Location"] == "/en/account/delete-profile/"
+    assert resp["Location"] == "/en/id/data/delete-profile/"
 
 
 def test_legacy_account_delete_post_performs_gdpr_deletion(client):
@@ -86,7 +86,7 @@ def test_legacy_account_delete_post_performs_gdpr_deletion(client):
         **HOST,
     )
     assert resp.status_code == 302
-    assert resp["Location"] == "/en/profile/edit/?section=account"
+    assert resp["Location"] == "/en/id/profile/?section=account"
     assert not CrushProfile.objects.filter(user=user).exists()
     assert User.objects.filter(pk=user.pk).exists()
 
@@ -99,7 +99,7 @@ def test_legacy_account_delete_post_checks_email_and_csrf(client):
         **HOST,
     )
     assert resp.status_code == 302
-    assert resp["Location"] == "/en/account/gdpr/"
+    assert resp["Location"] == "/en/id/data/gdpr/"
     assert User.objects.filter(pk=user.pk).exists()
 
     from django.test import Client
@@ -122,12 +122,12 @@ def test_legacy_account_delete_post_requires_login(client):
         **HOST,
     )
     assert resp.status_code == 302
-    assert "/account/delete-profile/" not in resp["Location"]
+    assert "/id/data/delete-profile/" not in resp["Location"]
 
 
 def test_gdpr_page_has_no_internal_brand_names(client):
     _login(client)
-    html = client.get("/en/account/gdpr/", **HOST).content.decode()
+    html = client.get("/en/id/data/gdpr/", **HOST).content.decode()
     for name in INTERNAL_NAMES:
         assert name not in html
     assert "Login account" in html
@@ -135,13 +135,13 @@ def test_gdpr_page_has_no_internal_brand_names(client):
 
 def test_gdpr_page_download_comes_before_deletion(client):
     _login(client)
-    html = client.get("/en/account/gdpr/", **HOST).content.decode()
-    assert html.index("/en/account/gdpr/export/") < html.index("Account Deletion")
+    html = client.get("/en/id/data/gdpr/", **HOST).content.decode()
+    assert html.index("/en/id/data/gdpr/export/") < html.index("Account Deletion")
 
 
 def test_gdpr_page_confirm_inputs_are_labelled(client):
     _login(client)
-    html = client.get("/en/account/gdpr/", **HOST).content.decode()
+    html = client.get("/en/id/data/gdpr/", **HOST).content.decode()
     for prefix in ("profile", "account"):
         field_id = f"id_{prefix}_confirm_email"
         assert f'<label for="{field_id}"' in html
@@ -151,7 +151,7 @@ def test_gdpr_page_confirm_inputs_are_labelled(client):
 
 def test_gdpr_deletion_forms_use_confirm_sheet(client):
     _login(client)
-    html = client.get("/en/account/gdpr/", **HOST).content.decode()
+    html = client.get("/en/id/data/gdpr/", **HOST).content.decode()
     confirm_forms = [f for f in _forms(html) if "data-confirm=" in f]
     assert len(confirm_forms) == 2
     assert "onsubmit" not in html
@@ -161,7 +161,7 @@ def test_gdpr_deletion_forms_use_confirm_sheet(client):
 def test_gdpr_full_deletion_still_checks_email(client):
     user = _login(client)
     resp = client.post(
-        "/en/account/gdpr/",
+        "/en/id/data/gdpr/",
         {"deletion_type": "full_account", "confirm_email": "wrong@example.com"},
         **HOST,
     )
@@ -171,7 +171,7 @@ def test_gdpr_full_deletion_still_checks_email(client):
 
 def test_delete_profile_page_labelled_and_confirmed(client):
     _login(client)
-    html = client.get("/en/account/delete-profile/", **HOST).content.decode()
+    html = client.get("/en/id/data/delete-profile/", **HOST).content.decode()
     assert '<label for="id_confirm_email"' in html
     assert [f for f in _forms(html) if "data-confirm=" in f]
     assert "onclick=" not in html
@@ -182,7 +182,7 @@ def test_delete_profile_page_labelled_and_confirmed(client):
 def test_settings_danger_zone_has_no_internal_brand_names():
     from django.contrib.auth.models import AnonymousUser
 
-    request = RequestFactory().get("/en/profile/edit/?section=account&sub=danger")
+    request = RequestFactory().get("/en/id/profile/?section=account&sub=danger")
     request.user = AnonymousUser()
     with translation.override("en"):
         html = render_to_string(
@@ -337,7 +337,7 @@ def test_gdpr_full_deletion_copy_is_readable_in_dark_mode(client):
     """.text-secondary is #6b7280 in both themes: on the dark:bg-red-950 box
     that is ~3.3:1, so the paragraph needs its own dark colour."""
     _login(client)
-    html = client.get("/en/account/gdpr/", **HOST).content.decode()
+    html = client.get("/en/id/data/gdpr/", **HOST).content.decode()
     body = html.index("Permanently deletes your login account")
     tag = html[html.rindex("<p", 0, body) : body]
     assert "dark:text-gray-300" in tag

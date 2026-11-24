@@ -661,9 +661,10 @@ urlpatterns = [
         RedirectView.as_view(pattern_name="crush_lu:dashboard"),
         name="profile",
     ),
-    path("profile/edit/", views.edit_profile, name="edit_profile"),
     # Crush ID: verification, approval and personal data (fourth pillar).
     path("id/", views_crush_id.crush_id_hub, name="crush_id"),
+    # Old path; the /id/ path with the same name is listed below.
+    path("profile/edit/", views.edit_profile, name="edit_profile"),
     # One verification page for every route (LuxID, event door, coach call,
     # Connect video check). The old names point here too, so every existing
     # reverse() and {% url %} (emails, push, onboarding) lands on it.
@@ -680,6 +681,7 @@ urlpatterns = [
     # Account settings: the monolith is retired (8-08); the old path is a
     # nameless 301 to the edit_profile?section=account drill-down.
     path("account/settings/", views.legacy_account_settings),
+    # Old account paths; the /id/ ones with the same names are below.
     path(
         "account/settings/whatsapp-preference/",
         views.update_whatsapp_preference,
@@ -697,25 +699,57 @@ urlpatterns = [
     # GDPR & Account Deletion
     # Legacy URL: GET forwards to the profile deletion page; POST keeps the GDPR form contract.
     path("account/delete/", _legacy_account_delete, name="delete_account"),
+    # Old personal-data paths; the /id/data/ ones are right below.
     path(
         "account/delete-profile/",
         views.delete_crushlu_profile_view,
         name="delete_crushlu_profile",
-    ),  # Default action
-    path(
-        "account/take-a-break/", views.take_a_break_view, name="take_a_break"
-    ),  # UX Wave 3 - WP13 reversible pause
+    ),
+    path("account/take-a-break/", views.take_a_break_view, name="take_a_break"),
     path(
         "account/resume-from-break/",
         views.resume_from_break_view,
         name="resume_from_break",
     ),
+    path("account/gdpr/", views.gdpr_data_management, name="gdpr_data_management"),
+    path("account/gdpr/export/", views.export_user_data, name="export_user_data"),
+    # Crush ID step 4: profile, privacy, data and account live under /id/.
+    # The names point at the /id/ paths, so every reverse() and {% url %}
+    # follows. The old /profile/edit/ and /account/... paths listed above
+    # still serve the same views (no name, no redirect): the mobile apps,
+    # sent emails, cached pages and in-flight form posts keep working. The
+    # old paths keep their names too: reverse() takes the last pattern with a
+    # name (these /id/ ones, listed after the old paths), while middleware that matches on url_name (the
+    # playground practice guard) still recognises the old paths.
+    path("id/profile/", views.edit_profile, name="edit_profile"),
+    path("id/privacy/", views_crush_id.crush_id_privacy, name="crush_id_privacy"),
+    path("id/account/", views_crush_id.crush_id_account, name="crush_id_account"),
+    path("id/account/password/", views.set_password, name="set_password"),
     path(
-        "account/gdpr/", views.gdpr_data_management, name="gdpr_data_management"
-    ),  # Full GDPR options
+        "id/account/disconnect/<int:social_account_id>/",
+        views.disconnect_social_account,
+        name="disconnect_social_account",
+    ),
     path(
-        "account/gdpr/export/", views.export_user_data, name="export_user_data"
-    ),  # GDPR data export
+        "id/account/link-apple/",
+        views.apple_relay_link_prompt,
+        name="apple_link_prompt",
+    ),
+    path(
+        "id/account/whatsapp-preference/",
+        views.update_whatsapp_preference,
+        name="update_whatsapp_preference",
+    ),
+    path("id/data/", views_crush_id.crush_id_data, name="crush_id_data"),
+    path(
+        "id/data/delete-profile/",
+        views.delete_crushlu_profile_view,
+        name="delete_crushlu_profile",
+    ),
+    path("id/data/take-a-break/", views.take_a_break_view, name="take_a_break"),
+    path("id/data/resume/", views.resume_from_break_view, name="resume_from_break"),
+    path("id/data/gdpr/", views.gdpr_data_management, name="gdpr_data_management"),
+    path("id/data/gdpr/export/", views.export_user_data, name="export_user_data"),
     path(
         "consent/confirm/", views.consent_confirm, name="consent_confirm"
     ),  # Retroactive consent confirmation

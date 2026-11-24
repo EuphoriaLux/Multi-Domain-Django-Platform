@@ -513,8 +513,8 @@ class NotificationService:
             """
             url_paths = {
                 "crush_lu:dashboard": "/dashboard/",
-                "crush_lu:edit_profile": "/profile/edit/",
-                "crush_lu:edit_profile_photos": "/profile/edit/?section=photos",
+                "crush_lu:edit_profile": "/id/profile/",
+                "crush_lu:edit_profile_photos": "/id/profile/?section=photos",
                 "crush_lu:my_connections": "/my-connections/",
                 "crush_lu:my_events": "/my-events/",
                 "crush_lu:connect_week_inbox": "/crush-connect/week/inbox/",

@@ -26,7 +26,7 @@ from crush_lu.tests.test_crush_connect import (
 pytestmark = pytest.mark.urls("azureproject.urls_crush")
 
 WEEK_HOME_URL = "/en/crush-connect/week/"
-EDIT_PROFILE_URL = "/en/profile/edit/"
+EDIT_PROFILE_URL = "/en/id/profile/"
 ONBOARDING_URL = "/en/crush-connect/onboarding/"
 
 

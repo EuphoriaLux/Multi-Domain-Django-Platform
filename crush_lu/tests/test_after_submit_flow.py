@@ -221,7 +221,7 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         )
         self.assertIsNotNone(match)
         anchor = match.group(0)
-        self.assertIn('href="/en/account/delete-profile/"', anchor)
+        self.assertIn('href="/en/id/data/delete-profile/"', anchor)
         self.assertIn("btn-crush-outline", anchor)
         self.assertNotContains(response, "Profile Needs Updates")
 
@@ -237,7 +237,7 @@ class RejectedVerdictTests(_MemberMixin, TestCase):
         )
 
     def test_delete_flow_is_reachable_for_a_rejected_member(self):
-        response = self._get("/en/account/delete-profile/")
+        response = self._get("/en/id/data/delete-profile/")
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(
             response, "crush_lu/delete_crushlu_profile_confirm.html"
@@ -290,7 +290,7 @@ class RejectedProfileWithoutSubmissionTests(_MemberMixin, TestCase):
             r"<a [^>]*data-rejected-delete[^>]*>", response.content.decode()
         )
         self.assertIsNotNone(match)
-        self.assertIn('href="/en/account/delete-profile/"', match.group(0))
+        self.assertIn('href="/en/id/data/delete-profile/"', match.group(0))
 
     def test_pending_member_without_rejection_is_sent_away(self):
         self.profile.verification_status = "pending"

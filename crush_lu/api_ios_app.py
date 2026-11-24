@@ -90,8 +90,8 @@ def ios_app_config(request):
                 "login": "/en/login/?source=ios_app",
                 "privacy": "/en/privacy-policy/?source=ios_app",
                 "terms": "/en/terms-of-service/?source=ios_app",
-                "accountDeletion": "/en/account/gdpr/?source=ios_app",
-                "notificationSettings": "/en/profile/edit/?section=account&sub=notifications&source=ios_app",
+                "accountDeletion": "/en/id/data/gdpr/?source=ios_app",
+                "notificationSettings": "/en/id/account/?sub=notifications&source=ios_app",
                 "support": "/en/support/?source=ios_app",
             },
         }

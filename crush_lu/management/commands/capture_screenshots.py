@@ -104,10 +104,10 @@ PAGES = [
     ("Public", "changelog", "/changelog/", ANON),
     # ── Member journey ─────────────────────────────────────────────────────
     ("Member", "dashboard", "/dashboard/", MEMBER),
-    ("Member", "profile-edit", "/profile/edit/", MEMBER),
+    ("Member", "profile-edit", "/id/profile/", MEMBER),
     ("Member", "preferences", "/profile/preferences/", MEMBER),
-    ("Member", "account-settings", "/profile/edit/?section=account", MEMBER),
-    ("Member", "gdpr", "/account/gdpr/", MEMBER),
+    ("Member", "account-settings", "/id/account/", MEMBER),
+    ("Member", "gdpr", "/id/data/gdpr/", MEMBER),
     ("Member", "events", "/events/", MEMBER),
     ("Member", "my-events", "/my-events/", MEMBER),
     ("Member", "event-detail", "/events/{event_id}/", MEMBER),

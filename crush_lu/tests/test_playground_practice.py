@@ -575,9 +575,9 @@ class TestGuard:
         member = practice.apply_preset(coach, "luxid_ready")
         client = Client(HTTP_HOST=HOST)
         client.force_login(member)
-        assert client.get("/en/account/gdpr/").status_code == 200
+        assert client.get("/en/id/data/gdpr/").status_code == 200
         response = client.post(
-            "/en/account/gdpr/",
+            "/en/id/data/gdpr/",
             {"deletion_type": "full_account", "confirm_email": member.email},
         )
         assert response["Location"] == "/en/dashboard/"
@@ -646,7 +646,7 @@ class TestGuard:
         social = SocialAccount.objects.get(user=member, provider="luxid")
         client = Client(HTTP_HOST=HOST)
         client.force_login(member)
-        response = client.post(f"/en/account/disconnect/{social.pk}/")
+        response = client.post(f"/en/id/account/disconnect/{social.pk}/")
         assert response["Location"] == "/en/dashboard/"
         assert SocialAccount.objects.filter(pk=social.pk).exists()
 
@@ -684,6 +684,9 @@ GUARD_REVIEWED_SAFE = {
     "api_delete_push_subscription": "the device's own push subscription",
     "api_delete_photo_draft": "profile content, part of practising",
     "api_delete_profile_photo": "profile content, part of practising",
+    # Crush ID step 4: short addresses for sections of the profile editor.
+    # The pages only show; their actions post to the guarded routes above.
+    "crush_id_account": "account drill-down page, actions are guarded",
     # Coach and staff routes: a practice member is neither.
     "api_coach_delete_push_subscription": "coach only",
     "coach_preview_email": "coach only",

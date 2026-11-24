@@ -1,7 +1,7 @@
 """Retire the /account/settings/ monolith (UX Wave 4 · WP9b, finding 8-08).
 
 PR 2 of 3 for decision D. The account drill-down
-(/profile/edit/?section=account[&sub=...]) is the one settings surface:
+(/id/profile/?section=account[&sub=...]) is the one settings surface:
 
 * /account/settings/ is a permanent (301) redirect to it for every signed-in
   user; anonymous visitors still hit the login gate.
@@ -24,9 +24,9 @@ from crush_lu.tests.test_ux_wave4_settings_parity import _make_profile, _make_us
 
 HOST = "crush.lu"
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ACCOUNT = "/en/profile/edit/?section=account"
+ACCOUNT = "/en/id/profile/?section=account"
 DANGER = ACCOUNT + "&sub=danger"
-DELETE_PROFILE = "/en/account/delete-profile/"
+DELETE_PROFILE = "/en/id/data/delete-profile/"
 
 
 class _Hrefs(HTMLParser):
@@ -62,7 +62,7 @@ class LegacySettingsRedirectTests(TestCase):
             response = self.client.get(f"/{lang}/account/settings/", HTTP_HOST=HOST)
             self.assertEqual(response.status_code, 301, lang)
             self.assertEqual(
-                response["Location"], f"/{lang}/profile/edit/?section=account", lang
+                response["Location"], f"/{lang}/id/profile/?section=account", lang
             )
 
     def test_redirect_is_open_to_every_signed_in_user(self):
@@ -93,7 +93,7 @@ class LegacySettingsRedirectTests(TestCase):
         self.assertEqual(response.status_code, 301)
         self.assertEqual(
             response["Location"],
-            "/en/profile/edit/?section=account&sub=settings&apple_link=1",
+            "/en/id/profile/?section=account&sub=settings&apple_link=1",
         )
 
     def test_anonymous_visitor_still_hits_the_login_gate(self):
@@ -105,11 +105,9 @@ class LegacySettingsRedirectTests(TestCase):
     def test_bare_allauth_account_pages_point_at_the_drill_down(self):
         self._login("allauth@example.com")
         response = self.client.get("/accounts/", HTTP_HOST=HOST)
-        self.assertEqual(response["Location"], "/profile/edit/?section=account")
+        self.assertEqual(response["Location"], "/id/account/")
         response = self.client.get("/accounts/email/", HTTP_HOST=HOST)
-        self.assertEqual(
-            response["Location"], "/profile/edit/?section=account&sub=settings"
-        )
+        self.assertEqual(response["Location"], "/id/account/?sub=settings")
 
     def test_old_url_names_are_gone(self):
         for name in ("crush_lu:account_settings", "crush_lu:update_email_preferences"):
@@ -143,9 +141,9 @@ class LegacySettingsRedirectTests(TestCase):
             "/en/dashboard/",
             ACCOUNT,
             DANGER,
-            "/en/account/take-a-break/",
+            "/en/id/data/take-a-break/",
             DELETE_PROFILE,
-            "/en/account/set-password/",
+            "/en/id/account/password/",
         ):
             response = self.client.get(path, HTTP_HOST=HOST, follow=True)
             hrefs = _hrefs(response)
@@ -155,15 +153,15 @@ class LegacySettingsRedirectTests(TestCase):
             )
         dashboard = _hrefs(self.client.get("/en/dashboard/", HTTP_HOST=HOST))
         self.assertIn(ACCOUNT, dashboard)
-        cancel = _hrefs(self.client.get("/en/account/take-a-break/", HTTP_HOST=HOST))
+        cancel = _hrefs(self.client.get("/en/id/data/take-a-break/", HTTP_HOST=HOST))
         self.assertIn(DANGER, cancel)
 
     def test_post_action_redirects_land_in_the_drill_down(self):
         user = _make_user("noprofile2@example.com")
         self.client.force_login(user)
-        response = self.client.get("/en/account/take-a-break/", HTTP_HOST=HOST)
+        response = self.client.get("/en/id/data/take-a-break/", HTTP_HOST=HOST)
         self.assertEqual(response["Location"], DANGER)
-        response = self.client.get("/en/account/set-password/", HTTP_HOST=HOST)
+        response = self.client.get("/en/id/account/password/", HTTP_HOST=HOST)
         self.assertEqual(response["Location"], ACCOUNT + "&sub=settings")
 
     def test_email_footer_links_the_notification_settings(self):
@@ -175,7 +173,7 @@ class LegacySettingsRedirectTests(TestCase):
         urls = get_email_base_urls(user, request)
         self.assertTrue(
             urls["settings_url"].endswith(
-                "/de/profile/edit/?section=account&sub=notifications"
+                "/de/id/profile/?section=account&sub=notifications"
             ),
             urls["settings_url"],
         )
@@ -200,7 +198,7 @@ class StuckDeletionDrillDownTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(DELETE_PROFILE, _hrefs(response))
         # Pausing needs a profile: still hidden.
-        self.assertNotIn("/en/account/take-a-break/", _hrefs(response))
+        self.assertNotIn("/en/id/data/take-a-break/", _hrefs(response))
 
     def test_overview_is_reachable_and_leads_to_the_danger_zone(self):
         response = self.client.get(ACCOUNT, HTTP_HOST=HOST)
@@ -211,7 +209,7 @@ class StuckDeletionDrillDownTests(TestCase):
         for path in (
             ACCOUNT + "&sub=settings",
             ACCOUNT + "&sub=notifications",
-            "/en/profile/edit/",
+            "/en/id/profile/",
             "/en/account/settings/",
             "/en/events/",
         ):
@@ -233,4 +231,4 @@ class StuckDeletionDrillDownTests(TestCase):
         self.client.force_login(other)
         hrefs = _hrefs(self.client.get(DANGER, HTTP_HOST=HOST))
         self.assertIn(DELETE_PROFILE, hrefs)
-        self.assertIn("/en/account/take-a-break/", hrefs)
+        self.assertIn("/en/id/data/take-a-break/", hrefs)

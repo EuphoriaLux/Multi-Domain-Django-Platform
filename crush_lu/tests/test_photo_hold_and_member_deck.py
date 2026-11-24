@@ -414,7 +414,7 @@ def test_undo_reverts_the_whole_card_and_withdraws_the_notice_once():
         assert "Main profile photo" not in notice.body
         assert "main profile photo (Blurry or low-quality photo)" in notice.body
         assert "second profile photo (Face unclear or covered)" in notice.body
-        assert notice.link_url == "/profile/edit/?section=photos"
+        assert notice.link_url == "/id/profile/?section=photos"
 
         with TestCase.captureOnCommitCallbacks(execute=True):
             undone = undo_last_photo_review(coach, log_id=result["log_id"])
@@ -518,7 +518,7 @@ def test_edit_page_marks_the_photo_to_replace(notices):
     _replace(profile, "photo_1", "users/1/photos/newer.jpg")
     client = Client()
     client.force_login(profile.user)
-    html = client.get("/en/profile/edit/?section=photos").content.decode()
+    html = client.get("/en/id/profile/?section=photos").content.decode()
     assert "Needs replacement: Heavy filters or altered appearance" in html
     assert "Other members keep seeing your previous approved photo" in html
 
