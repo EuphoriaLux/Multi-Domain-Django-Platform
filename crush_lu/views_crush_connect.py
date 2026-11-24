@@ -23,6 +23,7 @@ from crush_lu.email_helpers import send_crush_connect_catalogue_welcome
 from crush_lu.models import CrushConnectMembership, CrushProfile, EventRegistration
 from crush_lu.services import funnel_events
 from crush_lu.services.premium_billing import entitled_q
+from crush_lu.services.premium_coach_contact import premium_coach_whatsapp
 from crush_lu.onboarding_connect import (
     CONNECT_STEPS,
     TOTAL_STEPS,
@@ -1168,6 +1169,7 @@ def crush_connect_hub(request):
         # straight back here, a dead loop (UX Wave 3 review).
         "premium_coach": _active_assigned_coach(profile),
         "premium_coach_pick_ready": is_premium_connect_eligible(user),
+        "coach_whatsapp": premium_coach_whatsapp(user),
         "connect_readiness": readiness,
         "blocking_step": blocking_step,
         "has_non_closed_chat": user_has_non_closed_chat(user),
@@ -1276,7 +1278,10 @@ def crush_connect_coach_pick(request):
     return render(
         request,
         "crush_lu/crush_connect/coach_pick.html",
-        {"coach_pick": get_active_coach_pick(request.user, include_accepted=True)},
+        {
+            "coach_pick": get_active_coach_pick(request.user, include_accepted=True),
+            "coach_whatsapp": premium_coach_whatsapp(request.user),
+        },
     )
 
 

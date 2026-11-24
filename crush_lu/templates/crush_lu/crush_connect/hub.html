@@ -53,6 +53,7 @@
             ⭐ {% trans "Premium" %}
             {% if premium_coach %}· {% trans "Your coach:" %} {% if premium_coach_pick_ready %}<a href="{% url 'crush_lu:crush_connect_coach_pick' %}" class="underline underline-offset-2">{{ premium_coach.user.get_full_name|default:premium_coach.user.username }}</a>{% else %}{{ premium_coach.user.get_full_name|default:premium_coach.user.username }}{% endif %}{% endif %}
         </p>
+        {% include "crush_lu/partials/_premium_coach_whatsapp.html" with wrapper_class="mt-2" %}
         {% endif %}
     </header>
     {% if real_person_call %}

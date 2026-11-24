@@ -1,0 +1,23 @@
+{% load i18n %}
+{% comment %}
+  "Message your coach on WhatsApp" for Premium members.
+  Expects: coach_whatsapp (services.premium_coach_contact.CoachWhatsAppLink) or None.
+  via_team: the coach has no Crush number yet, so the link goes to the main
+  Crush.lu number and the team passes it on.
+{% endcomment %}
+{% if coach_whatsapp %}
+<div class="{{ wrapper_class|default:'mt-3' }}">
+    <a href="{{ coach_whatsapp.url }}" target="_blank" rel="noopener"
+       class="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2 text-sm font-semibold text-white no-underline transition-colors hover:bg-[#1ebe57]">
+        {% include "shared/icons/whatsapp.html" with class="w-4 h-4" %}
+        {% blocktrans with name=coach_whatsapp.coach_name %}Message {{ name }} on WhatsApp{% endblocktrans %}
+    </a>
+    <p class="mt-1 mb-0 text-xs text-gray-500 dark:text-gray-400">
+        {% if coach_whatsapp.via_team %}
+            {% blocktrans with name=coach_whatsapp.coach_name %}Goes to the Crush.lu team, who pass it on to {{ name }}.{% endblocktrans %}
+        {% else %}
+            {% trans "Your coach answers from Crush.lu, usually within a day." %}
+        {% endif %}
+    </p>
+</div>
+{% endif %}

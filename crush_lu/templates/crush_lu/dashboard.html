@@ -390,6 +390,9 @@
                     {% include "shared/icons/envelope.html" with class="w-4 h-4" %}
                     {% trans "Contact Coach" %}
                 </a>
+                {% if coach_whatsapp and coach_whatsapp.coach_id == coach.id %}
+                    {% include "crush_lu/partials/_premium_coach_whatsapp.html" %}
+                {% endif %}
             </div>
         </div>
     </div>

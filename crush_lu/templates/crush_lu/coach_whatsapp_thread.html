@@ -21,6 +21,7 @@
             </h2>
             <p class="text-sm text-gray-500 dark:text-gray-400 m-0">
                 +{{ conv.from_number }}
+                {% if conv.premium %} · <span class="font-semibold text-amber-700 dark:text-amber-400">{% trans "Premium member" %}</span>{% endif %}
                 {% if not conv.profile %} · {% trans "Not a member" %}{% elif can_open_member %} · <a href="{% url 'crush_lu:coach_member_overview' conv.profile.user_id %}" class="text-purple-600 dark:text-purple-400 hover:underline">{% trans "View profile" %}</a>{% endif %}
             </p>
             {% if wrote_to_label %}
