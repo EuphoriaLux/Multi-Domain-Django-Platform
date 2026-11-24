@@ -61,6 +61,30 @@
         {% endif %}
     </section>
 
+    {# Step 3: the public badge. Crush ID shows it; coaches grant it. #}
+    {% if public_badge %}
+    <section class="section-edit-card flex-col items-stretch gap-3" aria-labelledby="crush-id-badge" data-crush-id-badge="{{ public_badge.state }}">
+        <p id="crush-id-badge" role="heading" aria-level="2" class="text-lg font-semibold leading-snug text-gray-900 dark:text-white">{% trans "What other members see" %}</p>
+        {% if public_badge.state == "shown" %}
+        <div data-crush-id-badge-preview>{% include "crush_lu/components/coach_verified_badge.html" with profile=crush_profile variant="inline" css_class="text-xs" %}</div>
+        <p class="text-sm text-gray-600 dark:text-gray-300">
+            {% if public_badge.kind == "in_person" %}{% trans "A coach checked your photo at an event. Other members see this badge on your Crush Connect card, in event recaps and on your matches. It stays as long as you keep the same main photo." %}
+            {% elif public_badge.kind == "video" %}{% trans "A coach compared you with your photo on a video call. Other members see this badge on your Crush Connect card, in event recaps and on your matches. It stays as long as you keep the same main photo." %}
+            {% else %}{% trans "A coach spoke with you on a call. Other members see this badge on your Crush Connect card, in event recaps and on your matches." %}{% endif %}
+        </p>
+        {% elif public_badge.state == "hidden" %}
+        <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "A coach confirmed you on a call. Badges from calls are not shown to other members yet. When a coach checks you in at an event, other members see an “In-person photo verified” badge on your profile." %}</p>
+        {% elif public_badge.state == "photo_changed" %}
+        <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "You changed your main photo after a coach checked it, so your badge is paused. Check in with a coach at your next event to get it back." %}</p>
+        {% else %}
+        <p class="text-sm text-gray-600 dark:text-gray-300">{% trans "No badge yet. When a coach checks you in at an event, other members see an “In-person photo verified” badge on your profile." %}</p>
+        {% endif %}
+        {% if public_badge.action %}
+        <a href="{{ public_badge.action.1 }}" class="self-start inline-flex items-center gap-1 text-sm font-semibold text-crush-purple dark:text-crush-pink" data-crush-id-badge-action>{{ public_badge.action.0 }} {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}</a>
+        {% endif %}
+    </section>
+    {% endif %}
+
     {# Personal data sections. Pages stay where they are in step 1. #}
     <section class="space-y-3" aria-label="{% trans 'Your data' %}">
         <a href="{% url 'crush_lu:edit_profile' %}" class="section-edit-card card-tappable">

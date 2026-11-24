@@ -8,6 +8,9 @@
 
             <div class="flex-1 min-w-0">
                 <h3 class="text-lg font-semibold dark:text-white mb-1">{{ other_user.crushprofile.display_name }}</h3>
+                {% if other_user.crushprofile|has_public_photo:'photo_1' %}
+                <div class="mb-1" data-public-badge>{% include "crush_lu/components/coach_verified_badge.html" with profile=other_user.crushprofile variant="inline" %}</div>
+                {% endif %}
                 <p class="text-gray-500 dark:text-gray-400 text-sm mb-2 flex items-center gap-1">
                     {% include "shared/icons/calendar.html" with class="w-4 h-4 shrink-0" %}
                     <span class="truncate">{{ connection.event.title }}</span>

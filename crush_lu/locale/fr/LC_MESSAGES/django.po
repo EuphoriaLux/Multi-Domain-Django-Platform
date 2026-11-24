@@ -49481,3 +49481,27 @@ msgstr "Faites votre check-in avec un coach à l'un de nos événements pour con
 
 msgid "A coach met you: an event check-in or a coach video check. Opens Connect Week."
 msgstr "Un coach vous a rencontré : check-in à un événement ou vérification vidéo avec un coach. Ouvre la Connect Week."
+
+#: crush_lu/templates/crush_lu/crush_id/hub.html
+msgid "A coach checked your photo at an event. Other members see this badge on your Crush Connect card, in event recaps and on your matches. It stays as long as you keep the same main photo."
+msgstr "Un coach a vérifié votre photo lors d'un événement. Les autres membres voient ce badge sur votre carte Crush Connect, dans les récapitulatifs d'événements et sur vos affinités. Il reste tant que vous gardez la même photo principale."
+
+#: crush_lu/templates/crush_lu/crush_id/hub.html
+msgid "A coach compared you with your photo on a video call. Other members see this badge on your Crush Connect card, in event recaps and on your matches. It stays as long as you keep the same main photo."
+msgstr "Un coach vous a comparé à votre photo lors d'un appel vidéo. Les autres membres voient ce badge sur votre carte Crush Connect, dans les récapitulatifs d'événements et sur vos affinités. Il reste tant que vous gardez la même photo principale."
+
+#: crush_lu/templates/crush_lu/crush_id/hub.html
+msgid "A coach spoke with you on a call. Other members see this badge on your Crush Connect card, in event recaps and on your matches."
+msgstr "Un coach s'est entretenu avec vous lors d'un appel. Les autres membres voient ce badge sur votre carte Crush Connect, dans les récapitulatifs d'événements et sur vos affinités."
+
+#: crush_lu/templates/crush_lu/crush_id/hub.html
+msgid "A coach confirmed you on a call. Badges from calls are not shown to other members yet. When a coach checks you in at an event, other members see an “In-person photo verified” badge on your profile."
+msgstr "Un coach vous a confirmé lors d'un appel. Les badges issus d'un appel ne sont pas encore montrés aux autres membres. Quand un coach vous enregistre à un événement, les autres membres voient le badge « Photo vérifiée en personne » sur votre profil."
+
+#: crush_lu/templates/crush_lu/crush_id/hub.html
+msgid "You changed your main photo after a coach checked it, so your badge is paused. Check in with a coach at your next event to get it back."
+msgstr "Vous avez changé votre photo principale après qu'un coach l'a vérifiée : votre badge est donc en pause. Faites-vous enregistrer par un coach lors de votre prochain événement pour le retrouver."
+
+#: crush_lu/templates/crush_lu/crush_id/hub.html
+msgid "No badge yet. When a coach checks you in at an event, other members see an “In-person photo verified” badge on your profile."
+msgstr "Pas encore de badge. Quand un coach vous enregistre à un événement, les autres membres voient le badge « Photo vérifiée en personne » sur votre profil."
