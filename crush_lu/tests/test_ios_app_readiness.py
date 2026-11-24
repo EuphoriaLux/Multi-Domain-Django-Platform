@@ -188,7 +188,7 @@ def test_ios_config_returns_store_safe_defaults(client, settings):
     assert payload["app"]["bundleId"] == "lu.crush.app"
     assert payload["features"]["nativeCommerceEnabled"] is False
     assert payload["features"]["nativePushEnabled"] is False
-    assert payload["urls"]["accountDeletion"] == "/en/account/gdpr/?source=ios_app"
+    assert payload["urls"]["accountDeletion"] == "/en/id/data/gdpr/?source=ios_app"
 
 
 def test_ios_auth_handoff_and_completion_are_one_time(client, user, settings):

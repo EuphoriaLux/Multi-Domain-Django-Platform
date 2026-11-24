@@ -1,6 +1,6 @@
 """Settings parity on the account drill-down (UX Wave 4 · WP9a, finding 8-08).
 
-The drill-down (/profile/edit/?section=account[&sub=...]) is the surface that
+The drill-down (/id/profile/?section=account[&sub=...]) is the surface that
 survives the settings merge. Before /account/settings/ can redirect to it,
 the drill-down must serve every signed-in user the monolith serves, and carry
 the items that only existed on the monolith: the WhatsApp opt-in card, the
@@ -22,7 +22,7 @@ from crush_lu.models.profiles import UserDataConsent
 User = get_user_model()
 
 HOST = "crush.lu"
-ACCOUNT = "/en/profile/edit/?section=account"
+ACCOUNT = "/en/id/profile/?section=account"
 SUBS = ("", "&sub=settings", "&sub=notifications", "&sub=danger")
 
 
@@ -122,16 +122,16 @@ class AccountDrillDownAccessTests(TestCase):
         # Photos are the one exception for a pending member, who must be able
         # to replace a photo a coach sent back (test_pending_member_photos).
         self.client.force_login(self.users["pending"])
-        response = self.client.get("/en/profile/edit/?section=privacy", HTTP_HOST=HOST)
+        response = self.client.get("/en/id/profile/?section=privacy", HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 302)
         for state in ("incomplete", "rejected"):
             self.client.force_login(self.users[state])
             response = self.client.get(
-                "/en/profile/edit/?section=photos", HTTP_HOST=HOST
+                "/en/id/profile/?section=photos", HTTP_HOST=HOST
             )
             self.assertEqual(response.status_code, 302, state)
         self.client.force_login(self.users["no_profile"])
-        response = self.client.get("/en/profile/edit/?section=privacy", HTTP_HOST=HOST)
+        response = self.client.get("/en/id/profile/?section=privacy", HTTP_HOST=HOST)
         self.assertEqual(response.status_code, 302)
 
     def test_back_link_skips_the_profile_editor_for_unapproved_users(self):
@@ -140,7 +140,7 @@ class AccountDrillDownAccessTests(TestCase):
         self.assertIn("/en/dashboard/", hrefs)
         self.client.force_login(self.users["approved"])
         hrefs = _parse(self.client.get(ACCOUNT, HTTP_HOST=HOST)).hrefs
-        self.assertIn("/en/profile/edit/", hrefs)
+        self.assertIn("/en/id/profile/", hrefs)
 
     def test_rejected_profile_sees_its_status_on_the_settings_sub(self):
         self.client.force_login(self.users["rejected"])
@@ -166,14 +166,14 @@ class DangerZoneParityTests(TestCase):
         )
         self.assertEqual(parsed.cookie_triggers, 1)
         self.assertIn("/en/settings/blocked/", parsed.hrefs)
-        self.assertIn("/en/account/take-a-break/", parsed.hrefs)
-        self.assertIn("/en/account/delete-profile/", parsed.hrefs)
+        self.assertIn("/en/id/data/take-a-break/", parsed.hrefs)
+        self.assertIn("/en/id/data/delete-profile/", parsed.hrefs)
 
     def test_profileless_user_gets_only_the_actions_they_can_use(self):
         self.client.force_login(_make_user("noprofile@example.com"))
         parsed = _parse(self.client.get(ACCOUNT + "&sub=danger", HTTP_HOST=HOST))
-        self.assertNotIn("/en/account/take-a-break/", parsed.hrefs)
-        self.assertNotIn("/en/account/delete-profile/", parsed.hrefs)
+        self.assertNotIn("/en/id/data/take-a-break/", parsed.hrefs)
+        self.assertNotIn("/en/id/data/delete-profile/", parsed.hrefs)
         self.assertIn("/en/settings/blocked/", parsed.hrefs)
         self.assertTrue(any("gdpr" in href for href in parsed.hrefs))
 
@@ -203,7 +203,7 @@ class NotificationsParityTests(TestCase):
     def test_whatsapp_card_posts_to_the_existing_endpoint(self):
         parsed = _parse(self._get())
         actions = [form.get("action") for form in parsed.forms]
-        self.assertIn("/en/account/settings/whatsapp-preference/", actions)
+        self.assertIn("/en/id/account/whatsapp-preference/", actions)
         names = {field.get("name"): field for field in parsed.inputs}
         self.assertIn("whatsapp_opt_in", names)
         self.assertEqual(names["whatsapp_opt_in"].get("role"), "switch")
@@ -232,27 +232,27 @@ class NotificationsParityTests(TestCase):
 
     def test_whatsapp_post_from_drill_down_returns_there(self):
         response = self.client.post(
-            "/en/account/settings/whatsapp-preference/",
+            "/en/id/account/whatsapp-preference/",
             {"whatsapp_opt_in": "on"},
             HTTP_HOST=HOST,
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
             response["Location"],
-            "/en/profile/edit/?section=account&sub=notifications"
+            "/en/id/profile/?section=account&sub=notifications"
             "#whatsapp-notifications",
         )
         self.assertTrue(EmailPreference.objects.get(user=self.user).whatsapp_opt_in)
 
     def test_whatsapp_post_ignores_a_foreign_return_to(self):
         response = self.client.post(
-            "/en/account/settings/whatsapp-preference/",
+            "/en/id/account/whatsapp-preference/",
             {"return_to": "https://evil.example/"},
             HTTP_HOST=HOST,
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(
             response["Location"],
-            "/en/profile/edit/?section=account&sub=notifications"
+            "/en/id/profile/?section=account&sub=notifications"
             "#whatsapp-notifications",
         )

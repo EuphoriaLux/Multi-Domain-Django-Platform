@@ -33,7 +33,7 @@ def test_android_config_returns_play_safe_defaults(client, settings):
     assert payload["success"] is True
     assert payload["app"]["packageName"] == "lu.crush.app"
     assert payload["features"]["nativeCommerceEnabled"] is False
-    assert payload["urls"]["accountDeletion"] == "/en/account/gdpr/?source=android_app"
+    assert payload["urls"]["accountDeletion"] == "/en/id/data/gdpr/?source=android_app"
 
 
 def test_android_auth_handoff_and_completion_are_one_time(client, user, settings):

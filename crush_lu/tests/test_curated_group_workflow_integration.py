@@ -1498,9 +1498,9 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         for path in (
             "/account/delete/",
-            "/account/delete-profile/",
-            "/account/gdpr/",
-            "/fr/account/delete-profile/",
+            "/id/data/delete-profile/",
+            "/id/data/gdpr/",
+            "/fr/id/data/delete-profile/",
         ):
             with self.subTest(path=path):
                 request = RequestFactory().get(path)
@@ -1515,7 +1515,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
         for path in (
             "/events/",
             "/account/settings/",
-            "/account/delete-profile/extra/",
+            "/id/data/delete-profile/extra/",
         ):
             with self.subTest(path=path):
                 request = RequestFactory().get(path)
@@ -1566,7 +1566,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         self.assertRedirects(
             retry_response,
-            "/en/profile/edit/?section=account",
+            "/en/id/profile/?section=account",
             fetch_redirect_response=False,
         )
         self.assertEqual(delete_storage.call_count, 2)
@@ -1589,7 +1589,7 @@ class CuratedGroupWorkflowIntegrationTests(TestCase):
 
         self.assertRedirects(
             response,
-            "/en/profile/edit/?section=account&sub=danger",
+            "/en/id/profile/?section=account&sub=danger",
             fetch_redirect_response=False,
         )
         delete.assert_not_called()

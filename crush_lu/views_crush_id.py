@@ -202,5 +202,37 @@ def legacy_verify_redirect(request, *args, **kwargs):
     return redirect(url, permanent=True)
 
 
+def _edit_profile_section(request, **defaults):
+    """Serve the profile editor with ``defaults`` as its query parameters.
+
+    Step 4: /id/privacy/, /id/account/ and /id/data/ are short addresses for
+    sections of the one editor (views.edit_profile), which reads its section
+    from the query string. Explicit query parameters win, so links inside a
+    section (``?sub=notifications``) keep working on these addresses too.
+    """
+    from crush_lu import views
+
+    query = request.GET.copy()
+    for key, value in defaults.items():
+        query.setdefault(key, value)
+    request.GET = query
+    return views.edit_profile(request)
+
+
+@crush_login_required
+def crush_id_privacy(request):
+    return _edit_profile_section(request, section="privacy")
+
+
+@crush_login_required
+def crush_id_account(request):
+    return _edit_profile_section(request, section="account")
+
+
+@crush_login_required
+def crush_id_data(request):
+    return _edit_profile_section(request, section="account", sub="danger")
+
+
 def coaching_coming_soon(request):
     return render(request, "crush_lu/crush_id/coaching_soon.html")

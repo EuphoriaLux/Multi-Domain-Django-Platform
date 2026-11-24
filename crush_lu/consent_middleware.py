@@ -338,15 +338,23 @@ class CrushConsentMiddleware:
         """
 
         path = self._strip_language_prefix(path)
-        if path == "/profile/edit/" and query is not None:
+        # Crush ID step 4: /id/profile/ is the editor's address, /id/account/
+        # its account overview and /id/data/ the Danger Zone; the old
+        # /profile/edit/ and /account/... paths still serve the same views.
+        if path in ("/profile/edit/", "/id/profile/") and query is not None:
             return query.get("section") == "account" and query.get("sub", "") in (
                 "",
                 "danger",
             )
+        if path == "/id/account/":
+            return query is None or query.get("sub", "") in ("", "danger")
         return path in {
             "/account/delete/",
             "/account/delete-profile/",
             "/account/gdpr/",
+            "/id/data/",
+            "/id/data/delete-profile/",
+            "/id/data/gdpr/",
         }
 
     def is_on_crush_domain(self, request):

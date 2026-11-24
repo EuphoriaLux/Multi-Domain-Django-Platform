@@ -698,7 +698,7 @@ document.addEventListener("alpine:init", function () {
 
                 // Hierarchical back for profile edit sub-sections
                 var params = new URLSearchParams(window.location.search);
-                if (window.location.pathname.indexOf('/profile/edit/') !== -1 && params.has('section')) {
+                if ((window.location.pathname.indexOf('/profile/edit/') !== -1 || window.location.pathname.indexOf('/id/profile/') !== -1) && params.has('section')) {
                     // Navigate to the parent edit profile overview
                     window.location.href = window.location.pathname;
                     return;

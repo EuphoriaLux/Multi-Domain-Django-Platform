@@ -358,7 +358,8 @@
                 // Subscription was automatically refreshed by service worker
                 // Reload subscription list if on the notifications settings page
                 if (
-                    window.location.pathname.includes("/profile/edit") &&
+                    (window.location.pathname.includes("/profile/edit") ||
+                        window.location.pathname.includes("/id/")) &&
                     window.location.search.includes("sub=notifications")
                 ) {
                     window.location.reload();

@@ -99,7 +99,7 @@ def test_moderated_member_loses_persisted_connect_week_cards(
         if decision == "flagged_fake":
             assert location == CONNECT_TEASER_URL
         else:
-            assert location.startswith("/en/profile/edit/?")
+            assert location.startswith("/en/id/profile/?")
             assert "section=photos" in location
             assert f"next={quote(WEEK_HOME_URL, safe='')}" in location
 
@@ -191,7 +191,7 @@ def test_lobby_lock_page_offers_photo_update_only_for_revision(
         t.name for t in response.templates
     ]
     html = response.content.decode()
-    photo_link = "/en/profile/edit/?section=photos&amp;next=" + quote(
+    photo_link = "/en/id/profile/?section=photos&amp;next=" + quote(
         lobby_url, safe=""
     )
     if decision == "needs_revision":
@@ -226,7 +226,7 @@ def test_lobby_revision_lock_page_is_translated(client, settings, language, head
     )
     html = client.get(f"/{language}/events/{event.pk}/lobby/").content.decode()
     assert heading in html
-    assert f"/{language}/profile/edit/?section=photos" in html
+    assert f"/{language}/id/profile/?section=photos" in html
 
 
 # --- Coach match recommendations ---------------------------------------------

@@ -237,7 +237,7 @@ class TakeABreakViewTests(TestCase):
         self.client.force_login(self.user)
 
     def test_get_confirm_page(self):
-        response = self.client.get("/en/account/take-a-break/", HTTP_HOST="crush.lu")
+        response = self.client.get("/en/id/data/take-a-break/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Take a Break")
 
@@ -245,7 +245,7 @@ class TakeABreakViewTests(TestCase):
         # #1058: inline onclick="return confirm(...)" is blocked by the CSP
         # and skips the branded sheet; the form carries data-confirm instead.
         html = self.client.get(
-            "/en/account/take-a-break/", HTTP_HOST="crush.lu"
+            "/en/id/data/take-a-break/", HTTP_HOST="crush.lu"
         ).content.decode()
         self.assertNotIn("return confirm(", html)
         self.assertIn(
@@ -256,7 +256,7 @@ class TakeABreakViewTests(TestCase):
         self.assertIn('data-confirm-label="Take a Break"', html)
 
     def test_post_sets_break_and_redirects_to_dashboard(self):
-        response = self.client.post("/en/account/take-a-break/", HTTP_HOST="crush.lu")
+        response = self.client.post("/en/id/data/take-a-break/", HTTP_HOST="crush.lu")
         self.assertEqual(response.status_code, 302)
         self.profile.refresh_from_db()
         self.assertTrue(self.profile.is_on_break)
@@ -264,7 +264,7 @@ class TakeABreakViewTests(TestCase):
     def test_resume_view_clears_break(self):
         self.profile.take_a_break()
         response = self.client.post(
-            "/en/account/resume-from-break/", HTTP_HOST="crush.lu"
+            "/en/id/data/resume/", HTTP_HOST="crush.lu"
         )
         self.assertEqual(response.status_code, 302)
         self.profile.refresh_from_db()
@@ -272,7 +272,7 @@ class TakeABreakViewTests(TestCase):
 
     def test_resume_view_requires_post(self):
         response = self.client.get(
-            "/en/account/resume-from-break/", HTTP_HOST="crush.lu"
+            "/en/id/data/resume/", HTTP_HOST="crush.lu"
         )
         self.assertEqual(response.status_code, 405)
 
@@ -288,13 +288,13 @@ class TakeABreakViewTests(TestCase):
 
     def test_account_settings_shows_take_a_break_link_when_active(self):
         response = self.client.get(
-            "/en/profile/edit/?section=account&sub=danger", HTTP_HOST="crush.lu"
+            "/en/id/profile/?section=account&sub=danger", HTTP_HOST="crush.lu"
         )
-        self.assertContains(response, "/account/take-a-break/")
+        self.assertContains(response, "/id/data/take-a-break/")
 
     def test_account_settings_shows_badge_when_on_break(self):
         self.profile.take_a_break()
         response = self.client.get(
-            "/en/profile/edit/?section=account&sub=danger", HTTP_HOST="crush.lu"
+            "/en/id/profile/?section=account&sub=danger", HTTP_HOST="crush.lu"
         )
         self.assertContains(response, "Currently on a break")
