@@ -298,11 +298,17 @@ def swipe_deck(user, event) -> list[dict]:
             "target_id", flat=True
         )
     )
-    registrations = _candidate_registrations(user, event, campaign).prefetch_related(
-        "user__crushprofile__interests_new",
-        "user__crushprofile__photo_review_states",
-        "user__crushprofile__published_photos",
-        "user__crushprofile__photo_framings",
+    registrations = (
+        _candidate_registrations(user, event, campaign)
+        # The coach-verified badge each card may show (real_person_badge).
+        .select_related(
+            "user__crushprofile__connect_real_person_badge"
+        ).prefetch_related(
+            "user__crushprofile__interests_new",
+            "user__crushprofile__photo_review_states",
+            "user__crushprofile__published_photos",
+            "user__crushprofile__photo_framings",
+        )
     )
     cards = [
         {"user": reg.user, "profile": reg.user.crushprofile}
@@ -549,7 +555,10 @@ def matches_for_user(user, event):
         # hides the counterpart here too.
         .exclude(requester_id__in=hidden)
         .exclude(recipient_id__in=hidden)
-        .select_related("requester__crushprofile", "recipient__crushprofile")
+        .select_related(
+            "requester__crushprofile__connect_real_person_badge",
+            "recipient__crushprofile__connect_real_person_badge",
+        )
         .order_by("-shared_at")
     )
 

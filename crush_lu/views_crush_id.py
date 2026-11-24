@@ -94,6 +94,53 @@ def _next_step(user, profile, level):
     return None
 
 
+def public_badge_card(user, profile):
+    """Step 3: the "What other members see" card.
+
+    The public badge is the coach-verified badge members already see on
+    Connect cards (``CrushProfile.real_person_badge``): a coach checked the
+    member's photo at an event door ("in_person"), or saw them on a video or
+    voice check. Crush ID shows the member their own badge and how to get or
+    renew it; it grants nothing itself. Returns a dict for the template:
+
+    ``state``  "shown"         other members see ``kind`` now
+               "hidden"        a video/voice badge was granted, but those
+                               badges are not shown to members yet (flag)
+               "photo_changed" a coach checked an earlier main photo
+               "none"          no badge yet
+    ``kind``   "in_person" / "video" / "voice" / ""
+    ``action`` (label, url) for the next step, or None
+    """
+    from crush_lu.services.real_person_check import granted_badge_medium
+    from crush_lu.services.verification_funnel import funnel_visible
+
+    if profile is None:
+        return None
+    kind = profile.real_person_badge
+    if kind:
+        return {"state": "shown", "kind": kind, "action": None}
+
+    events = (_("Find an event"), reverse("crush_lu:event_list"))
+    if profile.is_approved and funnel_visible(user):
+        action = (_("Open video check"), reverse("crush_lu:crush_id_verify"))
+    else:
+        action = events
+
+    granted = granted_badge_medium(profile)
+    if granted:
+        return {"state": "hidden", "kind": granted, "action": events}
+    if profile.photo_verification_key:
+        # is_photo_verified is False here, so the main photo changed since a
+        # coach checked it at the door.
+        return {"state": "photo_changed", "kind": "", "action": events}
+    # Not approved yet: the status card's "Get approved" step already leads.
+    return {
+        "state": "none",
+        "kind": "",
+        "action": action if profile.is_approved else None,
+    }
+
+
 @crush_login_required
 @never_cache
 def crush_id_hub(request):
@@ -119,6 +166,7 @@ def crush_id_hub(request):
             else ""
         ),
         "connect_onboarded": bool(membership and membership.is_onboarded),
+        "public_badge": public_badge_card(user, profile),
     }
     return render(request, "crush_lu/crush_id/hub.html", context)
 

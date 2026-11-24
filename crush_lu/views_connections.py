@@ -559,7 +559,11 @@ def my_connections(request):
         # A closed "My Crush!" lead promises nothing any more ("your coach
         # will call you"), so it leaves the list.
         .exclude(flow=EventConnection.FLOW_CRUSH, status="declined")
-        .select_related("recipient__crushprofile", "event", "assigned_coach")
+        .select_related(
+            "recipient__crushprofile__connect_real_person_badge",
+            "event",
+            "assigned_coach",
+        )
         # has_public_photo / profile_photo read both per card.
         .prefetch_related(
             "recipient__crushprofile__photo_review_states",
@@ -594,8 +598,9 @@ def my_connections(request):
         .exclude(requester_id__in=blocked_ids)
         .exclude(recipient_id__in=blocked_ids)
         .select_related(
-            "requester__crushprofile",
-            "recipient__crushprofile",
+            # The coach-verified badge each card may show (real_person_badge).
+            "requester__crushprofile__connect_real_person_badge",
+            "recipient__crushprofile__connect_real_person_badge",
             "event",
             "assigned_coach",
         )

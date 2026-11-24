@@ -290,7 +290,7 @@ def test_the_badge_flag_alone_shows_nothing_in_the_component(settings):
     assert component(profile_of(member)).strip() == ""
 
 
-@pytest.mark.parametrize("kind", ["in_person", "video", "voice"])
+@pytest.mark.parametrize("kind", ["video", "voice"])
 def test_the_inline_variant_needs_the_flag_in_the_context(flags_on, kind):
     profile = profile_of(decorate(make_member(f"rpc_ui_inline_{kind}"), kind))
 
@@ -303,6 +303,19 @@ def test_the_inline_variant_needs_the_flag_in_the_context(flags_on, kind):
     assert LABELS["en"][kind] in pill
     assert "absolute" not in pill
     assert "bg-emerald-50" in pill
+
+
+def test_the_inline_in_person_pill_needs_no_flag(flags_off):
+    """Crush ID step 3 (Tom, 2026-11-23): the badge is public, so the
+    in-person pill shows inline as it always did on the overlay."""
+    profile = profile_of(decorate(make_member("rpc_ui_inline_door"), "in_person"))
+
+    for visible in (False, True):
+        pill = squash(
+            component(profile, "inline", connect_real_person_badge_visible=visible)
+        )
+        assert LABELS["en"]["in_person"] in pill
+        assert "bg-emerald-50" in pill
 
 
 def test_the_inline_variant_takes_extra_classes(flags_on):
@@ -509,15 +522,17 @@ def test_the_review_shows_inline_pills_in_the_card_body(client, flags_on):
     assert "absolute top-3 right-3" not in body
 
 
-def test_the_review_is_unchanged_with_the_flags_off(client, flags_off):
-    """In-person never showed on the review card, so it still must not."""
+def test_the_review_shows_only_the_in_person_pill_with_the_flags_off(
+    client, flags_off
+):
+    """Crush ID step 3: the in-person pill is public; video and voice wait
+    for the flags."""
     viewer, _ = review_world(["video", "voice", "in_person", None])
     body = text_of(logged_in(client, viewer).get(WEEK_REVIEW_URL))
 
     assert body.count("<article") == 4
     assert squashed_labels(body) == []
-    assert LABELS["en"]["in_person"] not in body
-    assert "bg-emerald-50" not in body
+    assert body.count(LABELS["en"]["in_person"]) == 1
 
 
 def test_the_review_is_translated(client, flags_on):
@@ -852,13 +867,15 @@ def test_the_chat_header_shows_no_badge_of_the_viewer(client, flags_on):
     assert squashed_labels(body) == []
 
 
-def test_the_chat_header_is_unchanged_with_the_flags_off(client, flags_off):
+def test_the_chat_header_shows_only_the_in_person_pill_with_the_flags_off(
+    client, flags_off
+):
     me, _partner, _chat, url = chat_world("in_person")
     decorate(me, "video")
     body = text_of(logged_in(client, me).get(url))
 
     assert squashed_labels(body) == []
-    assert LABELS["en"]["in_person"] not in body
+    assert LABELS["en"]["in_person"] in body
 
 
 def test_the_chat_header_hides_the_badge_beside_a_hidden_photo(client, flags_on):

@@ -98,6 +98,10 @@
                     {% endif %}
 
                     <h2 class="text-lg font-bold text-gray-900 dark:text-white">{{ other_profile.display_name }}</h2>
+                    {# Same rule as the photo above: shown once contact is shared. #}
+                    {% if connection.status == 'shared' and other_profile|has_public_photo:'photo_1' %}
+                    <div class="mt-1" data-public-badge>{% include "crush_lu/components/coach_verified_badge.html" with profile=other_profile variant="inline" %}</div>
+                    {% endif %}
                     {% if other_profile %}
                         <p class="text-sm text-gray-500 dark:text-gray-400">{{ other_profile.age_display }}</p>
                     {% endif %}

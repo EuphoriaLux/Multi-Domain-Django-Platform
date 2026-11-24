@@ -12,9 +12,12 @@ Args:
              DE/FR labels cannot collide with the coach-reviewed pill.
              "inline": a light pill in the card body or header, for surfaces
              whose corner is taken or that have no photo overlay (review card,
-             permitted profile, chat header). Inline renders only while
-             ``connect_real_person_badge_visible`` (context processor) is
-             true, so those surfaces show nothing new with the flag off.
+             permitted profile, chat header, event recap, matches, Crush
+             ID preview). The in-person pill renders inline with the flags
+             either way, as it always did on the overlay (Crush ID step 3,
+             Tom 2026-11-23: the badge is public). Video and voice pills
+             render inline only while ``connect_real_person_badge_visible``
+             (context processor) is true.
              The overlay needs no such check: with the flag off,
              ``real_person_badge`` returns only "in_person" or "", and
              "in_person" is the markup these cards always had: the same
@@ -43,7 +46,7 @@ Spec: ai-memory-hub/specs/2026-10-24-crush-connect-real-person-check.md
 {% trans "Spoke with a Crush coach" as label %}{% trans "A Crush coach spoke with this member on a call" as tip %}
 {% endif %}
 {% if variant == "inline" %}
-{% if connect_real_person_badge_visible %}
+{% if connect_real_person_badge_visible or kind == "in_person" %}
 <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2 py-0.5 text-[11px] font-semibold leading-tight text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-800/60 {{ css_class }}" title="{{ tip }}">
     {% if kind == "video" %}{% include "shared/icons/video-camera.html" with class="w-3 h-3 shrink-0" %}{% elif kind == "voice" %}{% include "shared/icons/phone.html" with class="w-3 h-3 shrink-0" %}{% else %}{% include "shared/icons/check-circle.html" with class="w-3 h-3 shrink-0" %}{% endif %}
     {{ label }}
