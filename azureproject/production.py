@@ -765,3 +765,13 @@ CRUSH_GOOGLE_REVIEW_URL = (
     if DJANGO_ENV == "production"
     else ""
 )
+
+# The listing event posts are written to (services/google_business_profile.py).
+# Not secret, so derived from the slot-sticky DJANGO_ENV like the review URL
+# above rather than an App Service setting a swap could carry to staging. With
+# it empty every GBP write is refused, whatever the flag and token say.
+GOOGLE_BUSINESS_PROFILE_LOCATION = (
+    "accounts/114698048827928524283/locations/10954543438099561082"
+    if DJANGO_ENV == "production"
+    else ""
+)

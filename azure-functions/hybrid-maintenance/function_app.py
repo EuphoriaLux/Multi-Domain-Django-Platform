@@ -64,6 +64,12 @@ Environment Variables Required:
         az functionapp config appsettings set -g django-app-rg
           -n crush-hybrid-maintenance --settings
           DJANGO_ABANDONED_CHECKOUT_SWEEP_URL=https://crush.lu/api/admin/abandoned-checkout-sweep/)
+    - DJANGO_GBP_SYNC_URL: e.g. https://crush.lu/api/admin/gbp-sync/
+      (ships dormant like PremiumLapseSweep, for the same reason: set it BY HAND
+      after the slot swap that puts the route on production:
+        az functionapp config appsettings set -g django-app-rg
+          -n crush-hybrid-maintenance --settings
+          DJANGO_GBP_SYNC_URL=https://crush.lu/api/admin/gbp-sync/)
     - ADMIN_API_KEY: Bearer token shared with the Django ADMIN_API_KEY setting
     - HYBRID_MAINTENANCE_ENABLED: Should be 'true' in production; anything
       else skips both triggers (safe-default: functions are deployed disabled
@@ -496,6 +502,35 @@ def echo_lu_sync(timer: func.TimerRequest) -> None:
         logging.warning("EchoLuSync: timer past due at %s", ts)
     logging.info("EchoLuSync: starting at %s", ts)
     _call_admin_endpoint("EchoLuSync", "DJANGO_ECHO_SYNC_URL", timeout=110)
+
+
+@app.function_name(name="GbpSync")
+@app.timer_trigger(
+    # Hourly at :08. Clear of invites (:x0), echo :05, the 10-minute
+    # abandoned-checkout sweep (:x9), SLA :15 and the other hourly jobs. The
+    # :07 campaign tick's 110 s tail can overlap; both are short, independent
+    # HTTP calls to Django.
+    schedule="0 8 * * * *",
+    arg_name="timer",
+    run_on_startup=False,
+    use_monitor=True,
+)
+def gbp_sync(timer: func.TimerRequest) -> None:
+    """Mirror upcoming crush.lu events as Google Business Profile event posts.
+
+    Creates a post for each new public event, updates it when the event
+    changes, and deletes it when the event is cancelled, unpublished or made
+    private. Cheap to repeat: unchanged events cost no Google API call. Ships
+    dormant until DJANGO_GBP_SYNC_URL is set after the slot swap; the Django
+    side is additionally off until GOOGLE_BUSINESS_PROFILE_ENABLED is set.
+    """
+    ts = datetime.utcnow().isoformat()
+    if timer.past_due:
+        logging.warning("GbpSync: timer past due at %s", ts)
+    logging.info("GbpSync: starting at %s", ts)
+    _call_admin_endpoint(
+        "GbpSync", "DJANGO_GBP_SYNC_URL", timeout=110, dormant_if_unset=True
+    )
 
 
 @app.function_name(name="SumUpReconciliation")

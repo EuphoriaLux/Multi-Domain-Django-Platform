@@ -28,6 +28,7 @@ from .event_lobby import *
 from .payments import *
 from .credits import *
 from .echo_lu import *
+from .google_business_profile import GoogleLocalPostSync  # noqa: F401
 from .crush_connect_cycle import *
 from .custom_sms import *
 from .email_delivery import *
