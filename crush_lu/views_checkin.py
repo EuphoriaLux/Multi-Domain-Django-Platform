@@ -69,12 +69,13 @@ _CHECKIN_UPDATE_FIELDS = [
     "updated_at",
 ]
 
-#: Statuses `coach_undo_checkin` will restore a row to. The two check-in paths
-#: are the only ones that record a prior status, and they accept exactly these:
-#: `event_checkin_api` requires `confirmed`, `coach_promote_from_waitlist`
-#: requires `waitlist`. Anything else on the row is a stale or hand-written
-#: value and falls back to `confirmed`, which is what the undo did for every
-#: row before provenance existed.
+#: Statuses `coach_undo_checkin` will restore a row to. The check-in paths that
+#: record a prior status are `event_checkin_api` (`confirmed`, or `pending` for a
+#: Pending Payment seat), `coach_promote_from_waitlist` (`waitlist`) and the quiz
+#: host panel's `api_quiz.mark_attended` (`confirmed` or `no_show`). Anything
+#: else on the row, `no_show` included, is a stale or hand-written value and
+#: falls back to `confirmed`, which is what the undo did for every row before
+#: provenance existed.
 # "pending" is restorable now that a Pending Payment seat can be scanned:
 # without it, undoing an accidental scan silently converted an unpaid
 # registration into a confirmed one.
