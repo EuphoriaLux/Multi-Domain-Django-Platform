@@ -680,16 +680,27 @@ def mark_attended(request, quiz_id):
             _record_checkin_provenance,
             _run_post_verification_side_effects,
             _scanning_coach,
+            _within_checkin_window,
         )
 
         now = timezone.now()
-        registration._checkin_coach = _scanning_coach(request)
+        # Outside the door window (a host fixing attendance days later) the
+        # mark still records attendance, but a coach did not stand in front of
+        # the member just now: no coach grant, no scanning coach, no photo
+        # attestation and no verification, the same limit the door scan
+        # enforces for old tickets.
+        in_window = _within_checkin_window(registration.event, now)
+        registration._checkin_coach = _scanning_coach(request) if in_window else None
         _record_checkin_provenance(registration, registration._checkin_coach)
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
 
-        verified_profile = _auto_verify_on_attendance(request, registration, now)
+        verified_profile = (
+            _auto_verify_on_attendance(request, registration, now)
+            if in_window
+            else None
+        )
         if verified_profile is not None:
             transaction.on_commit(
                 lambda: _run_post_verification_side_effects(

@@ -296,3 +296,24 @@ def test_undo_clears_scanning_coach(door_event):
     assert reg.status == "confirmed"
     assert reg.checkin_scanned_by_coach_id is None
     assert profile.has_attended_event is False
+
+
+def test_host_mark_outside_checkin_window_records_no_coach_evidence(quiz):
+    """A host fixing attendance long after the evening is not a coach seeing
+    the member: attendance is recorded, verification and evidence are not."""
+    host = _coach("latehost")
+    quiz.event.coaches.add(host)
+    MeetupEvent.objects.filter(pk=quiz.event_id).update(
+        date_time=timezone.now() - timedelta(days=3)
+    )
+    profile, reg = _member(quiz.event, "latepending", status="pending")
+
+    assert _mark(quiz, reg, host.user).status_code == 200
+
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    assert reg.status == "attended"
+    assert reg.checkin_scanned_by_coach_id is None
+    assert reg.checkin_granted_coach_id is None
+    assert reg.checkin_attested_photo_key == ""
+    assert profile.verification_status == "pending"

@@ -71,6 +71,18 @@ _CHECKIN_UPDATE_FIELDS = [
 ]
 
 
+def _within_checkin_window(event, now):
+    """Whether ``now`` is inside the event's door check-in window."""
+    from datetime import timedelta
+
+    hours = getattr(settings, "EVENT_CHECKIN_WINDOW_HOURS", 12)
+    return (
+        event.date_time - timedelta(hours=hours)
+        <= now
+        <= event.date_time + timedelta(hours=hours)
+    )
+
+
 def _fill_missing_scanning_coach(request, registration):
     """A coach re-scanning an attended row that records no scanning coach.
 
