@@ -49525,3 +49525,24 @@ msgstr ""
 "Wähle 3 Ja/Nein-Fragen über dich. Mitglieder, die dein Profil erhalten, "
 "erraten deine Antworten. Ohne sie wird dein Profil in der Connect-Woche "
 "nicht gezeigt."
+
+msgid "No spot opened up"
+msgstr "Es ist kein Platz frei geworden"
+
+msgid "This event is over and no place became free for you. Thank you for your interest. We hope to see you at one of our next evenings."
+msgstr "Dieses Event ist vorbei und es ist kein Platz für dich frei geworden. Danke für dein Interesse. Wir hoffen, dich bei einem unserer nächsten Abende zu sehen."
+
+msgid "No spot"
+msgstr "Kein Platz"
+
+msgid "Was on the waitlist"
+msgstr "War auf der Warteliste"
+
+msgid "Applied, never selected"
+msgstr "Beworben, nie ausgewählt"
+
+msgid "Waitlist closed"
+msgstr "Warteliste geschlossen"
+
+msgid "event over, no seat came free"
+msgstr "Event vorbei, kein Platz frei geworden"

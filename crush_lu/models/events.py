@@ -1731,6 +1731,10 @@ class EventRegistration(models.Model):
         ("pending", _("Pending Payment")),
         ("confirmed", _("Confirmed")),
         ("waitlist", _("Waitlist")),
+        # The event ended while this member was still on the waitlist: no
+        # seat ever came free. Holds no seat. Written by the after-event sweep
+        # (services.waitlist_closing), never by a member action.
+        ("waitlist_closed", _("Waitlist closed")),
         ("cancelled", _("Cancelled")),
         ("attended", _("Attended")),
         ("no_show", _("No Show")),
@@ -2288,6 +2292,23 @@ class EventRegistration(models.Model):
         from crush_lu.services.attendance_check import awaits_attendance_answer
 
         return awaits_attendance_answer(self)
+
+    @property
+    def missed_out(self):
+        """The event is over and this member never got a seat from the wait.
+
+        True for ``waitlist_closed`` (what the after-event sweep stores) and,
+        until the sweep has reached the row, for a ``waitlist`` or still-open
+        ``applied`` row whose event has already ended. Promotion stops at the
+        start (``accepts_waitlist_promotion``), so such a row is not waiting
+        for anything any more. Member and coach pages read this and show
+        "No spot" instead of a waitlist badge.
+        """
+        if self.status == "waitlist_closed":
+            return True
+        if self.status not in ("waitlist", "applied"):
+            return False
+        return self.event.end_time <= timezone.now()
 
     def save(self, *args, **kwargs):
         """Keep the cancellation policy timestamp aligned with the status."""

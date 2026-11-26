@@ -175,6 +175,8 @@
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 rounded-full whitespace-nowrap">{% trans "Attended" %}</span>
                     {% elif entry.no_show %}
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full whitespace-nowrap">{% trans "Missed" %}</span>
+                    {% elif entry.no_spot %}
+                    <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full whitespace-nowrap">{% trans "No spot" %}</span>
                     {% else %}
                     <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full whitespace-nowrap">{% trans "Past" %}</span>
                     {% endif %}

@@ -921,6 +921,9 @@ def my_events(request):
             "event": reg.event,
             "attended": reg.status == "attended",
             "no_show": reg.status == "no_show",
+            # Waitlisted / still applied when it ended, or turned down by the
+            # curated selection: either way they never had a seat.
+            "no_spot": reg.missed_out or reg.status == "not_selected",
             "mutual_matches": mutual_counts.get(reg.event_id, 0),
             "lobby_cta": _card_lobby_cta(reg),
         }

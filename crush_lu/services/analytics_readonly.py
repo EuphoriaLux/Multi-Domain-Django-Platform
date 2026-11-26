@@ -1282,6 +1282,7 @@ def definitions() -> dict:
                 "pending",
                 "confirmed",
                 "waitlist",
+                "waitlist_closed",
                 "cancelled",
                 "attended",
                 "no_show",

@@ -125,13 +125,18 @@ class EventRecapsEndpointTests(_EndpointContract, TestCase):
     command = "send_event_recaps"
 
     def test_valid_post_runs_command(self):
-        # Two passes: the recaps, then the Connect Week request reminder.
+        # Three passes: the recaps, the Connect Week request reminder, then
+        # closing waitlists on finished events.
         with mock.patch("crush_lu.api_admin_events.call_command") as mock_call:
             resp = self.client.post(self.url, HTTP_AUTHORIZATION=f"Bearer {API_KEY}")
         self.assertEqual(resp.status_code, 202)
         self.assertEqual(
             [call.args[0] for call in mock_call.call_args_list],
-            ["send_event_recaps", "send_connect_request_reminders"],
+            [
+                "send_event_recaps",
+                "send_connect_request_reminders",
+                "close_finished_waitlists",
+            ],
         )
 
     def test_unauthorized_post_runs_neither_pass(self):

@@ -1888,7 +1888,9 @@ def _capture_is_for_released_seat(locked, reg):
     return (
         reg.checkout_released_at is not None
         and locked.created_at <= reg.checkout_released_at
-        and reg.status in ("cancelled", "waitlist")
+        # "waitlist_closed": the event ended while they were still waiting
+        # (services.waitlist_closing); the late capture is credited the same way.
+        and reg.status in ("cancelled", "waitlist", "waitlist_closed")
     )
 
 

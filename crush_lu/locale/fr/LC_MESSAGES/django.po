@@ -49638,3 +49638,24 @@ msgstr ""
 "Choisissez 3 questions oui/non sur vous. Les membres qui reçoivent votre "
 "profil devinent vos réponses. Sans elles, votre profil n'apparaît pas dans "
 "la Connect Week."
+
+msgid "No spot opened up"
+msgstr "Aucune place ne s’est libérée"
+
+msgid "This event is over and no place became free for you. Thank you for your interest. We hope to see you at one of our next evenings."
+msgstr "Cet événement est terminé et aucune place ne s’est libérée pour vous. Merci de votre intérêt. Nous espérons vous voir lors de l’une de nos prochaines soirées."
+
+msgid "No spot"
+msgstr "Pas de place"
+
+msgid "Was on the waitlist"
+msgstr "Était sur liste d’attente"
+
+msgid "Applied, never selected"
+msgstr "Candidature, jamais sélectionnée"
+
+msgid "Waitlist closed"
+msgstr "Liste d’attente close"
+
+msgid "event over, no seat came free"
+msgstr "événement terminé, aucune place libérée"
