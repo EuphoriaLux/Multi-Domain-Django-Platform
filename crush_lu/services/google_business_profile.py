@@ -473,6 +473,38 @@ def remove_event_post(event, session=None, dry_run=False):
     return "removed"
 
 
+def remove_orphaned_posts(session=None, dry_run=False):
+    """Delete the posts of events that were deleted from the database.
+
+    The sync row outlives its event (``on_delete=SET_NULL``) precisely so this
+    can run: without it a deleted event would keep a public post with a dead
+    booking link. Returns ``(removed, failures)``; a fatal error is raised.
+    """
+    from crush_lu.models import GoogleLocalPostSync
+
+    removed, failures = 0, []
+    orphans = GoogleLocalPostSync.objects.filter(event__isnull=True).exclude(
+        post_name=""
+    )
+    for sync in orphans:
+        if dry_run:
+            removed += 1
+            continue
+        try:
+            _request(session, "DELETE", f"{API_BASE}/{sync.post_name}")
+        except GbpError as exc:
+            if exc.status != 404:
+                sync.mark_failure(exc)
+                if exc.fatal:
+                    raise
+                failures.append(f"{sync.post_name}: {exc}")
+                continue
+        logger.info("[GBP] removed post %s of a deleted event", sync.post_name)
+        sync.delete()
+        removed += 1
+    return removed, failures
+
+
 def events_needing_sync():
     """Upcoming public events, plus every event that still holds a post."""
     from django.db.models import Q

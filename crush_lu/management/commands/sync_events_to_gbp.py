@@ -124,6 +124,17 @@ class Command(BaseCommand):
                 prefix = "(dry run) would be " if dry_run else ""
                 self.stdout.write(f"  ✓ {label}: {prefix}{action}")
 
+        if not event_id:
+            try:
+                orphans, orphan_failures = gbp.remove_orphaned_posts(
+                    session=session, dry_run=dry_run
+                )
+            except gbp.GbpError as exc:
+                raise CommandError(f"Deleted-event cleanup: {exc}") from exc
+            if orphans:
+                counts["removed_deleted_event"] = orphans
+            failures.extend(orphan_failures)
+
         summary = ", ".join(f"{k}={v}" for k, v in sorted(counts.items())) or "none"
         self.stdout.write(
             f"GBP sync{' (dry run)' if dry_run else ''}: {len(events)} events, "

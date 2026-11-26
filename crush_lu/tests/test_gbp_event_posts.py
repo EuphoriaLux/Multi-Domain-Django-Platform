@@ -238,6 +238,26 @@ class SyncTests(TestCase):
         self.assertEqual(gbp.sync_event(event, session=None, dry_run=True), "created")
         self.assertFalse(GoogleLocalPostSync.objects.filter(event=event).exists())
 
+    def test_deleted_event_keeps_handle_and_post_is_removed(self):
+        event = make_event()
+        GoogleLocalPostSync.objects.create(
+            event=event, post_name=POST_NAME, status="synced"
+        )
+        event.delete()
+        sync = GoogleLocalPostSync.objects.get(post_name=POST_NAME)
+        self.assertIsNone(sync.event_id)
+
+        failing = FakeSession(delete=[FakeResponse(500, {"error": {"message": "x"}})])
+        removed, failures = gbp.remove_orphaned_posts(session=failing)
+        self.assertEqual((removed, len(failures)), (0, 1))
+        self.assertTrue(GoogleLocalPostSync.objects.filter(pk=sync.pk).exists())
+
+        session = FakeSession()
+        removed, failures = gbp.remove_orphaned_posts(session=session)
+        self.assertEqual((removed, failures), (1, []))
+        self.assertEqual(session.methods(), ["DELETE"])
+        self.assertFalse(GoogleLocalPostSync.objects.filter(pk=sync.pk).exists())
+
     def test_sweep_selection(self):
         upcoming = make_event()
         past = timezone.now() - timedelta(days=3)

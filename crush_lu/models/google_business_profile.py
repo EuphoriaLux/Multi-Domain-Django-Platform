@@ -28,9 +28,14 @@ class GoogleLocalPostSync(models.Model):
         # (unpublished, cancelled, made private) or by hand.
         REMOVED = "removed", _("Removed")
 
+    # SET_NULL, not CASCADE: deleting an event must not delete the only handle
+    # on its public post. A row with no event and a post_name is an orphan the
+    # hourly sweep deletes from Google, then drops.
     event = models.OneToOneField(
         "crush_lu.MeetupEvent",
-        on_delete=models.CASCADE,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
         related_name="gbp_post_sync",
         help_text=_("The Crush.lu event this Google post mirrors."),
     )
