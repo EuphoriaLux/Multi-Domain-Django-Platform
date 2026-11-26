@@ -16,6 +16,7 @@
     "DJANGO_EVENT_RECAPS_URL": "http://localhost:8000/api/admin/event-recaps/",
     "DJANGO_EVENT_FEEDBACK_URL": "http://localhost:8000/api/admin/event-feedback/",
     "DJANGO_ECHO_SYNC_URL": "http://localhost:8000/api/admin/echo-sync/",
+    "DJANGO_GBP_SYNC_URL": "http://localhost:8000/api/admin/gbp-sync/",
     "DJANGO_SUMUP_RECONCILIATION_URL": "http://localhost:8000/api/admin/sumup-reconciliation/",
     "DJANGO_PREMIUM_LAPSE_SWEEP_URL": "http://localhost:8000/api/admin/premium-lapse-sweep/",
     "DJANGO_ABANDONED_CHECKOUT_SWEEP_URL": "http://localhost:8000/api/admin/abandoned-checkout-sweep/",

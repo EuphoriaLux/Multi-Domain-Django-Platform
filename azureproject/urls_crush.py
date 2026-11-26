@@ -881,6 +881,11 @@ urlpatterns = (
             name="api_admin_echo_sync",
         ),
         path(
+            "api/admin/gbp-sync/",
+            api_admin_events.gbp_sync_sweep,
+            name="api_admin_gbp_sync",
+        ),
+        path(
             "api/admin/premium-lapse-sweep/",
             api_admin_events.premium_lapse_sweep,
             name="api_admin_premium_lapse_sweep",

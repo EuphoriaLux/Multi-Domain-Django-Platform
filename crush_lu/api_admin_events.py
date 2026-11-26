@@ -193,6 +193,22 @@ def echo_lu_sync_sweep(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+def gbp_sync_sweep(request):
+    """POST /api/admin/gbp-sync/
+
+    Mirror upcoming public events as Google Business Profile event posts, and
+    delete the post of an event that was cancelled, unpublished or made
+    private. Invoked hourly by the ``GbpSync`` Azure Function timer.
+
+    Answers 202 with "GBP sync disabled: …" in the log until the integration
+    is switched on (flag, production-only location, OAuth token), so the timer
+    can ship first. Idempotent: an unchanged event costs no API call.
+    """
+    return _run(request, "gbp_sync", "sync_events_to_gbp")
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
 def premium_lapse_sweep(request):
     """POST /api/admin/premium-lapse-sweep/
 

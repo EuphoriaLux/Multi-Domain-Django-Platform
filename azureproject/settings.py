@@ -221,6 +221,20 @@ GOOGLE_INDEXING_TIMEOUT_SECONDS = int(os.getenv("GOOGLE_INDEXING_TIMEOUT_SECONDS
 # attended.
 CRUSH_GOOGLE_REVIEW_URL = os.getenv("CRUSH_GOOGLE_REVIEW_URL", "")
 
+# Google Business Profile event posts (services/google_business_profile.py).
+# Every write is refused unless all three are set. The location is empty here
+# and set by production.py only when the slot-sticky DJANGO_ENV says
+# production, so a staging slot can never post to the real listing. The token
+# is the listing owner's OAuth authorized-user JSON (scripts/gbp_discover.py
+# mints it); on App Service it must be pinned to the production slot with
+# `az webapp config appsettings set ... --slot-settings`.
+GOOGLE_BUSINESS_PROFILE_ENABLED = _env_bool("GOOGLE_BUSINESS_PROFILE_ENABLED", False)
+GOOGLE_BUSINESS_PROFILE_LOCATION = ""
+GOOGLE_BUSINESS_PROFILE_TOKEN_JSON = os.getenv("GOOGLE_BUSINESS_PROFILE_TOKEN_JSON", "")
+GOOGLE_BUSINESS_PROFILE_TIMEOUT_SECONDS = float(
+    os.getenv("GOOGLE_BUSINESS_PROFILE_TIMEOUT_SECONDS", "15")
+)
+
 # Use DJANGO_DEBUG env var to control debug mode (default False)
 DEBUG = _env_bool("DJANGO_DEBUG", False)
 
