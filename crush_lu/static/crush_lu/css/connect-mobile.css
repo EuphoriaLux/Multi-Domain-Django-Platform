@@ -86,6 +86,34 @@ body.connect-chat .connect-thread { height: clamp(220px, 60dvh, 640px); }
 .dark .connect-week-timeline-step.is-current { color: var(--crush-pink); }
 .dark .connect-week-timeline-step.is-current .connect-week-timeline-dot { background: var(--crush-pink); box-shadow: 0 0 0 3px color-mix(in srgb, var(--crush-pink) 25%, transparent); }
 
+/* Connect Week path on the Connect home (2026-11-26): vertical 5-step path. */
+.connect-week-path-line { position: absolute; left: 17px; top: 36px; bottom: 0; width: 2px; background: var(--color-border, #e5e7eb); }
+.dark .connect-week-path-line { background: var(--color-slate-700, #334155); }
+.connect-week-path-step.is-done .connect-week-path-line { background: linear-gradient(var(--crush-purple), var(--crush-pink)); }
+.connect-week-path-dot { position: relative; z-index: 1; width: 36px; height: 36px; flex-shrink: 0; border-radius: 9999px; display: flex; align-items: center; justify-content: center; border: 2px solid var(--color-border, #e5e7eb); background: var(--color-surface-card, #fff); color: #94a3b8; }
+.dark .connect-week-path-dot { border-color: var(--color-slate-700, #334155); background: var(--color-slate-900, #0f172a); color: #64748b; }
+.connect-week-path-step.is-done .connect-week-path-dot { background: var(--crush-purple); border-color: var(--crush-purple); color: #fff; }
+.connect-week-path-step.is-current .connect-week-path-dot { background: linear-gradient(135deg, var(--crush-purple), var(--crush-pink)); border-color: transparent; color: #fff; box-shadow: 0 0 0 5px color-mix(in srgb, var(--crush-pink) 20%, transparent); }
+.connect-week-path-title { color: #374151; }
+.dark .connect-week-path-title { color: #cbd5e1; }
+.connect-week-path-step.is-current .connect-week-path-title { color: #111827; }
+.dark .connect-week-path-step.is-current .connect-week-path-title { color: #fff; }
+.connect-week-path-step.is-later .connect-week-path-title { color: #6b7280; }
+.dark .connect-week-path-step.is-later .connect-week-path-title { color: #94a3b8; }
+.connect-week-path-when { color: #6b7280; }
+.dark .connect-week-path-when { color: #64748b; }
+.connect-week-path-step.is-current .connect-week-path-when { color: var(--color-crush-purple-dark, #7e22ce); }
+.dark .connect-week-path-step.is-current .connect-week-path-when { color: var(--crush-pink); }
+.connect-week-path-desc { color: #4b5563; }
+.dark .connect-week-path-desc { color: #94a3b8; }
+.connect-week-path-step.is-later .connect-week-path-desc { color: #9ca3af; }
+.dark .connect-week-path-step.is-later .connect-week-path-desc { color: #64748b; }
+.connect-week-path-day { flex: 1; height: 22px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; border: 1px solid var(--color-border, #e5e7eb); color: #9ca3af; }
+.dark .connect-week-path-day { border-color: var(--color-slate-700, #334155); color: #64748b; background: var(--color-slate-900, #0f172a); }
+.connect-week-path-day.is-past { background: color-mix(in srgb, var(--crush-purple) 25%, transparent); border-color: var(--crush-purple); color: var(--crush-purple); }
+.dark .connect-week-path-day.is-past { color: #e9d5ff; }
+.connect-week-path-day.is-today { background: linear-gradient(135deg, var(--crush-purple), var(--crush-pink)); border-color: transparent; color: #fff; }
+
 /* Review card "Choose" confirmation dialog (UX Wave 3 · WP12 / 6-06) —
    native <dialog>, template-local until Wave 2's shared confirm sheet lands. */
 .connect-review-confirm-dialog { border: none; max-width: min(26rem, calc(100vw - 2rem)); width: 100%; padding: 0; border-radius: 1rem; background: var(--color-surface-card, white); }

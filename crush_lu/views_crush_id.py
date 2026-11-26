@@ -144,20 +144,25 @@ def public_badge_card(user, profile):
 # "Unlock Crush Connect" (thread 2026-11-26): the Connect readiness steps in
 # the order they unlock things. Part 1 makes the member visible in Connect;
 # part 2 opens Connect Week. Keys are the ``_connect_readiness`` step keys.
+# The last onboarding page asks for photo consent and the 3 questions, so for
+# most members onboarding covers both: they get their own row only when an
+# onboarded member is missing one (Tom: "make it simpler", 4 steps).
 UNLOCK_PARTS = (
-    ("visible", ("identity", "photo", "photo_consent", "onboarding")),
+    ("visible", ("identity", "photo", "onboarding", "photo_consent")),
     ("week", ("active_verification", "questions")),
 )
+_FOLDED_INTO_ONBOARDING = {"photo_consent", "questions"}
 
 
 def connect_unlock_card(user, profile):
     """The "Unlock Crush Connect" card, or None when it does not apply.
 
-    Same steps and states as ``_connect_readiness`` (guidance, not a second
-    entitlement system); this only orders them as a path, marks the next one
-    and says whether the visibility milestone is reached. The milestone uses
-    ``is_catalogue_eligible``, the source the Connect pages use, so Crush ID
-    never claims a visibility Connect denies.
+    Same states as ``_connect_readiness`` (guidance, not a second
+    entitlement system); this only orders them as a path, folds photo
+    consent and the 3 questions into the onboarding step while onboarding is
+    open, marks the next step and says whether the visibility milestone is
+    reached. The milestone uses ``is_catalogue_eligible``, the source the
+    Connect pages use, so Crush ID never claims a visibility Connect denies.
     """
     from crush_lu.connect_phase import candidate_access_open
     from crush_lu.services.crush_connect import is_catalogue_eligible
@@ -176,12 +181,31 @@ def connect_unlock_card(user, profile):
 
     readiness = _connect_readiness(user)
     by_key = {step["key"]: step for step in readiness["steps"]}
+    onboarded = by_key["onboarding"]["complete"]
+    overrides = {
+        "onboarding": _(
+            "Set your preferences, confirm photo consent and pick 3 yes/no "
+            "questions about you. Members who get your profile guess your answers."
+        ),
+        "questions": _(
+            "Pick 3 yes/no questions about you. Members who get your profile "
+            "guess your answers. Without them, your profile isn't shown in "
+            "Connect Week."
+        ),
+    }
     next_key = None
+    number = 0
     parts = []
     for name, keys in UNLOCK_PARTS:
         steps = []
         for key in keys:
             step = dict(by_key[key])
+            if key in _FOLDED_INTO_ONBOARDING and (not onboarded or step["complete"]):
+                continue
+            if key in overrides:
+                step["description"] = overrides[key]
+            number += 1
+            step["number"] = number
             if not step["complete"] and next_key is None:
                 next_key = key
             step["is_next"] = key == next_key
@@ -193,16 +217,15 @@ def connect_unlock_card(user, profile):
                 "complete": all(step["complete"] for step in steps),
             }
         )
+    completed = sum(step["complete"] for part in parts for step in part["steps"])
     return {
         "parts": parts,
-        "completed_count": readiness["completed_count"],
-        "total_count": readiness["total_count"],
-        "is_complete": readiness["is_complete"],
+        "completed_count": completed,
+        "total_count": number,
+        "is_complete": completed == number,
         "visible": parts[0]["complete"] and is_catalogue_eligible(user),
         "trust_status": readiness["trust_status"],
-        "progress_percent": round(
-            100 * readiness["completed_count"] / readiness["total_count"]
-        ),
+        "progress_percent": round(100 * completed / number),
     }
 
 

@@ -1,0 +1,95 @@
+{% load i18n %}
+{% comment %}
+"Your Connect Week" on the Connect home, as a vertical path (Tom,
+2026-11-26): Discover -> Review -> One request -> Chat -> Coffee, each with
+an icon and one line, the current step marked "Now", the five Discover days
+with today highlighted, and the next date on top. Same data as the compact
+_week_timeline.html (connect_cycle.week_timeline_state), which the Today
+page keeps.
+
+Context: timeline, cycle_length, day_number (current Discover day, or None),
+daily_completed, daily_total.
+{% endcomment %}
+{% if timeline %}
+{% with step=timeline.step %}
+<div class="connect-week-path" data-week-path data-week-step="{{ step }}">
+    <p class="text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Five steps, one week, one real coffee." %}</p>
+
+    {# What happens next #}
+    <div class="flex items-center gap-3 rounded-xl px-3 py-2.5 mt-3 mb-4 bg-crush-purple/10 ring-1 ring-crush-purple/30" data-week-next>
+        <span class="w-9 h-9 rounded-lg bg-gradient-to-br from-crush-purple to-crush-pink text-white flex items-center justify-center shrink-0" aria-hidden="true">
+            {% if step == 1 %}{% include "shared/icons/calendar-days.html" with class="w-5 h-5" %}
+            {% elif step == 2 or step == 3 %}{% include "shared/icons/hourglass.html" with class="w-5 h-5" %}
+            {% elif step == 4 %}{% include "shared/icons/chat-bubble-left-right.html" with class="w-5 h-5" %}
+            {% else %}{% include "shared/icons/heart.html" with class="w-5 h-5" %}{% endif %}
+        </span>
+        <div class="min-w-0">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">
+                {% if timeline.next_kind == "opens" and timeline.next_at %}{% trans "Review opens" %} <time datetime="{{ timeline.next_at|date:'c' }}">{{ timeline.next_at|date:"D" }}, {{ timeline.next_at|date:"DATE_FORMAT" }}</time>
+                {% elif timeline.next_kind == "closes" and timeline.next_at %}{% trans "Review closes" %} <time datetime="{{ timeline.next_at|date:'c' }}">{{ timeline.next_at|date:"DATETIME_FORMAT" }}</time>
+                {% elif timeline.next_kind == "waiting" and timeline.next_at %}{% trans "Waiting for their answer until" %} <time datetime="{{ timeline.next_at|date:'c' }}">{{ timeline.next_at|date:"DATETIME_FORMAT" }}</time>
+                {% elif step == 4 %}{% trans "Your request was accepted" %}
+                {% elif step == 5 %}{% trans "Your coffee is being planned" %}
+                {% else %}{% trans "Your Connect Week" %}{% endif %}
+            </p>
+            <p class="text-xs text-gray-600 dark:text-gray-300 mb-0">
+                {% if step == 1 %}{% trans "Keep meeting your daily profiles until then." %}
+                {% elif step == 2 %}{% trans "Pick the one person you'd like to meet." %}
+                {% elif step == 3 %}{% trans "Your request is sent. They have until then to answer." %}
+                {% elif step == 4 %}{% trans "Your chat is open. Next step: plan your coffee." %}
+                {% else %}{% trans "See the details in your chat." %}{% endif %}
+            </p>
+        </div>
+    </div>
+
+    <ol class="list-none pl-0 mb-0" aria-label="{% trans 'Connect Week progress' %}">
+        {% for n in "12345" %}{% with num=forloop.counter %}
+        <li class="connect-week-path-step relative flex gap-3{% if not forloop.last %} pb-4{% endif %}{% if num < step %} is-done{% elif num == step %} is-current{% else %} is-later{% endif %}"
+            data-week-path-step="{{ num }}"{% if num == step %} aria-current="step"{% endif %}>
+            {% if not forloop.last %}<span class="connect-week-path-line" aria-hidden="true"></span>{% endif %}
+            <span class="connect-week-path-dot" aria-hidden="true">
+                {% if num < step %}{% include "shared/icons/check.html" with class="w-4 h-4" %}
+                {% elif num == 1 %}{% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
+                {% elif num == 2 %}{% include "shared/icons/magnifying-glass.html" with class="w-4 h-4" %}
+                {% elif num == 3 %}{% include "shared/icons/paper-airplane.html" with class="w-4 h-4" %}
+                {% elif num == 4 %}{% include "shared/icons/chat-bubble-left-right.html" with class="w-4 h-4" %}
+                {% else %}{% include "shared/icons/heart.html" with class="w-4 h-4" %}{% endif %}
+            </span>
+            <div class="min-w-0 flex-1 pt-0.5">
+                <p class="connect-week-path-title text-sm font-semibold mb-0 flex items-center gap-2">
+                    {% if num == 1 %}{% trans "Discover" context "connect week step" %}{% elif num == 2 %}{% trans "Review" context "connect week step" %}{% elif num == 3 %}{% trans "One request" %}{% elif num == 4 %}{% trans "Chat" %}{% else %}{% trans "Coffee" %}{% endif %}
+                    {% if num == step %}<span class="rounded-full bg-crush-pink text-white text-[10px] font-extrabold uppercase tracking-wide px-1.5 py-0.5">{% trans "Now" context "connect week step" %}</span>{% endif %}
+                </p>
+                <p class="connect-week-path-when text-xs font-semibold mb-0">
+                    {% if num == 1 %}{% if num == step and day_number %}{% blocktrans with total=cycle_length %}Days 1–{{ total }}{% endblocktrans %} · {% blocktrans with day=day_number total=cycle_length %}Day {{ day }} of {{ total }}{% endblocktrans %}{% else %}{% blocktrans with total=cycle_length %}Days 1–{{ total }}{% endblocktrans %}{% endif %}
+                    {% elif num == 2 %}{% trans "24 hours" %}
+                    {% elif num == 3 %}{% if num < step %}{% trans "Accepted" context "connect week step" %}{% else %}{% trans "Your single choice" %}{% endif %}
+                    {% elif num == 4 %}{% trans "If they say yes" %}
+                    {% else %}{% trans "The goal" %}{% endif %}
+                </p>
+                {% if num >= step %}
+                <p class="connect-week-path-desc text-xs leading-relaxed mt-0.5 mb-0">
+                    {% if num == 1 %}{% trans "Up to 2 new profiles a day. Guess their answers to get to know them." %}
+                    {% elif num == 2 %}{% trans "Look back at everyone you met this week." %}
+                    {% elif num == 3 %}{% trans "Send one request to the person you liked most." %}
+                    {% elif num == 4 %}{% trans "A private chat opens between you two." %}
+                    {% else %}{% trans "Plan a real coffee date." %}{% endif %}
+                </p>
+                {% endif %}
+                {% if num == 1 and step == 1 and day_number %}
+                <div class="flex gap-1 mt-2" aria-hidden="true" data-week-days>
+                    {% for d in "1234567890"|make_list|slice:cycle_length %}
+                    <span class="connect-week-path-day{% if forloop.counter < day_number %} is-past{% elif forloop.counter == day_number %} is-today{% endif %}">{{ forloop.counter }}</span>
+                    {% endfor %}
+                </div>
+                {% if daily_total %}
+                <p class="text-xs text-gray-700 dark:text-gray-200 mt-2 mb-0" data-week-today>{% blocktrans with done=daily_completed total=daily_total %}Today: {{ done }} of {{ total }} done{% endblocktrans %}</p>
+                {% endif %}
+                {% endif %}
+            </div>
+        </li>
+        {% endwith %}{% endfor %}
+    </ol>
+</div>
+{% endwith %}
+{% endif %}

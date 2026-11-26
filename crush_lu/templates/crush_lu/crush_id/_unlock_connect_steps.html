@@ -10,7 +10,7 @@
         data-readiness-step="{{ step.key }}"
         data-complete="{{ step.complete|yesno:'true,false' }}"{% if step.is_next %} data-next-step{% endif %}>
         <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {% if step.complete %}bg-emerald-600 text-white{% elif step.is_next %}bg-amber-500 text-white{% else %}bg-gray-200 text-gray-500 dark:bg-slate-700 dark:text-gray-400{% endif %}"
-              aria-hidden="true">{% if step.complete %}✓{% else %}{% if part.name == "visible" %}{{ forloop.counter }}{% else %}{{ forloop.counter|add:4 }}{% endif %}{% endif %}</span>
+              aria-hidden="true">{% if step.complete %}✓{% else %}{{ step.number }}{% endif %}</span>
         <div class="min-w-0 flex-1">
             <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{{ step.title }}</p>
             {% if not step.complete %}
