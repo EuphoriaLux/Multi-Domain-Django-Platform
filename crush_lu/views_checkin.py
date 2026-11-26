@@ -63,11 +63,34 @@ _CHECKIN_UPDATE_FIELDS = [
     "checkin_prior_status",
     "checkin_granted_coach",
     "checkin_granted_coach_at",
+    "checkin_scanned_by_coach",
     "checkin_attested_photo_key",
     "checkin_attested_photo_at",
     "checkin_auto_verified",
     "updated_at",
 ]
+
+
+def _fill_missing_scanning_coach(request, registration):
+    """A coach re-scanning an attended row that records no scanning coach.
+
+    Rows marked attended without a coach session (admin, legacy, or from
+    before ``checkin_scanned_by_coach`` existed) gain the coach who is now
+    standing in front of the member. Never the attendee's own coach account.
+    Call with the registration locked.
+    """
+    coach = _scanning_coach(request)
+    if (
+        coach is None
+        or registration.checkin_scanned_by_coach_id is not None
+        or coach.user_id == registration.user_id
+    ):
+        return
+    registration.checkin_scanned_by_coach = coach
+    EventRegistration.objects.filter(pk=registration.pk).update(
+        checkin_scanned_by_coach=coach
+    )
+
 
 #: Statuses `coach_undo_checkin` will restore a row to. The check-in paths that
 #: record a prior status are `event_checkin_api` (`confirmed`, or `pending` for a
@@ -82,7 +105,7 @@ _CHECKIN_UPDATE_FIELDS = [
 UNDO_RESTORABLE_STATUSES = frozenset({"confirmed", "waitlist", "pending"})
 
 
-def _record_checkin_provenance(registration):
+def _record_checkin_provenance(registration, coach=None):
     """Stamp how this attendance is being reached, before the status flips.
 
     Call immediately before setting ``status = "attended"``. Records the status
@@ -91,6 +114,11 @@ def _record_checkin_provenance(registration):
     during the save that follows, if this check-in is what earns one.
     """
     registration.checkin_prior_status = registration.status
+    # The scanning coach, never the attendee's own coach account: a coach who
+    # is also a member does not vouch for themselves.
+    registration.checkin_scanned_by_coach = (
+        coach if coach is not None and coach.user_id != registration.user_id else None
+    )
     registration.checkin_granted_coach = None
     registration.checkin_granted_coach_at = None
     registration.checkin_attested_photo_key = ""
@@ -474,6 +502,7 @@ def event_checkin_api(request, registration_id, token):
                     .get(id=registration_id)
                 )
                 if locked_registration.status == "attended":
+                    _fill_missing_scanning_coach(request, locked_registration)
                     rescan_verified = _auto_verify_on_attendance(
                         request, locked_registration, now
                     )
@@ -563,6 +592,7 @@ def event_checkin_api(request, registration_id, token):
         )
         if registration.status == "attended":
             is_rescan = True
+            _fill_missing_scanning_coach(request, registration)
             already_verified_profile = _auto_verify_on_attendance(
                 request, registration, now
             )
@@ -584,7 +614,7 @@ def event_checkin_api(request, registration_id, token):
             # have none): read by `assign_coach_on_first_attendance` during the
             # save below, in preference to `event.coaches.first()`.
             registration._checkin_coach = _scanning_coach(request)
-            _record_checkin_provenance(registration)
+            _record_checkin_provenance(registration, registration._checkin_coach)
             registration.status = "attended"
             registration.checked_in_at = now
             registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
@@ -1287,7 +1317,8 @@ def coach_undo_checkin(request, event_id, registration_id):
                         status="attended",
                     )
                     .filter(
-                        Q(checkin_granted_coach_id__isnull=False)
+                        Q(checkin_scanned_by_coach_id__isnull=False)
+                        | Q(checkin_granted_coach_id__isnull=False)
                         | ~Q(checkin_attested_photo_key="")
                         | (
                             Q(event__coaches=surviving_coach_id)
@@ -1349,6 +1380,7 @@ def coach_undo_checkin(request, event_id, registration_id):
         registration.checked_in_at = None
         # Provenance describes an attendance, and this row no longer has one.
         registration.checkin_prior_status = ""
+        registration.checkin_scanned_by_coach = None
         registration.checkin_granted_coach = None
         registration.checkin_granted_coach_at = None
         registration.checkin_attested_photo_key = ""
@@ -1592,7 +1624,7 @@ def coach_promote_from_waitlist(request, event_id, registration_id):
         # of promoting them to a confirmed seat by accident. A curated walk-up
         # records the seat they were just given, so an undo leaves them seated
         # in the rebuilt group rather than outside a roster that contains them.
-        _record_checkin_provenance(registration)
+        _record_checkin_provenance(registration, registration._checkin_coach)
         registration.status = "attended"
         registration.checked_in_at = now
         try:

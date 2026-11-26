@@ -684,7 +684,7 @@ def mark_attended(request, quiz_id):
 
         now = timezone.now()
         registration._checkin_coach = _scanning_coach(request)
-        _record_checkin_provenance(registration)
+        _record_checkin_provenance(registration, registration._checkin_coach)
         registration.status = "attended"
         registration.checked_in_at = now
         registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)

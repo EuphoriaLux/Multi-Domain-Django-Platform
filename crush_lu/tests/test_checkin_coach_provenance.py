@@ -6,7 +6,7 @@ checked in that way was never counted as "seen at an event" (Crush ID level 3),
 and a member without a coach was credited to the event's first coach instead of
 the coach who checked them in.
 
-Run with: pytest crush_lu/tests/test_quiz_mark_attended_provenance.py -v
+Run with: pytest crush_lu/tests/test_checkin_coach_provenance.py -v
 """
 
 import json
@@ -156,4 +156,143 @@ def test_non_coach_quiz_creator_attests_nothing(quiz):
     assert reg.status == "attended"
     assert reg.checkin_granted_coach_id is None
     assert reg.checkin_attested_photo_key == ""
+    assert profile.has_attended_event is False
+
+
+# ---------------------------------------------------------------------------
+# checkin_scanned_by_coach: the plain record of which coach checked a member in
+# ---------------------------------------------------------------------------
+
+
+def _token(reg):
+    from django.core.signing import Signer
+
+    return Signer().sign(f"{reg.id}:{reg.event_id}")
+
+
+def _door_scan(reg, as_coach):
+    client = Client()
+    client.force_login(as_coach.user)
+    return client.post(f"/api/events/checkin/{reg.id}/{_token(reg)}/")
+
+
+@pytest.fixture
+def door_event():
+    return MeetupEvent.objects.create(
+        title="Mixer",
+        description="x",
+        event_type="mixer",
+        date_time=timezone.now() + timedelta(hours=1),
+        location="Luxembourg",
+        address="1 Test Street",
+        max_participants=30,
+        registration_deadline=timezone.now() + timedelta(minutes=30),
+        is_published=True,
+    )
+
+
+def test_door_scan_of_photoless_member_with_absent_coach_counts(door_event):
+    """The Claudine case: verified, no photo, own coach not at the event. The
+    scan grants nothing and attests nothing, but records the scanning coach."""
+    own_coach, scanner = _coach("own"), _coach("scanner")
+    door_event.coaches.add(scanner)
+    profile, reg = _member(door_event, "photoless", with_photo=False)
+    CrushProfile.objects.filter(pk=profile.pk).update(assigned_coach=own_coach)
+
+    assert _door_scan(reg, scanner).status_code == 200
+
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    assert reg.checkin_granted_coach_id is None
+    assert reg.checkin_attested_photo_key == ""
+    assert reg.checkin_scanned_by_coach_id == scanner.id
+    assert profile.has_attended_event is True
+
+    from crush_lu.services.crush_connect import filter_connect_identity_verified
+
+    assert filter_connect_identity_verified(
+        User.objects.filter(pk=profile.user_id)
+    ).exists()
+
+
+def test_member_posting_their_own_check_in_is_refused(door_event):
+    profile, reg = _member(door_event, "selfpost", with_photo=False)
+
+    member_client = Client()
+    member_client.force_login(profile.user)
+    resp = member_client.post(f"/api/events/checkin/{reg.id}/{_token(reg)}/")
+
+    assert resp.status_code == 403
+    reg.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert reg.checkin_scanned_by_coach_id is None
+
+
+def test_coach_does_not_vouch_for_their_own_member_account(door_event):
+    me = _coach("coachmember")
+    door_event.coaches.add(me)
+    profile = CrushProfile.objects.create(
+        user=me.user,
+        date_of_birth=date(1990, 1, 1),
+        gender="F",
+        location="Luxembourg",
+        is_active=True,
+    )
+    CrushProfile.objects.filter(pk=profile.pk).update(
+        verification_status="verified",
+        is_approved=True,
+        verification_method="legacy",
+        assigned_coach=me,
+    )
+    reg = EventRegistration.objects.create(
+        event=door_event, user=me.user, status="confirmed"
+    )
+
+    assert _door_scan(reg, me).status_code == 200
+
+    reg.refresh_from_db()
+    assert reg.checkin_scanned_by_coach_id is None
+
+
+def test_coach_rescan_fills_a_missing_scanning_coach(door_event):
+    own_coach, scanner = _coach("own3"), _coach("scanner3")
+    door_event.coaches.add(scanner)
+    profile, reg = _member(door_event, "oldrow", with_photo=False)
+    CrushProfile.objects.filter(pk=profile.pk).update(assigned_coach=own_coach)
+    EventRegistration.objects.filter(pk=reg.pk).update(
+        status="attended", checked_in_at=timezone.now()
+    )
+    reg.refresh_from_db()
+
+    assert _door_scan(reg, scanner).status_code == 200
+
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    assert reg.checkin_scanned_by_coach_id == scanner.id
+    assert profile.has_attended_event is True
+
+
+def test_undo_clears_scanning_coach(door_event):
+    from django.urls import reverse
+
+    own_coach, scanner = _coach("own4"), _coach("scanner4")
+    door_event.coaches.add(scanner)
+    profile, reg = _member(door_event, "undone", with_photo=False)
+    CrushProfile.objects.filter(pk=profile.pk).update(assigned_coach=own_coach)
+    assert _door_scan(reg, scanner).status_code == 200
+
+    client = Client()
+    client.force_login(scanner.user)
+    resp = client.post(
+        reverse(
+            "coach_undo_checkin",
+            kwargs={"event_id": door_event.pk, "registration_id": reg.pk},
+        )
+    )
+    assert resp.status_code in (200, 302), resp.content
+
+    reg.refresh_from_db()
+    profile.refresh_from_db()
+    assert reg.status == "confirmed"
+    assert reg.checkin_scanned_by_coach_id is None
     assert profile.has_attended_event is False

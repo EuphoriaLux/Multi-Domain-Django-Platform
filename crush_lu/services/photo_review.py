@@ -229,7 +229,8 @@ def get_photo_review_queue(
         user_id=OuterRef("user_id"),
         status="attended",
     ).filter(
-        Q(checkin_granted_coach__isnull=False)
+        Q(checkin_scanned_by_coach__isnull=False)
+        | Q(checkin_granted_coach__isnull=False)
         | ~Q(checkin_attested_photo_key="")
         | Q(event__coaches=OuterRef("assigned_coach_id"))
     )
