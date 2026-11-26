@@ -1009,7 +1009,8 @@ def test_the_new_explanations_still_say_an_event_unlocks_the_journey(flags_on, k
     assert "unlock" not in explanation.split("Taking part")[0]
 
 
-def test_the_hub_prints_the_new_kinds_in_all_three_languages(client, flags_on):
+def test_crush_id_prints_the_new_kinds_in_all_three_languages(client, flags_on):
+    # The trust line moved with the checklist to "Unlock Crush Connect" in Crush ID.
     video = decorate(make_member("rpc_ui_hub_video"), "video")
     logged_in(client, video)
     expected = {
@@ -1018,7 +1019,7 @@ def test_the_hub_prints_the_new_kinds_in_all_three_languages(client, flags_on):
         "fr": ("Identité confirmée par LuxID et un appel vidéo avec un coach", "vous"),
     }
     for language, (label, marker) in expected.items():
-        body = text_of(client.get(f"/{language}/crush-connect/home/"))
+        body = text_of(client.get(f"/{language}/id/"))
         assert 'data-trust-status="luxid_video"' in body
         assert label in body
         assert marker in body
@@ -1065,8 +1066,8 @@ def test_the_note_shows_for_a_cohort_member_without_a_badge(client, flags_on):
 
     assert "data-real-person-check-note" in body
     assert HUB_NOTE["en"] in body
-    # It sits beside the readiness card, not inside it.
-    assert 'id="connect-readiness-title"' in body
+    # It sits beside the readiness strip, not inside it.
+    assert "data-unlock-strip" in body
 
 
 @pytest.mark.parametrize("language", ["en", "de", "fr"])

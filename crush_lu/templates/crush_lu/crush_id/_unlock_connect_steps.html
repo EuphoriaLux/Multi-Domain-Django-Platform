@@ -1,0 +1,39 @@
+{% load i18n %}
+{% for part in unlock.parts %}
+<p class="text-xs font-semibold text-gray-700 dark:text-gray-300 mt-3 mb-2 flex items-center gap-1.5" data-unlock-part="{{ part.name }}">
+    {% if part.name == "visible" %}{% trans "Part 1 · Become visible in Connect" %}{% else %}{% trans "Part 2 · Open Connect Week" %}{% endif %}
+    {% if part.complete %}{% include "shared/icons/check.html" with class="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" %}{% endif %}
+</p>
+<ol class="space-y-2 mb-0">
+    {% for step in part.steps %}
+    <li class="flex items-start gap-3 rounded-xl p-3 ring-1 {% if step.complete %}bg-emerald-50/70 dark:bg-emerald-900/10 ring-emerald-200 dark:ring-emerald-800/60{% elif step.is_next %}bg-amber-50/70 dark:bg-amber-900/10 ring-amber-300 dark:ring-amber-700/70{% else %}ring-gray-200 dark:ring-slate-700 opacity-60{% endif %}"
+        data-readiness-step="{{ step.key }}"
+        data-complete="{{ step.complete|yesno:'true,false' }}"{% if step.is_next %} data-next-step{% endif %}>
+        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold {% if step.complete %}bg-emerald-600 text-white{% elif step.is_next %}bg-amber-500 text-white{% else %}bg-gray-200 text-gray-500 dark:bg-slate-700 dark:text-gray-400{% endif %}"
+              aria-hidden="true">{% if step.complete %}✓{% else %}{% if part.name == "visible" %}{{ forloop.counter }}{% else %}{{ forloop.counter|add:4 }}{% endif %}{% endif %}</span>
+        <div class="min-w-0 flex-1">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{{ step.title }}</p>
+            {% if not step.complete %}
+            <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-300 mb-0">{{ step.description }}</p>
+            {% if step.is_next %}
+            <a href="{{ step.cta_url }}" class="btn-crush-solid btn-sm inline-flex items-center gap-1.5 mt-2">
+                {{ step.cta_label }} {% include "shared/icons/arrow-right.html" with class="w-3.5 h-3.5" %}
+            </a>
+            {% endif %}
+            {% endif %}
+        </div>
+    </li>
+    {% endfor %}
+</ol>
+{% if part.name == "visible" %}
+<p class="mt-2 mb-0 rounded-xl px-3 py-2 text-xs font-semibold {% if unlock.visible %}bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800/60{% else %}text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-slate-600{% endif %}"
+   data-unlock-milestone="{% if unlock.visible %}reached{% else %}open{% endif %}">
+    {% if unlock.visible %}{% trans "You're visible in Connect. Verified members can be suggested to you." %}{% else %}{% trans "Milestone: you're visible in Connect" %}{% endif %}
+</p>
+{% else %}
+<p class="mt-2 mb-0 rounded-xl px-3 py-2 text-xs font-semibold {% if unlock.is_complete %}bg-emerald-50 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300{% else %}text-gray-500 dark:text-gray-400 border border-dashed border-gray-300 dark:border-slate-600{% endif %}"
+   data-unlock-milestone-week="{% if unlock.is_complete %}reached{% else %}open{% endif %}">
+    {% trans "Connect Week: up to 2 new profiles a day" %}
+</p>
+{% endif %}
+{% endfor %}

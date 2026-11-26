@@ -617,17 +617,17 @@ class ConnectReadinessNumbersTests(_CrushHostTestCase):
 
     EXPECTED = {
         "en": (
-            "To receive up to 2 new profiles each day, complete these steps",
+            "Complete these steps to receive up to 2 new profiles each day.",
             "up to two new profiles a day",
             "unlocks the active journey with up to two new profiles per day.",
         ),
         "de": (
-            "Um täglich bis zu 2 neue Profile zu erhalten, schließe diese Schritte ab",
+            "Schließe diese Schritte ab, um täglich bis zu 2 neue Profile zu erhalten.",
             "bis zu zwei neue Profile pro Tag",
             "schaltet den aktiven Weg mit bis zu zwei neuen Profilen pro Tag frei.",
         ),
         "fr": (
-            "Pour recevoir jusqu'à 2 nouveaux profils par jour, complétez ces étapes",
+            "Terminez ces étapes pour recevoir jusqu'à 2 nouveaux profils par jour.",
             "jusqu'à deux nouveaux profils par jour",
             "débloque le parcours actif avec jusqu'à deux nouveaux profils par jour.",
         ),
@@ -669,7 +669,8 @@ class ConnectReadinessNumbersTests(_CrushHostTestCase):
                 )
                 _login_eligible(self.client, me)
 
-                response = self.client.get(f"/{lang}/crush-connect/home/")
+                # The checklist lives in Crush ID ("Unlock Crush Connect").
+                response = self.client.get(f"/{lang}/id/")
 
                 self.assertEqual(response.status_code, 200)
                 self.assertContains(response, 'data-trust-status="luxid"')
@@ -686,7 +687,7 @@ class ConnectReadinessNumbersTests(_CrushHostTestCase):
         _mark_attended(me)
         _login_eligible(self.client, me)
 
-        response = self.client.get("/en/crush-connect/home/")
+        response = self.client.get("/en/id/")
 
         self.assertContains(response, 'data-trust-status="event"')
         self.assertContains(

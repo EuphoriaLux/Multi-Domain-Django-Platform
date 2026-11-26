@@ -5517,6 +5517,20 @@ html.dark .poll-results-bar {
         background: #d97706;
     }
 
+    /* Locked Connect tab: a small lock where other tabs show a count. */
+    .bottom-nav-badge-lock {
+        background: #64748b;
+    }
+    .bottom-nav-item .bottom-nav-badge-lock > svg {
+        width: 10px;
+        height: 10px;
+        padding: 0;
+        margin: 0;
+        border-radius: 0;
+        background: none;
+        stroke-width: 2.5;
+    }
+
     /* A pillar the member cannot use yet (Connect before approval, Coaching
        before launch): icon dimmed, still tappable to its teaser page. Only
        the icon fades; the label keeps full colour for text contrast (axe). */

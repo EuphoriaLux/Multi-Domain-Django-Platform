@@ -69,6 +69,37 @@ def crush_connect_nav_visible(user):
     return candidate_access_open()
 
 
+@register.filter
+def crush_connect_locked_url(user):
+    """Where the locked Connect tab leads (thread 2026-11-26).
+
+    A member who cannot open Connect yet goes to the "Unlock Crush Connect"
+    card in Crush ID, which lists every step. Guests, members without a
+    profile, coach-excluded members and closed phases keep the public teaser.
+    """
+    from django.urls import reverse
+
+    from crush_lu.connect_phase import candidate_access_open
+
+    teaser = reverse("crush_lu:crush_connect_teaser")
+    if not user or not user.is_authenticated:
+        return teaser
+    try:
+        profile = getattr(user, "crushprofile", None)
+        membership = getattr(user, "crush_connect_membership", None)
+        if (
+            profile is None
+            or profile.photo_review_status == "flagged_fake"
+            or (membership is not None and membership.excluded_by_coach)
+            or not candidate_access_open()
+        ):
+            return teaser
+    except Exception:
+        # Same reasoning as crush_connect_nav_visible: never 500 from the nav.
+        return teaser
+    return reverse("crush_lu:crush_id") + "#unlock-connect"
+
+
 @register.simple_tag
 def crush_connect_launched():
     """Raw flag accessor for templates that need it directly."""

@@ -206,7 +206,7 @@ def test_resume_redirects_to_pointer_step(client, settings):
     _complete_steps(client, 1, 3)  # pointer now 4
     resp = client.get(ONBOARDING_URL)
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/onboarding/4/" in resp.url
+    assert "/id/connect/onboarding/4/" in resp.url
 
 
 @pytest.mark.django_db
@@ -257,7 +257,7 @@ def test_cannot_skip_ahead(client, settings):
     # Fresh member (pointer=1): jumping to step 4 bounces back to step 1.
     resp = client.get(_step_url(4))
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/onboarding/1/" in resp.url
+    assert "/id/connect/onboarding/1/" in resp.url
 
 
 @pytest.mark.django_db
@@ -907,7 +907,7 @@ def test_premium_with_attended_event_redirected_to_onboarding_from_teaser(
 
     resp = client.get(reverse("crush_lu:crush_connect_teaser"))
     assert resp.status_code == 302
-    assert resp.url.endswith("/crush-connect/onboarding/")
+    assert resp.url.endswith("/id/connect/onboarding/")
 
 
 @pytest.mark.django_db
@@ -1034,7 +1034,7 @@ def test_edit_page_requires_onboarded(client, settings):
 
     resp = client.get(PROFILE_EDIT_URL)
     assert resp.status_code in (301, 302)
-    assert "/crush-connect/onboarding/" in resp.url
+    assert "/id/connect/onboarding/" in resp.url
 
 
 @pytest.mark.django_db
@@ -1261,7 +1261,7 @@ def test_catalogue_status_shows_chips_and_edit_link(client, settings):
     assert resp.status_code == 200
     body = resp.content.decode()
     assert "Lëtzebuergesch" in body
-    assert "/crush-connect/profile/" in body
+    assert "/id/connect/profile/" in body
 
 
 @pytest.mark.django_db
@@ -1306,7 +1306,7 @@ def test_hub_shows_edit_profile_link(client, settings):
 
     resp = client.get("/en/crush-connect/home/")
     assert resp.status_code == 200
-    assert "/crush-connect/profile/" in resp.content.decode()
+    assert "/id/connect/profile/" in resp.content.decode()
 
 
 @pytest.mark.django_db

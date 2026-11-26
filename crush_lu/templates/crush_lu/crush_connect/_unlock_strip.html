@@ -1,0 +1,27 @@
+{% load i18n %}
+{% comment %}
+Short "Unlock Crush Connect" strip for the Connect hub. The full path lives
+in Crush ID (crush_id/_unlock_connect.html); this shows the progress, the one
+next step and a link there. Hidden once every step is done.
+{% endcomment %}
+<section class="rounded-2xl bg-white dark:bg-slate-800 ring-1 ring-amber-200 dark:ring-amber-800/60 shadow-crush-sm p-4 mb-4"
+         aria-labelledby="unlock-strip-title" data-unlock-strip>
+    <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+        <p id="unlock-strip-title" class="shrink-0 font-semibold text-gray-900 dark:text-white mb-0 flex items-center gap-2">
+            {% include "shared/icons/lock-closed.html" with class="w-4 h-4 text-amber-500 shrink-0" %}
+            {% blocktrans with done=unlock.completed_count total=unlock.total_count %}{{ done }} of {{ total }} steps done{% endblocktrans %}
+        </p>
+        <a href="{% url 'crush_lu:crush_id' %}#unlock-connect" class="text-sm font-semibold text-crush-purple dark:text-crush-pink shrink-0" data-unlock-strip-link>{% trans "See all steps in Crush ID" %}</a>
+    </div>
+    {% for part in unlock.parts %}{% for step in part.steps %}{% if step.is_next %}
+    <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-3" data-readiness-step="{{ step.key }}" data-next-step>
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0.5">{{ step.title }}</p>
+            <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-300 mb-0">{{ step.description }}</p>
+        </div>
+        <a href="{{ step.cta_url }}" class="btn-crush-outline btn-sm inline-flex items-center justify-center gap-1.5 sm:shrink-0">
+            {{ step.cta_label }} {% include "shared/icons/arrow-right.html" with class="w-3.5 h-3.5" %}
+        </a>
+    </div>
+    {% endif %}{% endfor %}{% endfor %}
+</section>
