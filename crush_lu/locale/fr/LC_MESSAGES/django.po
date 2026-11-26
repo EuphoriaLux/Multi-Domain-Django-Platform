@@ -49505,3 +49505,46 @@ msgstr "Vous avez changé votre photo principale après qu'un coach l'a vérifi�
 #: crush_lu/templates/crush_lu/crush_id/hub.html
 msgid "No badge yet. When a coach checks you in at an event, other members see an “In-person photo verified” badge on your profile."
 msgstr "Pas encore de badge. Quand un coach vous enregistre à un événement, les autres membres voient le badge « Photo vérifiée en personne » sur votre profil."
+
+msgid "Unlock Crush Connect"
+msgstr "Débloquer Crush Connect"
+
+msgid "Crush Connect unlocked"
+msgstr "Crush Connect débloqué"
+
+msgid "Open Connect"
+msgstr "Ouvrir Connect"
+
+msgid "Show all steps"
+msgstr "Afficher toutes les étapes"
+
+msgid "Complete these steps to receive up to 2 new profiles each day."
+msgstr ""
+"Terminez ces étapes pour recevoir jusqu'à 2 nouveaux profils par jour."
+
+msgid "Part 1 · Become visible in Connect"
+msgstr "Partie 1 · Devenir visible dans Connect"
+
+msgid "Part 2 · Open Connect Week"
+msgstr "Partie 2 · Ouvrir la Connect Week"
+
+msgid "You're visible in Connect. Verified members can be suggested to you."
+msgstr ""
+"Vous êtes visible dans Connect. Des membres vérifiés peuvent vous être "
+"proposés."
+
+msgid "Milestone: you're visible in Connect"
+msgstr "Étape clé : vous êtes visible dans Connect"
+
+msgid "Connect Week: up to 2 new profiles a day"
+msgstr "Connect Week : jusqu'à 2 nouveaux profils par jour"
+
+#, python-format
+msgid "%(done)s of %(total)s steps done"
+msgstr "%(done)s étapes sur %(total)s terminées"
+
+msgid "See all steps in Crush ID"
+msgstr "Toutes les étapes dans Crush ID"
+
+msgid "Unlock it in Crush ID"
+msgstr "À débloquer dans Crush ID"

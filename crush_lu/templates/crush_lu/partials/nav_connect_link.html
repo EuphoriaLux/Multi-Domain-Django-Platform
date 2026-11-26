@@ -6,8 +6,8 @@ comes from connect_nav_badge_count: two COUNTs cached per user for 60s, never
 the full get_connect_summary(), so the header stays cheap on every page.
 
 With show_locked (the four-pillar member menu), a member who cannot open the
-hub yet still sees the pillar: it leads to the public teaser, with a lock until
-their profile is approved.
+hub yet still sees the pillar, locked: it leads to "Unlock Crush Connect" in
+Crush ID (crush_connect_locked_url), or the public teaser for guests.
 {% endcomment %}
 {% if user|crush_connect_nav_visible %}
 {% connect_nav_badge_count user as connect_badge %}
@@ -19,9 +19,9 @@ their profile is approved.
     {% endif %}
 </a>
 {% elif show_locked %}
-<a class="nav-link{% if not profile_is_approved %} opacity-75{% endif %}" href="{% url 'crush_lu:crush_connect_teaser' %}" data-nav="crush-connect-teaser">
+<a class="nav-link opacity-75" href="{{ user|crush_connect_locked_url }}" data-nav="crush-connect-teaser" data-connect-locked>
     {% include "shared/icons/sparkles.html" with class="w-4 h-4" %}
     <span>{% trans "Connect" %}</span>
-    {% if not profile_is_approved %}{% include "shared/icons/lock-closed.html" with class="w-3 h-3" %}<span class="sr-only">{% trans "Opens once your profile is approved" %}</span>{% endif %}
+    {% include "shared/icons/lock-closed.html" with class="w-3 h-3" %}<span class="sr-only">{% trans "Unlock it in Crush ID" %}</span>
 </a>
 {% endif %}

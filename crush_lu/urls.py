@@ -750,6 +750,26 @@ urlpatterns = [
     path("id/data/resume/", views.resume_from_break_view, name="resume_from_break"),
     path("id/data/gdpr/", views.gdpr_data_management, name="gdpr_data_management"),
     path("id/data/gdpr/export/", views.export_user_data, name="export_user_data"),
+    # "Unlock Crush Connect" (2026-11-26): the Connect onboarding and the
+    # Connect profile (where the three questions live) are steps of the
+    # Crush ID unlock card, so their names point under /id/connect/. The
+    # /crush-connect/onboarding/ and /crush-connect/profile/ paths above keep
+    # serving the same views for the apps, sent emails and open tabs.
+    path(
+        "id/connect/onboarding/",
+        views_crush_connect.crush_connect_onboarding,
+        name="crush_connect_onboarding",
+    ),
+    path(
+        "id/connect/onboarding/<int:step>/",
+        views_crush_connect.crush_connect_onboarding_step,
+        name="crush_connect_onboarding_step",
+    ),
+    path(
+        "id/connect/profile/",
+        views_crush_connect.crush_connect_profile_edit,
+        name="crush_connect_profile_edit",
+    ),
     path(
         "consent/confirm/", views.consent_confirm, name="consent_confirm"
     ),  # Retroactive consent confirmation

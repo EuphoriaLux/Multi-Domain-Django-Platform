@@ -1126,6 +1126,8 @@ def crush_connect_hub(request):
     # once a coach holds a live check and the call is open, the card says it.
     real_person_call = _real_person_call_card(user)
 
+    from crush_lu.views_crush_id import connect_unlock_card
+
     readiness = _connect_readiness(user)
     # The full checklist is guidance, not a second entitlement system (see
     # ``_connect_readiness``'s docstring) — most of its steps are informational
@@ -1171,6 +1173,7 @@ def crush_connect_hub(request):
         "premium_coach_pick_ready": is_premium_connect_eligible(user),
         "coach_whatsapp": premium_coach_whatsapp(user),
         "connect_readiness": readiness,
+        "connect_unlock": connect_unlock_card(user, profile),
         "blocking_step": blocking_step,
         "has_non_closed_chat": user_has_non_closed_chat(user),
         "real_person_call": real_person_call,

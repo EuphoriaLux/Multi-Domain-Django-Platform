@@ -61,6 +61,9 @@
         {% endif %}
     </section>
 
+    {# Unlock Crush Connect: every Connect readiness step, as a path. #}
+    {% if connect_unlock %}{% include "crush_lu/crush_id/_unlock_connect.html" with unlock=connect_unlock %}{% endif %}
+
     {# Step 3: the public badge. Crush ID shows it; coaches grant it. #}
     {% if public_badge %}
     <section class="section-edit-card flex-col items-stretch gap-3" aria-labelledby="crush-id-badge" data-crush-id-badge="{{ public_badge.state }}">

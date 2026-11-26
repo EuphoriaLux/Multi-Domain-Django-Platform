@@ -1,0 +1,10 @@
+{% if unlock.trust_status %}
+<div class="rounded-xl bg-crush-purple/5 dark:bg-crush-purple/10 ring-1 ring-crush-purple/20 px-3.5 py-3 mt-3"
+     data-trust-status="{{ unlock.trust_status.kind }}">
+    <div class="flex items-center gap-2 mb-1">
+        {% include "shared/icons/shield-check.html" with class="w-4 h-4 text-crush-purple shrink-0" %}
+        <p class="text-sm font-semibold text-gray-900 dark:text-white mb-0">{{ unlock.trust_status.label }}</p>
+    </div>
+    <p class="text-xs leading-relaxed text-gray-600 dark:text-gray-300 mb-0 pl-6">{{ unlock.trust_status.explanation }}</p>
+</div>
+{% endif %}

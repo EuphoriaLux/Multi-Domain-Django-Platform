@@ -100,8 +100,9 @@
     </section>
     {% endif %}
     {% if connect_summary.chat_count %}<a class="btn-crush-outline btn-block mb-4" href="{% url 'crush_lu:connect_week_chats' %}">{% trans "Continue your conversations" %} ({{ connect_summary.chat_count }})</a>{% endif %}
-    {% if not connect_readiness.is_complete %}
-    {% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}
+    {# The full checklist lives in Crush ID ("Unlock Crush Connect"); Connect keeps a short strip while steps are open. #}
+    {% if connect_unlock and not connect_unlock.is_complete %}
+    {% include "crush_lu/crush_connect/_unlock_strip.html" with unlock=connect_unlock %}
     {% endif %}
     {# Outside the readiness block: it applies whether or not the checklist is complete. #}
     {% if real_person_check_note and not funnel %}
@@ -153,7 +154,6 @@
     </a>
     {% endif %}
 
-    {% if connect_readiness.is_complete %}<details class="mb-4 rounded-xl bg-white dark:bg-slate-800 px-4"><summary class="font-semibold">{% trans "Ready to connect" %}</summary>{% include "crush_lu/crush_connect/_readiness_checklist.html" with readiness=connect_readiness %}</details>{% endif %}
     <div class="grid grid-cols-2 gap-3">
 
         {# Catalogue status and anonymous Read-the-Photo results. #}

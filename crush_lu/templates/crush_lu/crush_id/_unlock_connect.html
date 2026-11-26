@@ -1,0 +1,48 @@
+{% load i18n %}
+{% comment %}
+"Unlock Crush Connect" (thread 2026-11-26). The Connect readiness steps as a
+path: part 1 makes the member visible in Connect, part 2 opens Connect Week.
+Only the next step carries a button; later open steps are dimmed. Built by
+views_crush_id.connect_unlock_card from _connect_readiness, so Crush ID and
+the Connect pages always agree on every step.
+{% endcomment %}
+<section id="unlock-connect"
+         class="rounded-2xl bg-white dark:bg-slate-800 ring-1 {% if unlock.is_complete %}ring-emerald-300 dark:ring-emerald-700/70{% else %}ring-gray-200 dark:ring-slate-700{% endif %} shadow-crush-sm p-5 scroll-mt-20"
+         aria-labelledby="unlock-connect-title"
+         data-unlock-connect="{% if unlock.is_complete %}unlocked{% else %}locked{% endif %}">
+    <div class="flex items-start justify-between gap-3 mb-1">
+        <div>
+            <p class="text-xs font-bold uppercase tracking-[0.12em] text-crush-purple dark:text-crush-pink mb-1">{% trans "Crush Connect" %}</p>
+            <h2 id="unlock-connect-title" class="font-display text-xl font-semibold text-gray-900 dark:text-white mb-0 flex items-center gap-2">
+                {% if unlock.is_complete %}
+                {% include "shared/icons/check-circle.html" with class="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" %}
+                {% trans "Crush Connect unlocked" %}
+                {% else %}
+                {% include "shared/icons/lock-closed.html" with class="w-5 h-5 text-amber-500 shrink-0" %}
+                {% trans "Unlock Crush Connect" %}
+                {% endif %}
+            </h2>
+        </div>
+        <span class="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold {% if unlock.is_complete %}bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300{% else %}bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300{% endif %}">
+            {{ unlock.completed_count }}/{{ unlock.total_count }}
+        </span>
+    </div>
+
+    {% if unlock.is_complete %}
+    {% include "crush_lu/crush_id/_unlock_connect_trust.html" %}
+    <a href="{% url 'crush_lu:crush_connect_hub' %}" class="btn-crush-solid btn-block mt-4 inline-flex items-center justify-center gap-2" data-unlock-open-connect>
+        {% trans "Open Connect" %} {% include "shared/icons/arrow-right.html" with class="w-4 h-4" %}
+    </a>
+    <details class="mt-3">
+        <summary class="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300">{% trans "Show all steps" %}</summary>
+        <div class="mt-3">{% include "crush_lu/crush_id/_unlock_connect_steps.html" %}</div>
+    </details>
+    {% else %}
+    <p class="text-sm text-gray-600 dark:text-gray-300 mt-1 mb-0">{% trans "Complete these steps to receive up to 2 new profiles each day." %}</p>
+    <div class="h-1.5 rounded-full bg-gray-200 dark:bg-slate-700 overflow-hidden mt-3 mb-1" aria-hidden="true">
+        <div class="h-full rounded-full bg-gradient-to-r from-crush-purple to-crush-pink" style="width: {{ unlock.progress_percent }}%"></div>
+    </div>
+    {% include "crush_lu/crush_id/_unlock_connect_trust.html" %}
+    <div class="mt-2">{% include "crush_lu/crush_id/_unlock_connect_steps.html" %}</div>
+    {% endif %}
+</section>
