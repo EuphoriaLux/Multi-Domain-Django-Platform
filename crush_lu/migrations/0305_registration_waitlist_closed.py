@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("crush_lu", "0303_event_menu_minimum"),
+        ("crush_lu", "0304_checkin_scanned_by_coach"),
     ]
 
     operations = [
