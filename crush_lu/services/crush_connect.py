@@ -64,6 +64,12 @@ def annotate_connect_identity_arms(qs: QuerySet) -> QuerySet:
     attended_with_grant_subq = attended_event_subq.filter(
         checkin_granted_coach__isnull=False,
     )
+    # The plain record of which coach checked the member in. It catches the
+    # scan the two arms below miss: a member who already has a coach (so no
+    # grant) and no photo (so no attestation) is still someone a coach saw.
+    attended_with_scanning_coach_subq = attended_event_subq.filter(
+        checkin_scanned_by_coach__isnull=False,
+    )
     attended_with_assigned_coach_subq = EventRegistration.objects.filter(
         user_id=OuterRef("pk"),
         status="attended",
@@ -83,6 +89,7 @@ def annotate_connect_identity_arms(qs: QuerySet) -> QuerySet:
         _has_luxid_native=Exists(luxid_native_subq),
         _has_luxid_oidc=Exists(luxid_oidc_subq),
         _has_attended_with_grant=Exists(attended_with_grant_subq),
+        _has_attended_with_scanning_coach=Exists(attended_with_scanning_coach_subq),
         _has_attended_with_assigned_coach=Exists(attended_with_assigned_coach_subq),
         _has_attended_with_attested_photo=Exists(attended_with_attested_photo_subq),
     )
@@ -96,6 +103,7 @@ def coach_attested_attendance_q() -> Q:
     return (
         Q(crushprofile__verification_method__in=COACH_ATTESTED_VERIFICATION_METHODS)
         | Q(_has_attended_with_grant=True)
+        | Q(_has_attended_with_scanning_coach=True)
         | Q(_has_attended_with_assigned_coach=True)
         | Q(_has_attended_with_attested_photo=True)
     )

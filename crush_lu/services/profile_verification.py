@@ -5,7 +5,7 @@ from datetime import datetime
 
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Case, F, Value, When
+from django.db.models import Case, F, Q, Value, When
 
 from crush_lu.models import CrushProfile, EventRegistration, ProfilePhotoReviewState
 from crush_lu.models.profiles import UserDataConsent
@@ -99,11 +99,15 @@ def _clear_door_photo_attestations(profile: CrushProfile) -> None:
     Written as a queryset update: this runs from post-save-adjacent coach flows
     and must not re-enter `EventRegistration`'s signals.
     """
-    EventRegistration.objects.filter(user_id=profile.user_id).exclude(
-        checkin_attested_photo_key="",
+    # The scanning coach is the same kind of evidence ("a coach stood in front
+    # of this member") and is revoked with it: a member rejected at the door
+    # must not keep counting as seen in person through an earlier scan.
+    EventRegistration.objects.filter(user_id=profile.user_id).filter(
+        ~Q(checkin_attested_photo_key="") | Q(checkin_scanned_by_coach__isnull=False)
     ).update(
         checkin_attested_photo_key="",
         checkin_attested_photo_at=None,
+        checkin_scanned_by_coach=None,
     )
 
 
