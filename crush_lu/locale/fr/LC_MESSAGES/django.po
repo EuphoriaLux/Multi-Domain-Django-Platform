@@ -49548,3 +49548,93 @@ msgstr "Toutes les étapes dans Crush ID"
 
 msgid "Unlock it in Crush ID"
 msgstr "À débloquer dans Crush ID"
+
+msgid "Five steps, one week, one real coffee."
+msgstr "Cinq étapes, une semaine, un vrai café."
+
+msgid "Your request was accepted"
+msgstr "Votre demande a été acceptée"
+
+msgid "Your coffee is being planned"
+msgstr "Votre café est en préparation"
+
+msgid "Keep meeting your daily profiles until then."
+msgstr "D'ici là, continuez à découvrir vos profils du jour."
+
+msgid "Pick the one person you'd like to meet."
+msgstr "Choisissez la personne que vous aimeriez rencontrer."
+
+msgid "Your request is sent. They have until then to answer."
+msgstr "Votre demande est envoyée. La personne a jusque-là pour répondre."
+
+msgid "Your chat is open. Next step: plan your coffee."
+msgstr "Votre discussion est ouverte. Prochaine étape : planifier votre café."
+
+msgid "See the details in your chat."
+msgstr "Retrouvez les détails dans votre discussion."
+
+msgctxt "connect week step"
+msgid "Discover"
+msgstr "Découvrir"
+
+msgctxt "connect week step"
+msgid "Review"
+msgstr "Bilan"
+
+msgctxt "connect week step"
+msgid "Now"
+msgstr "Maintenant"
+
+msgctxt "connect week step"
+msgid "Accepted"
+msgstr "Acceptée"
+
+#, python-format
+msgid "Days 1–%(total)s"
+msgstr "Jours 1 à %(total)s"
+
+msgid "24 hours"
+msgstr "24 heures"
+
+msgid "Your single choice"
+msgstr "Votre unique choix"
+
+msgid "The goal"
+msgstr "L'objectif"
+
+msgid "Up to 2 new profiles a day. Guess their answers to get to know them."
+msgstr ""
+"Jusqu'à 2 nouveaux profils par jour. Devinez leurs réponses pour faire "
+"connaissance."
+
+msgid "Look back at everyone you met this week."
+msgstr "Revoyez toutes les personnes découvertes cette semaine."
+
+msgid "Send one request to the person you liked most."
+msgstr "Envoyez une demande à la personne qui vous a le plus plu."
+
+msgid "A private chat opens between you two."
+msgstr "Une discussion privée s'ouvre entre vous deux."
+
+msgid "Plan a real coffee date."
+msgstr "Planifiez un vrai rendez-vous autour d'un café."
+
+#, python-format
+msgid "Today: %(done)s of %(total)s done"
+msgstr "Aujourd'hui : %(done)s sur %(total)s terminés"
+
+msgid ""
+"Set your preferences, confirm photo consent and pick 3 yes/no questions "
+"about you. Members who get your profile guess your answers."
+msgstr ""
+"Indiquez vos préférences, confirmez le partage de votre photo et choisissez "
+"3 questions oui/non sur vous. Les membres qui reçoivent votre profil "
+"devinent vos réponses."
+
+msgid ""
+"Pick 3 yes/no questions about you. Members who get your profile guess your "
+"answers. Without them, your profile isn't shown in Connect Week."
+msgstr ""
+"Choisissez 3 questions oui/non sur vous. Les membres qui reçoivent votre "
+"profil devinent vos réponses. Sans elles, votre profil n'apparaît pas dans "
+"la Connect Week."

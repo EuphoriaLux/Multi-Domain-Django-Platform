@@ -261,7 +261,7 @@ def test_hub_shows_the_chat_step_for_a_completed_session_with_an_open_chat(
         if tag == "li" and attrs.get("aria-current") == "step"
     ]
     assert len(current) == 1
-    assert "connect-week-timeline-step" in _classes(current[0])
+    assert "connect-week-path-step" in _classes(current[0])
     assert "Chat" in body
 
 

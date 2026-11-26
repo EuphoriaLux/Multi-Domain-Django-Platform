@@ -80,16 +80,17 @@ def test_locked_card_lists_every_step_in_unlock_order(client):
     card = _card(_body(client.get(HUB_URL)))
 
     assert 'data-unlock-connect="locked"' in card
+    # Onboarding asks for photo consent and the 3 questions, so they fold
+    # into it while onboarding is open (Tom: "make it simpler").
     assert _step_keys(card) == [
         "identity",
         "photo",
-        "photo_consent",
         "onboarding",
         "active_verification",
-        "questions",
     ]
-    # LuxID-approved with a photo: consent is the first open step.
-    assert _next_step(card) == "photo_consent"
+    # LuxID-approved with a photo: onboarding is the first open step.
+    assert _next_step(card) == "onboarding"
+    assert "pick 3 yes/no questions about you" in card
     assert card.count("data-next-step") == 1
     assert 'data-unlock-milestone="open"' in card
     assert "Unlock Crush Connect" in card
@@ -140,6 +141,35 @@ def test_all_steps_done_unlocks_and_connect_drops_the_checklist(client):
     assert "data-unlock-strip" not in hub
     assert "Ready to connect" not in hub
     assert 'id="connect-readiness-title"' not in hub
+
+
+@pytest.mark.django_db
+def test_onboarded_member_missing_questions_gets_its_own_row(client):
+    # Onboarded before the questions existed: _make_user picks none.
+    _member(client, "unlock_noq")
+
+    card = _card(_body(client.get(HUB_URL)))
+
+    assert _step_keys(card) == [
+        "identity",
+        "photo",
+        "onboarding",
+        "active_verification",
+        "questions",
+    ]
+    assert "your profile isn't shown in Connect Week" in card
+
+
+@pytest.mark.django_db
+def test_onboarded_member_missing_consent_gets_its_own_row(client):
+    _member(client, "unlock_nocons", photo_share_consent=False)
+
+    card = _card(_body(client.get(HUB_URL)))
+
+    keys = _step_keys(card)
+    assert keys.index("photo_consent") == keys.index("onboarding") + 1
+    assert _next_step(card) == "photo_consent"
+    assert 'data-unlock-milestone="open"' in card
 
 
 @pytest.mark.django_db

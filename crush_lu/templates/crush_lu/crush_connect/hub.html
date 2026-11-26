@@ -70,8 +70,8 @@
     <section class="rounded-2xl bg-white dark:bg-slate-800 p-4 mb-4 ring-1 ring-gray-200 dark:ring-slate-700">
         {% if connect_summary.review_open %}
         <h2 class="card-title">{% trans "Your weekly review is ready" %}</h2>
-        {% include "crush_lu/crush_connect/_week_timeline.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length %}
-        <a class="btn-crush-solid btn-block mt-2" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
+        {% include "crush_lu/crush_connect/_week_path.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length day_number=connect_summary.session.current_day_number daily_completed=connect_summary.daily_completed daily_total=connect_summary.daily_total %}
+        <a class="btn-crush-solid btn-block mt-4" href="{% url 'crush_lu:connect_week_review' %}">{% trans "Review your week" %}</a>
         {% elif blocking_step %}
         {% comment %}
         A blocking readiness step means Today would just bounce the member
@@ -87,9 +87,9 @@
         </a>
         {% else %}
         <h2 class="card-title">{% trans "Your Connect Week" %}</h2>
-        {% include "crush_lu/crush_connect/_week_timeline.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length %}
-        {% if connect_summary.daily_total %}<p class="mt-2 text-sm text-gray-600 dark:text-gray-300 mb-3">{% blocktrans with completed=connect_summary.daily_completed total=connect_summary.daily_total %}{{ completed }} of {{ total }} completed{% endblocktrans %}</p>{% else %}<p class="mt-2 text-sm text-gray-600 dark:text-gray-300 mb-3">{% trans "Open Today to see your available introductions." %}</p>{% endif %}
-        <a class="btn-crush-solid btn-block" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
+        {% include "crush_lu/crush_connect/_week_path.html" with timeline=connect_summary.timeline cycle_length=connect_summary.cycle_length day_number=connect_summary.session.current_day_number daily_completed=connect_summary.daily_completed daily_total=connect_summary.daily_total %}
+        {% if not connect_summary.daily_total %}<p class="mt-3 text-sm text-gray-600 dark:text-gray-300 mb-0">{% trans "Open Today to see your available introductions." %}</p>{% endif %}
+        <a class="btn-crush-solid btn-block mt-4" href="{% url 'crush_lu:connect_week_home' %}">{% trans "Open Today" %}</a>
         {% endif %}
     </section>
     {% elif connect_summary.is_visible %}

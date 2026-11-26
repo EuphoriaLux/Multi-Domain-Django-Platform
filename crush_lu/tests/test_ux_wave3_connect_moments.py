@@ -8,6 +8,8 @@ default, no ``HTTP_HOST`` override needed). Every test below fails on
 ``origin/main`` (09592a63) before this branch's changes.
 """
 
+import re
+
 import pytest
 from django.utils import timezone
 
@@ -195,6 +197,34 @@ def test_hub_omits_timeline_for_a_completed_session(client, settings):
     body = client.get("/en/crush-connect/home/").content.decode()
 
     assert "connect-week-timeline" not in body
+    assert "data-week-path" not in body
+
+
+@pytest.mark.django_db
+def test_hub_shows_the_week_as_a_path_with_today_highlighted(client, settings):
+    """Tom, 2026-11-26: the hub's "Your Connect Week" is a vertical path —
+    the current step marked Now, the Discover days with today highlighted,
+    today's progress and the review date on top."""
+    from crush_lu.services.connect_cycle import get_or_create_active_session
+
+    settings.CRUSH_CONNECT_CANDIDATE_OPEN = True
+    me = _make_cycle_user("tl_hub_path")
+    _seed_cycle_pool(me, n=3)
+    session = get_or_create_active_session(me)
+    _login_eligible(client, me)
+
+    body = client.get("/en/crush-connect/home/").content.decode()
+
+    assert 'data-week-path data-week-step="1"' in body
+    assert body.count("data-week-path-step=") == 5
+    current = re.findall(r'data-week-path-step="(\d)" aria-current="step"', body)
+    assert current == ["1"]
+    days = body[body.index("data-week-days") :]
+    days = days[: days.index("</div>")]
+    assert days.count("connect-week-path-day") == CYCLE_LENGTH_DAYS
+    assert days.count("is-today") == 1
+    assert "Review opens" in body
+    assert f"Day {session.current_day_number} of {CYCLE_LENGTH_DAYS}" in body
 
 
 # ---------------------------------------------------------------------------
