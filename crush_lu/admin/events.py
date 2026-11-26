@@ -2940,6 +2940,7 @@ class EventRegistrationAdmin(admin.ModelAdmin):
             in {
                 "applied",
                 "waitlist",
+                "waitlist_closed",
             }
         ):
             self.message_user(

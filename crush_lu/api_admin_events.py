@@ -128,11 +128,16 @@ def event_recaps_sweep(request):
     the hourly, all-day one, and a new Function timer would redeploy the
     Function App on merge. The pass is isolated: its failure is logged and
     never changes the recaps answer.
+
+    Third pass, same reasoning: ``close_finished_waitlists`` moves waitlist
+    spots (and open curated applications) on events that ended in the last
+    14 days to ``waitlist_closed`` / ``not_selected``. Silent, no emails.
     """
     if not _authenticate_admin_request(request):
         return _unauthorized(request)
     response = _run(request, "event_recaps", "send_event_recaps")
     _run_second_pass("connect_request_reminders", "send_connect_request_reminders")
+    _run_second_pass("close_finished_waitlists", "close_finished_waitlists")
     return response
 
 

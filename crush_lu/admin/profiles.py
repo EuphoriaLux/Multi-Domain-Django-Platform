@@ -1138,6 +1138,7 @@ class CrushProfileAdmin(GoodwillCreditPermissionMixin, admin.ModelAdmin):
                 "confirmed": "#28a745",
                 "pending": "#ffc107",
                 "waitlist": "#17a2b8",
+                "waitlist_closed": "#6c757d",
                 "cancelled": "#dc3545",
                 "attended": "#28a745",
                 "no_show": "#dc3545",

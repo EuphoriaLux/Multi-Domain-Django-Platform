@@ -36,6 +36,11 @@ def registration_tone(user_registration, event):
     if event.is_cancelled:
         return "cancelled"
 
+    # Still waiting for a seat when the event ended: "you're on the waitlist,
+    # we'll email you" would promise something that can no longer happen.
+    if user_registration.missed_out:
+        return "missed"
+
     status = user_registration.status
 
     if status == "applied":

@@ -2734,6 +2734,7 @@ ROSTER_BUCKET_ORDER = (
     "confirmed",
     "attended",
     "waitlist",
+    "waitlist_closed",
     "applied",
     "not_selected",
     "no_show",
@@ -2780,6 +2781,8 @@ def _roster_status(registration, event, started):
         if position:
             return _("Waitlist #%(n)s") % {"n": position}, "yellow"
         return _("Waitlist"), "yellow"
+    if status == "waitlist_closed":
+        return _("Waitlist closed"), "gray"
     if status == "no_show":
         return _("No-show"), "red"
     if status == "applied":
@@ -2864,6 +2867,7 @@ def _coach_roster_rows(registrations, event, payments_by_reg=None):
             "attended": _("Checked in"),
             "no_show": _("No-show"),
             "waitlist": _("Waitlist"),
+            "waitlist_closed": _("No spot"),
         }.get(registration.status, registration.get_status_display())
         if registration.status == "confirmed" and started and not event.is_cancelled:
             arrival = _("Never checked in")
@@ -3022,6 +3026,14 @@ def _roster_status_tiles(event, bucket_counts, cancelled_count, total, started):
             "yellow",
             _("no seat yet"),
             True,
+        ),
+        (
+            "waitlist_closed",
+            _("Waitlist closed"),
+            bucket_counts["waitlist_closed"],
+            "gray",
+            _("event over, no seat came free"),
+            bucket_counts["waitlist_closed"] > 0,
         ),
         (
             "applied",
