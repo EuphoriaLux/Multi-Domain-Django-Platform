@@ -1901,6 +1901,19 @@ class EventRegistration(models.Model):
             "(empty when the member already had one)"
         ),
     )
+    checkin_scanned_by_coach = models.ForeignKey(
+        CrushCoach,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text=_(
+            "Active coach whose session checked this member in (door scan, "
+            "waitlist promotion or quiz host panel). The plain record that a "
+            "coach saw the member in person, kept even when the check-in "
+            "granted no coach and attested no photo. Cleared on undo."
+        ),
+    )
     checkin_granted_coach_at = models.DateTimeField(
         null=True,
         blank=True,

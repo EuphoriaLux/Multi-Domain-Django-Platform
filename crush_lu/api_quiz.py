@@ -668,9 +668,45 @@ def mark_attended(request, quiz_id):
                 status=400,
             )
 
+        # Same provenance as a door scan: the host coach becomes the member's
+        # coach when they have none (instead of the admin fallback to the
+        # event's first coach), the prior status is kept for undo, and the
+        # coach's look at the member is recorded below. Without this a coach
+        # check-in from the host panel left no trace that a coach saw the
+        # member, so Crush ID never counted it as "seen at an event".
+        from crush_lu.views_checkin import (
+            _CHECKIN_UPDATE_FIELDS,
+            _auto_verify_on_attendance,
+            _record_checkin_provenance,
+            _run_post_verification_side_effects,
+            _scanning_coach,
+            _within_checkin_window,
+        )
+
+        now = timezone.now()
+        # Outside the door window (a host fixing attendance days later) the
+        # mark still records attendance, but a coach did not stand in front of
+        # the member just now: no coach grant, no scanning coach, no photo
+        # attestation and no verification, the same limit the door scan
+        # enforces for old tickets.
+        in_window = _within_checkin_window(registration.event, now)
+        registration._checkin_coach = _scanning_coach(request) if in_window else None
+        _record_checkin_provenance(registration, registration._checkin_coach)
         registration.status = "attended"
-        registration.checked_in_at = timezone.now()
-        registration.save(update_fields=["status", "checked_in_at", "updated_at"])
+        registration.checked_in_at = now
+        registration.save(update_fields=_CHECKIN_UPDATE_FIELDS)
+
+        verified_profile = (
+            _auto_verify_on_attendance(request, registration, now)
+            if in_window
+            else None
+        )
+        if verified_profile is not None:
+            transaction.on_commit(
+                lambda: _run_post_verification_side_effects(
+                    registration.user, verified_profile, request, registration.id
+                )
+            )
 
         # Reuse the QR-path table assignment so manual mark-attended is
         # indistinguishable from a scan downstream.

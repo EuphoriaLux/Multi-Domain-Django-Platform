@@ -1217,7 +1217,8 @@ class CrushProfile(models.Model):
         # with `services.crush_connect.filter_connect_identity_verified`, which
         # is the queryset form of this same gate.
         if (
-            attended.filter(checkin_granted_coach__isnull=False).exists()
+            attended.filter(checkin_scanned_by_coach__isnull=False).exists()
+            or attended.filter(checkin_granted_coach__isnull=False).exists()
             or attended.exclude(checkin_attested_photo_key="").exists()
         ):
             return True
