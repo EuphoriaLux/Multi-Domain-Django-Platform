@@ -53,6 +53,26 @@ jobs:
           cd azure-functions/hybrid-maintenance
           func azure functionapp publish crush-hybrid-maintenance --python --build local
 
+      # On this Linux Premium (P0v3) plan the publish above does not refresh the
+      # host's trigger list: from 2026-11-21 every newly added timer
+      # (SwipeCampaignMessages, AbandonedCheckoutSweep, GbpSync) was deployed
+      # in code but never registered, so never ran, while each deploy reported
+      # success. Asking ARM to sync triggers makes the new code's timers live,
+      # and the check below fails the run if any timer is still missing.
+      - name: Sync triggers and verify every timer is registered
+        run: |
+          APP_ID=$(az functionapp show -g django-app-rg -n crush-hybrid-maintenance --query id -o tsv)
+          az rest --method post --url "https://management.azure.com${APP_ID}/syncfunctiontriggers?api-version=2022-03-01"
+          expected=$(grep -oP '@app\.function_name\(name="\K[^"]+' azure-functions/hybrid-maintenance/function_app.py | sort)
+          for attempt in 1 2 3 4 5 6; do
+            registered=$(az functionapp function list -g django-app-rg -n crush-hybrid-maintenance --query "[].name" -o tsv | sed 's#.*/##' | sort)
+            missing=$(comm -23 <(echo "$expected") <(echo "$registered"))
+            [ -z "$missing" ] && echo "All timers registered:" && echo "$registered" && exit 0
+            echo "Waiting for: $missing"; sleep 20
+          done
+          echo "::error::Timers deployed but not registered: $missing"
+          exit 1
+
       - name: Deployment summary
         run: |
           echo "### Deployment Complete" >> $GITHUB_STEP_SUMMARY
