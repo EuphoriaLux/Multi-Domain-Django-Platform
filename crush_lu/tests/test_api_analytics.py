@@ -1741,3 +1741,80 @@ class ReapplyForServingReleaseTests(SimpleTestCase):
         self.assertFalse(self.run_reapply([], in_atomic_block=True))
         self.assertEqual(self.cursor.executed, [])
         self.assertEqual(self.atomic.exits, [])
+
+
+@override_settings(**CONFIGURED)
+class SearchToolTests(TestCase):
+    """The ``search`` tool returns aggregate Search Console rows, no DB."""
+
+    ROWS = [
+        {
+            "query": "speed dating luxembourg",
+            "clicks": 4,
+            "impressions": 120,
+            "ctr": 0.033,
+            "position": 8.1,
+        }
+    ]
+
+    def setUp(self):
+        cache.clear()
+        self.client = Client(HTTP_HOST="crush.lu")
+
+    def get(self, **params):
+        return self.client.get(f"{BASE}search/", params, **AUTH)
+
+    def test_requires_the_api_key(self):
+        response = self.client.get(f"{BASE}search/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_dark_when_unconfigured(self):
+        with override_settings(ANALYTICS_API_KEY=""):
+            self.assertEqual(self.get().status_code, 404)
+
+    @mock.patch("hub.analytics_service.fetch_search_rows")
+    def test_returns_rows_with_defaults(self, fetch):
+        fetch.return_value = self.ROWS
+        response = self.get()
+        self.assertEqual(response.status_code, 200, response.content)
+        payload = response.json()
+        self.assertEqual(payload["tool"], "search")
+        self.assertEqual(payload["data"]["rows"], self.ROWS)
+        start, end, dimensions, limit = fetch.call_args.args
+        self.assertEqual(dimensions, ["query"])
+        self.assertEqual(limit, 250)
+        self.assertEqual(end, timezone.localdate() - timedelta(days=3))
+        self.assertEqual((end - start).days, 89)
+
+    @mock.patch("hub.analytics_service.fetch_search_rows")
+    def test_is_cached(self, fetch):
+        fetch.return_value = self.ROWS
+        self.get(dimensions="query,page")
+        self.get(dimensions="query,page")
+        self.assertEqual(fetch.call_count, 1)
+
+    @mock.patch("hub.analytics_service.fetch_search_rows")
+    def test_bad_parameters_are_400(self, fetch):
+        for params in (
+            {"dimensions": "query,query"},
+            {"dimensions": "query,page,country,device"},
+            {"dimensions": "searchAppearance"},
+            {"limit": "5000"},
+            {"from": "2024-01-01", "to": "2026-01-01"},
+        ):
+            with self.subTest(params=params):
+                self.assertEqual(self.get(**params).status_code, 400)
+        fetch.assert_not_called()
+
+    @mock.patch(
+        "hub.analytics_service.fetch_search_rows",
+        side_effect=RuntimeError("upstream detail"),
+    )
+    def test_upstream_failure_is_503_without_detail(self, _fetch):
+        response = self.get()
+        self.assertEqual(response.status_code, 503)
+        self.assertNotIn("upstream detail", response.content.decode())
+
+    def test_unknown_tool_lists_search(self):
+        response = self.client.get(f"{BASE}raw_sql/", **AUTH)
+        self.assertIn("search", response.json()["tools"])
