@@ -255,6 +255,87 @@ TOOLS = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Search Console: aggregate Google search rows (queries, pages, countries).
+# It touches no database, so it skips the DB slot and privilege audit and goes
+# straight to Google with the server-side service account the Hub already uses.
+# ---------------------------------------------------------------------------
+
+SEARCH_TOOL = "search"
+SEARCH_CACHE_SECONDS = 3600
+# Search Console keeps 16 months; its newest ~3 days are not final yet.
+SEARCH_MAX_RANGE_DAYS = 486
+SEARCH_DEFAULT_RANGE_DAYS = 90
+SEARCH_FINAL_LAG_DAYS = 3
+SEARCH_MAX_DIMENSIONS = 3
+SEARCH_MAX_LIMIT = 1000
+
+
+def _parse_search(p):
+    latest = timezone.localdate() - timedelta(days=SEARCH_FINAL_LAG_DAYS)
+    end = p.date("to", latest)
+    start = p.date("from", end - timedelta(days=SEARCH_DEFAULT_RANGE_DAYS - 1))
+    if start > end:
+        p.errors.append("from must be on or before to")
+    elif (end - start).days + 1 > SEARCH_MAX_RANGE_DAYS:
+        p.errors.append(f"date range is limited to {SEARCH_MAX_RANGE_DAYS} days")
+    # Imported lazily: the Google client libraries are heavy and only this
+    # tool needs them.
+    from hub.analytics_service import SEARCH_DIMENSIONS
+
+    raw = p.query.get("dimensions") or "query"
+    dimensions = [part.strip() for part in raw.split(",") if part.strip()]
+    if not dimensions or len(dimensions) > SEARCH_MAX_DIMENSIONS:
+        p.errors.append(f"dimensions takes 1 to {SEARCH_MAX_DIMENSIONS} values")
+    elif len(set(dimensions)) != len(dimensions) or not set(dimensions) <= set(
+        SEARCH_DIMENSIONS
+    ):
+        p.errors.append(f"dimensions must come from {sorted(SEARCH_DIMENSIONS)}")
+    return {
+        "start": start,
+        "end": end,
+        "dimensions": dimensions,
+        "limit": p.int("limit", 250, 1, SEARCH_MAX_LIMIT),
+    }
+
+
+def _serve_search(request):
+    from hub import analytics_service
+
+    params = Params(request.GET)
+    kwargs = _parse_search(params)
+    if params.errors:
+        return _error("; ".join(params.errors), 400)
+    public_params = json.loads(json.dumps(kwargs, default=str, sort_keys=True))
+    cache_key = (
+        f"{CACHE_PREFIX}search:"
+        + hashlib.sha256(json.dumps(public_params, sort_keys=True).encode()).hexdigest()
+    )
+    payload = cache.get(cache_key)
+    if payload is None:
+        try:
+            rows = analytics_service.fetch_search_rows(
+                kwargs["start"], kwargs["end"], kwargs["dimensions"], kwargs["limit"]
+            )
+        except analytics_service.AnalyticsConfigurationError:
+            return _error("search console is not configured", 503)
+        except Exception:
+            logger.exception("Analytics search tool: Search Console call failed")
+            return _error("search console unavailable, retry shortly", 503)
+        payload = {
+            "tool": SEARCH_TOOL,
+            "params": public_params,
+            "generated_at": timezone.now().isoformat(),
+            "source": "google_search_console",
+            "data": {"rows": rows, "row_count": len(rows)},
+        }
+        cache.set(cache_key, payload, SEARCH_CACHE_SECONDS)
+        logger.info("Analytics tool search served")
+    response = JsonResponse(payload)
+    response["Cache-Control"] = "no-store"
+    return response
+
+
 def _database_failure(tool, exc):
     """JSON 503/504 for a database error, never an uncaught 500."""
     if isinstance(exc, OperationalError) and (
@@ -340,9 +421,12 @@ def _serve(request, tool):
     if not authenticate_analytics_request(request):
         logger.warning("Unauthorized analytics API call for tool=%s", tool)
         return _error("Unauthorized", 401)
+    if tool == SEARCH_TOOL:
+        return _serve_search(request)
     if tool not in TOOLS:
         return JsonResponse(
-            {"error": "unknown tool", "tools": sorted(TOOLS)}, status=404
+            {"error": "unknown tool", "tools": sorted([*TOOLS, SEARCH_TOOL])},
+            status=404,
         )
 
     handler, parse = TOOLS[tool]
