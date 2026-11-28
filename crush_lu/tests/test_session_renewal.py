@@ -189,3 +189,45 @@ class SessionRenewalUnitTests(TestCase):
         stored = Session.objects.get(session_key=key).get_decoded()
         self.assertEqual(stored[STAMP_KEY], int(later.timestamp()))
         self.assertEqual(stored["wizard_step"], 2)
+
+
+class SessionRenewalLastLoginTests(TestCase):
+    """Renewal also refreshes ``last_login``: the Connect catalogue gate reads it.
+
+    A member kept signed in by sliding sessions used to fall out of the
+    catalogue 30 days after their last real sign-in, however active they were.
+    """
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username="lastseen@example.com",
+            email="lastseen@example.com",
+            password="pass12345",
+        )
+
+    def _get(self):
+        return self.client.get(PAGE, HTTP_HOST="crush.lu")
+
+    def test_renewal_refreshes_last_login(self):
+        with _at(T0):
+            self.client.force_login(self.user)
+            self._get()
+        # Visits every 10 days keep the session alive past the 30-day gate.
+        for day in (10, 20, 30, 40):
+            later = T0 + timedelta(days=day)
+            with _at(later):
+                self._get()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.last_login, later)
+
+    def test_request_inside_interval_does_not_write_last_login(self):
+        with _at(T0):
+            self.client.force_login(self.user)
+            self._get()
+        self.user.refresh_from_db()
+        first = self.user.last_login
+        with _at(T0 + timedelta(hours=2)):
+            self._get()
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.last_login, first)

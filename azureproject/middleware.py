@@ -933,7 +933,31 @@ class SessionRenewalMiddleware:
         # A session that is saved anyway gets its fresh expiry for free.
         if session.modified or now - renewed_at >= settings.SESSION_RENEWAL_INTERVAL:
             session[self.STAMP_KEY] = now
+            self._touch_last_login(request.user)
         return response
+
+    @staticmethod
+    def _touch_last_login(user):
+        """Keep ``last_login`` meaning "last seen" now that sessions slide.
+
+        Django writes ``last_login`` only at sign-in. With sliding sessions a
+        member can stay signed in for months, so ``last_login`` froze while
+        they used the site daily. The Crush Connect catalogue gate
+        (``is_catalogue_eligible``) and Connect Week candidate queries drop
+        anyone whose ``last_login`` is older than 30 days: an active member
+        silently left the catalogue and saw "Action needed" with no step to
+        take. At most one write per member per renewal interval.
+        """
+        now = timezone.now()
+        last = getattr(user, "last_login", None)
+        if last is not None and (now - last).total_seconds() < (
+            settings.SESSION_RENEWAL_INTERVAL
+        ):
+            return
+        from django.contrib.auth import get_user_model
+
+        get_user_model()._default_manager.filter(pk=user.pk).update(last_login=now)
+        user.last_login = now
 
 
 class DomainURLRoutingMiddleware:
