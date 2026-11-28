@@ -111,15 +111,18 @@ class PricingMetaTests(TestCase):
             "Free account, events from €0. "
             "Premium adds a personal coach and reserved seats."
         )
-        self.assertEqual(head.title, "Pricing – Crush.lu")
-        self.assertEqual(head.meta["og:title"], "Pricing – Crush.lu")
+        title = "Crush.lu Pricing: Free Account, Events & Premium"
+        self.assertEqual(head.title, title)
+        self.assertEqual(head.meta["og:title"], title)
         self.assertEqual(head.meta["description"], description)
         self.assertEqual(head.meta["og:description"], description)
         self.assertNotIn("Earn points", head.meta["description"])
 
     def test_german_title_and_description(self):
         head = _head(self.client.get("/de/membership/").content.decode())
-        self.assertEqual(head.title, "Preise – Crush.lu")
+        self.assertEqual(
+            head.title, "Crush.lu Preise: kostenloses Konto, Events & Premium"
+        )
         self.assertEqual(
             head.meta["description"],
             "Kostenloses Konto, Events ab 0 €. "
@@ -128,7 +131,9 @@ class PricingMetaTests(TestCase):
 
     def test_french_title_and_description(self):
         head = _head(self.client.get("/fr/membership/").content.decode())
-        self.assertEqual(head.title, "Tarifs – Crush.lu")
+        self.assertEqual(
+            head.title, "Tarifs Crush.lu : compte gratuit, événements et Premium"
+        )
         self.assertEqual(
             head.meta["description"],
             "Compte gratuit, événements dès 0 €. "

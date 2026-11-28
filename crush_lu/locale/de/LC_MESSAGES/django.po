@@ -49546,3 +49546,102 @@ msgstr "Warteliste geschlossen"
 
 msgid "event over, no seat came free"
 msgstr "Event vorbei, kein Platz frei geworden"
+
+msgid "Dating App Luxembourg – Speed Dating & Singles Events | Crush.lu"
+msgstr "Singles in Luxemburg: Dating & Partnersuche, kostenlos anmelden | Crush.lu"
+
+msgid "Crush.lu is Luxembourg's dating app for meeting singles in real life: speed dating, quiz nights and social mixers. Verified members, no endless swiping. Join free."
+msgstr "Partnersuche in Luxemburg, kostenlos anmelden: Triff Single-Frauen und Single-Männer im echten Leben – bei Speed Dating, Quiz Nights und Single-Events. Verifizierte Profile, kein endloses Swipen."
+
+#, python-format
+msgid "<a href=\"%(speed_dating_url)s\" class=\"%(link_class)s\">Speed dating nights</a>, <a href=\"%(quiz_night_url)s\" class=\"%(link_class)s\">quiz nights</a> and social mixers. Meet people in person, the way it should be."
+msgstr "<a href=\"%(speed_dating_url)s\" class=\"%(link_class)s\">Speed-Dating-Abende</a>, <a href=\"%(quiz_night_url)s\" class=\"%(link_class)s\">Quiz Nights</a> und Social Mixer. Lerne Menschen persönlich kennen, so wie es sein sollte."
+
+#, python-format
+msgid "Speed Dating Luxembourg - Singles Events & Meetups %(current_year)s | Crush.lu"
+msgstr "Speed Dating Luxemburg - Singles Events & Treffen %(current_year)s | Crush.lu"
+
+msgid "Speed Dating in Luxembourg: How It Works, Step by Step | Crush.lu"
+msgstr "Speed Dating in Luxemburg: So funktioniert es, Schritt für Schritt | Crush.lu"
+
+msgid "How speed dating works in Luxembourg: a coach welcomes you, you have short one-to-one conversations, then you say who you would like to see again. See the next Crush.lu speed dating dates."
+msgstr "So funktioniert Speed Dating in Luxemburg: Ein Coach begrüßt dich, du führst kurze Gespräche zu zweit und sagst danach, wen du wiedersehen möchtest. Hier findest du die nächsten Speed-Dating-Termine von Crush.lu."
+
+msgid "Crush.lu Pricing: Free Account, Events & Premium"
+msgstr "Crush.lu Preise: kostenloses Konto, Events & Premium"
+
+msgid "Crush.lu theme nights in Luxembourg: members vote for the theme of the next singles event and can suggest their own ideas."
+msgstr "Themenabende von Crush.lu in Luxemburg: Mitglieder stimmen über das Thema des nächsten Single-Events ab und können eigene Ideen vorschlagen."
+
+msgctxt "event search format"
+msgid "Speed dating"
+msgstr "Speed Dating"
+
+msgctxt "event search format"
+msgid "Social mixer for singles"
+msgstr "Single-Party"
+
+msgctxt "event search format"
+msgid "Activity meetup for singles"
+msgstr "Freizeit-Treff für Singles"
+
+msgctxt "event search format"
+msgid "Themed night for singles"
+msgstr "Themenabend für Singles"
+
+msgctxt "event search format"
+msgid "Quiz night for singles"
+msgstr "Quiz Night für Singles"
+
+msgctxt "event search format"
+msgid "Scavenger hunt for singles"
+msgstr "Schnitzeljagd für Singles"
+
+msgctxt "event search format"
+msgid "Wine tasting for singles"
+msgstr "Weinprobe für Singles"
+
+msgctxt "event search format"
+msgid "Singles event"
+msgstr "Single-Event"
+
+msgctxt "event search place"
+msgid "in Luxembourg"
+msgstr "in Luxemburg"
+
+#, python-format
+msgctxt "event search place"
+msgid "in %(place)s"
+msgstr "in %(place)s"
+
+#, python-format
+msgctxt "event search place"
+msgid "in %(place)s (Luxembourg)"
+msgstr "in %(place)s (Luxemburg)"
+
+#, python-format
+msgctxt "event search text"
+msgid "%(format)s %(place)s"
+msgstr "%(format)s %(place)s"
+
+#, python-format
+msgctxt "event search text"
+msgid "%(headline)s, %(date)s"
+msgstr "%(headline)s, %(date)s"
+
+#, python-format
+msgctxt "event search text"
+msgid "%(format)s %(place)s on %(date)s at %(time)s."
+msgstr "%(format)s %(place)s am %(date)s um %(time)s Uhr."
+
+msgctxt "event search date format"
+msgid "j F"
+msgstr "j. F"
+
+msgctxt "event search date format"
+msgid "j F Y"
+msgstr "j. F Y"
+
+msgctxt "event search date format"
+msgid "l j F Y"
+msgstr "l, j. F Y"

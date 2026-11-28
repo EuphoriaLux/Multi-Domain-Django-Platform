@@ -5,8 +5,13 @@ Sitemap configuration for Crush.lu SEO.
 This module provides dynamic sitemap generation for:
 - Static pages (home, about, how-it-works, legal pages)
 - Published events (with proper priority and changefreq)
+
+Every page is listed once per language (/en/, /de/, /fr/), each with hreflang
+alternates for all three plus x-default, matching the tags the pages carry in
+their own <head> (``crush_lu/templatetags/seo_tags.py``).
 """
 
+from django.conf import settings
 from django.contrib.sitemaps import Sitemap
 from django.db.models import Q
 from django.urls import reverse
@@ -14,12 +19,42 @@ from .models import MeetupEvent
 from django.utils import timezone
 
 
-class CrushStaticViewSitemap(Sitemap):
-    """Sitemap for static pages."""
+class LocalizedSitemap(Sitemap):
+    """One URL per language, with hreflang alternates and x-default.
+
+    ``x-default`` points at the default-language URL (/en/...), the same target
+    the ``hreflang_tags`` template tag writes into each page. Django's own
+    ``x_default = True`` is not used: it strips the language prefix and would
+    announce ``/events/30/``, a redirect, while the page itself announces
+    ``/en/events/30/``. Two different x-default targets for one page are
+    conflicting signals, so the sitemap builds its own.
+    """
 
     protocol = "https"
-    i18n = True  # Enable i18n for multiple language versions
-    alternates = True  # Include xhtml:link elements with hreflang for SEO
+    i18n = True  # One <url> per language version
+    alternates = True  # xhtml:link hreflang elements on each of them
+
+    def _urls(self, page, protocol, domain):
+        urls = super()._urls(page, protocol, domain)
+        default_lang = settings.LANGUAGE_CODE
+        for url_info in urls:
+            default_url = next(
+                (
+                    alternate["location"]
+                    for alternate in url_info["alternates"]
+                    if alternate["lang_code"] == default_lang
+                ),
+                None,
+            )
+            if default_url:
+                url_info["alternates"].append(
+                    {"location": default_url, "lang_code": "x-default"}
+                )
+        return urls
+
+
+class CrushStaticViewSitemap(LocalizedSitemap):
+    """Sitemap for static pages."""
 
     def items(self):
         return [
@@ -73,10 +108,13 @@ class CrushStaticViewSitemap(Sitemap):
             return "yearly"  # Legal pages rarely change
 
 
-class CrushEventSitemap(Sitemap):
-    """Sitemap for published events."""
+class CrushEventSitemap(LocalizedSitemap):
+    """Sitemap for published events, in every language.
 
-    protocol = "https"
+    Until 2026-11 only the English URL of an event was listed, so the German
+    and French event pages were discovered late or not at all.
+    """
+
     changefreq = "weekly"
 
     def items(self):

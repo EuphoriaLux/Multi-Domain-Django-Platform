@@ -2,7 +2,8 @@
 {% load static %}
 {% load i18n %}
 
-{% block title %}{% trans "Speed Dating Luxembourg - Singles Events & Meetups 2026 | Crush.lu" %}{% endblock %}
+{# The year in the title follows the calendar ("speed dating luxembourg 2026" is a real search); it used to be typed into the string. #}
+{% block title %}{% now "Y" as current_year %}{% blocktrans trimmed %}Speed Dating Luxembourg - Singles Events & Meetups {{ current_year }} | Crush.lu{% endblocktrans %}{% endblock %}
 
 {% block og_title %}{% trans "Speed Dating & Singles Events in Luxembourg | Crush.lu" %}{% endblock %}
 {% block og_description %}{% trans "Join speed dating nights, social mixers, and singles meetups in Luxembourg. Real events, real people, real connections. Book your spot at Crush.lu." %}{% endblock %}

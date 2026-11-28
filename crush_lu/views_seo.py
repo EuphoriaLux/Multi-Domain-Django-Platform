@@ -52,6 +52,14 @@ def robots_txt(request):
     - Allow crawling of public pages
     - Block admin and private areas
     - Reference the sitemap
+
+    /login/ is deliberately NOT disallowed. The login page answers with
+    ``noindex`` (meta tag and X-Robots-Tag), and a crawler can only obey that
+    if it is allowed to fetch the page. While /login/ was disallowed here,
+    Google could not see the tag and kept /en/login/ in its results for the
+    searches of an unrelated app ("crush live login": 1,250 impressions in 90
+    days, Search Console, 2026-11). Do not add it back: disallowing a page
+    hides its ``noindex``, it does not remove the page from search.
     """
     lines = [
         "# Robots.txt for Crush.lu",
@@ -82,17 +90,14 @@ def robots_txt(request):
         "Disallow: /journey/",
         "Disallow: /media/",
         "",
-        "# Block login, signup, and data deletion pages",
-        "Disallow: /login/",
+        "# Block signup and data deletion pages",
+        "# (the login page is crawlable on purpose: it answers noindex)",
         "Disallow: /signup/",
         "Disallow: /data-deletion/",
-        "Disallow: /en/login/",
         "Disallow: /en/signup/",
         "Disallow: /en/data-deletion/",
-        "Disallow: /de/login/",
         "Disallow: /de/signup/",
         "Disallow: /de/data-deletion/",
-        "Disallow: /fr/login/",
         "Disallow: /fr/signup/",
         "Disallow: /fr/data-deletion/",
         "",
