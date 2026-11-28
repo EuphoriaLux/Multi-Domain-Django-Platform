@@ -79,8 +79,16 @@ def _google_credentials():
     )
 
 
-def fetch_search_console(start_date: date, end_date: date) -> dict:
-    """Return Search Console totals, daily history and page aggregates."""
+SEARCH_DIMENSIONS = ("query", "page", "country", "device", "date")
+SEARCH_OVERVIEW_QUERY_LIMIT = 100
+
+
+def _search_console_query_fn(start_date: date, end_date: date):
+    """Return a read-only Search Analytics query callable with one HTTP budget.
+
+    All calls made through the returned function share a single deadline, so a
+    slow upstream can never stretch a Hub request past the configured timeout.
+    """
     site_url = getattr(settings, "HUB_ANALYTICS_GSC_SITE_URL", "sc-domain:crush.lu")
     timeout = max(
         float(getattr(settings, "HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS", 15)), 0.1
@@ -118,6 +126,44 @@ def fetch_search_console(start_date: date, end_date: date) -> dict:
         )
         return response.get("rows", [])
 
+    return query
+
+
+def _search_metrics(row: dict) -> dict:
+    return {
+        "clicks": int(row.get("clicks", 0)),
+        "impressions": int(row.get("impressions", 0)),
+        "ctr": float(row.get("ctr", 0)),
+        "position": float(row.get("position", 0)),
+    }
+
+
+def fetch_search_rows(
+    start_date: date, end_date: date, dimensions: list[str], row_limit: int
+) -> list[dict]:
+    """Aggregate Search Console rows grouped by the given dimensions.
+
+    Google already withholds rare (anonymized) queries, so every row is an
+    aggregate over many searches. Page values are reduced to their path.
+    """
+    for dimension in dimensions:
+        if dimension not in SEARCH_DIMENSIONS:
+            raise ValueError(f"Unsupported Search Console dimension: {dimension}")
+    query = _search_console_query_fn(start_date, end_date)
+    rows = []
+    for row in query(list(dimensions), row_limit):
+        item = {}
+        for dimension, value in zip(dimensions, row.get("keys", [])):
+            item[dimension] = _normalise_path(value) if dimension == "page" else value
+        item.update(_search_metrics(row))
+        rows.append(item)
+    return rows
+
+
+def fetch_search_console(start_date: date, end_date: date) -> dict:
+    """Return Search Console totals, daily history, page and query aggregates."""
+    query = _search_console_query_fn(start_date, end_date)
+
     summary_rows = query([], 1)
     summary_row = summary_rows[0] if summary_rows else {}
     daily = [
@@ -140,6 +186,10 @@ def fetch_search_console(start_date: date, end_date: date) -> dict:
         }
         for row in query(["page"], 25_000)
     ]
+    queries = [
+        {"query": row["keys"][0], **_search_metrics(row)}
+        for row in query(["query"], SEARCH_OVERVIEW_QUERY_LIMIT)
+    ]
     return {
         "summary": {
             "clicks": int(summary_row.get("clicks", 0)),
@@ -149,6 +199,7 @@ def fetch_search_console(start_date: date, end_date: date) -> dict:
         },
         "daily": sorted(daily, key=lambda row: row["date"]),
         "pages": pages,
+        "queries": queries,
     }
 
 
@@ -607,6 +658,7 @@ def build_analytics_overview(days: int) -> dict:
             "summary": gsc.data.get("summary") if gsc.status == "ready" else None,
             "daily": gsc.data.get("daily", []) if gsc.status == "ready" else [],
             "landingPages": _merge_landing_pages(gsc, ga4),
+            "queries": gsc.data.get("queries", []) if gsc.status == "ready" else [],
         },
         "audience": {
             "summary": ga4.data.get("summary") if ga4.status == "ready" else None,

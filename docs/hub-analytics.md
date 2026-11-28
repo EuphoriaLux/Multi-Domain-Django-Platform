@@ -7,7 +7,8 @@ provider credentials.
 
 ## Sources
 
-- Google Search Console: discovery totals, daily history, and landing pages.
+- Google Search Console: discovery totals, daily history, landing pages, and the
+  top 100 search queries (`search.queries`).
 - Google Analytics 4: sessions, users, engagement, and landing pages.
 - Azure Application Insights: authenticated Crush.lu page activity, custom
   events, and exception counts, adjusted for telemetry sampling.
@@ -48,3 +49,19 @@ After deploying, sign in to `hub.crush.lu` as staff, open **Analytics**, and
 verify the source-status panel before using the figures operationally.
 Application Insights uses the same delayed reporting window as Search Console
 and GA4, with calendar boundaries and daily buckets in `Europe/Luxembourg`.
+
+## Search Console for agents
+
+`GET /api/analytics/search/` (Bearer `ANALYTICS_API_KEY`, same dark gate and
+rate limit as the other analytics tools) returns aggregate Search Console rows
+for read-only analysis. It touches no database.
+
+| Parameter | Default | Notes |
+| --- | --- | --- |
+| `dimensions` | `query` | 1-3 of `query`, `page`, `country`, `device`, `date`, comma-separated |
+| `from` / `to` | last 90 days ending 3 days ago | Search Console keeps 16 months; range up to 486 days |
+| `limit` | `250` | 1-1000 rows |
+
+Example: `/api/analytics/search/?dimensions=query,page&limit=500`. Google
+already withholds rare queries, so every row aggregates many searches. Results
+are cached for one hour.

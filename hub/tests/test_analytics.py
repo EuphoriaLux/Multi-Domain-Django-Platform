@@ -16,6 +16,7 @@ from hub.analytics_service import (
     fetch_application_insights,
     fetch_ga4,
     fetch_search_console,
+    fetch_search_rows,
 )
 
 User = get_user_model()
@@ -115,6 +116,7 @@ class AnalyticsOverviewServiceTests(TestCase):
         self.assertEqual(payload["overview"]["webSessions"], 35)
         self.assertEqual(payload["overview"]["pendingProfiles"], 1)
         self.assertEqual(payload["search"]["landingPages"][0]["sessions"], 18)
+        self.assertEqual(payload["search"]["queries"], [])
         self.assertEqual(payload["activation"]["weekly"][0]["profilesVerified"], 5)
         insights.assert_called_once_with(date(2026, 8, 14), date(2026, 9, 10))
         app_insights_source = next(
@@ -208,7 +210,7 @@ class LandingPageMergeTests(TestCase):
 
 @override_settings(HUB_ANALYTICS_HTTP_TIMEOUT_SECONDS=5)
 class SearchConsoleTests(TestCase):
-    @patch("hub.analytics_service.monotonic", side_effect=[100, 101, 102, 103])
+    @patch("hub.analytics_service.monotonic", side_effect=[100, 101, 102, 103, 103])
     @patch("hub.analytics_service.build")
     @patch("hub.analytics_service.AuthorizedHttp")
     @patch("hub.analytics_service.httplib2.Http")
@@ -222,7 +224,7 @@ class SearchConsoleTests(TestCase):
         transport.http = raw_http
         authorized_http.return_value = transport
         request = Mock()
-        request.execute.side_effect = [{"rows": []}, {"rows": []}, {"rows": []}]
+        request.execute.side_effect = [{"rows": []}] * 4
         service = Mock()
         service.searchanalytics.return_value.query.return_value = request
         build.return_value = service
@@ -234,8 +236,88 @@ class SearchConsoleTests(TestCase):
         build.assert_called_once_with(
             "searchconsole", "v1", http=transport, cache_discovery=False
         )
-        self.assertEqual(request.execute.call_count, 3)
+        self.assertEqual(request.execute.call_count, 4)
         self.assertEqual(raw_http.timeout, 2)
+
+    def _service_returning(self, build, responses):
+        request = Mock()
+        request.execute.side_effect = responses
+        service = Mock()
+        service.searchanalytics.return_value.query.return_value = request
+        build.return_value = service
+        return service
+
+    @patch("hub.analytics_service.build")
+    @patch("hub.analytics_service.AuthorizedHttp")
+    @patch("hub.analytics_service.httplib2.Http")
+    @patch("hub.analytics_service._google_credentials")
+    def test_overview_includes_top_queries(self, _credentials, _http, _auth, build):
+        row = {"clicks": 3, "impressions": 90, "ctr": 0.033, "position": 7.4}
+        service = self._service_returning(
+            build,
+            [
+                {"rows": [row]},
+                {"rows": []},
+                {"rows": []},
+                {"rows": [{"keys": ["speed dating luxembourg"], **row}]},
+            ],
+        )
+
+        result = fetch_search_console(date(2026, 9, 1), date(2026, 9, 7))
+
+        self.assertEqual(
+            result["queries"],
+            [
+                {
+                    "query": "speed dating luxembourg",
+                    "clicks": 3,
+                    "impressions": 90,
+                    "ctr": 0.033,
+                    "position": 7.4,
+                }
+            ],
+        )
+        last_body = service.searchanalytics.return_value.query.call_args.kwargs["body"]
+        self.assertEqual(last_body["dimensions"], ["query"])
+        self.assertEqual(last_body["rowLimit"], 100)
+
+    @patch("hub.analytics_service.build")
+    @patch("hub.analytics_service.AuthorizedHttp")
+    @patch("hub.analytics_service.httplib2.Http")
+    @patch("hub.analytics_service._google_credentials")
+    def test_search_rows_group_by_dimensions_and_reduce_pages_to_paths(
+        self, _credentials, _http, _auth, build
+    ):
+        self._service_returning(
+            build,
+            [
+                {
+                    "rows": [
+                        {
+                            "keys": ["quiz night", "https://crush.lu/en/quiz-night/"],
+                            "clicks": 1,
+                            "impressions": 20,
+                            "ctr": 0.05,
+                            "position": 12.0,
+                        }
+                    ]
+                }
+            ],
+        )
+
+        rows = fetch_search_rows(
+            date(2026, 9, 1), date(2026, 9, 7), ["query", "page"], 50
+        )
+
+        self.assertEqual(rows[0]["query"], "quiz night")
+        self.assertEqual(rows[0]["page"], "/en/quiz-night")
+        self.assertEqual(rows[0]["impressions"], 20)
+
+    def test_search_rows_reject_unknown_dimension(self):
+        with self.assertRaises(ValueError):
+            fetch_search_rows(
+                date(2026, 9, 1), date(2026, 9, 7), ["searchAppearance"], 5
+            )
 
 
 @override_settings(HUB_ANALYTICS_GA4_PROPERTY_ID="516337382")
