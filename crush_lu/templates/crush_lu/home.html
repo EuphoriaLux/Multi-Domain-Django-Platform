@@ -2,7 +2,8 @@
 {% load static social_tags %}
 {% load i18n %}
 
-{% block title %}{% trans "Crush.lu - Dating Luxembourg | Speed Dating Events & Singles Meetups" %}{% endblock %}
+{# Title and description use the words people type into Google (Search Console, Aug-Nov 2026): EN "dating app(s) luxembourg", FR "site de rencontre au luxembourg (gratuit)", DE "partnersuche luxemburg kostenlos". Each language has its own wording in the .po files, not a literal translation. #}
+{% block title %}{% trans "Dating App Luxembourg – Speed Dating & Singles Events | Crush.lu" %}{% endblock %}
 
 {% block og_title %}{% trans "Crush.lu - Dating in Luxembourg | Speed Dating & Singles Events" %}{% endblock %}
 {% block og_description %}{% trans "Luxembourg's dating platform for real connections. Join speed dating events, social mixers, and singles meetups. Verified members, real people in person, no endless swiping." %}{% endblock %}
@@ -10,7 +11,8 @@
 {% block twitter_title %}{% trans "Crush.lu - Dating in Luxembourg | Speed Dating & Singles Events" %}{% endblock %}
 {% block twitter_description %}{% trans "Luxembourg's dating platform for real connections. Join speed dating events, social mixers, and singles meetups." %}{% endblock %}
 
-{% block meta_description %}{% luxid_available as luxid_offered %}{% if luxid_offered %}{% trans "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating events, social mixers, and themed meetups. Members are verified in person or via LuxID for authentic connections. Join free." as meta_text %}{{ meta_text|force_escape }}{% else %}{% trans "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating events, social mixers, and themed meetups. Members are verified in person at an event for authentic connections. Join free." as meta_text %}{{ meta_text|force_escape }}{% endif %}{% endblock %}
+{# One description whether or not LuxID is offered: it names no verification route, so it cannot promise one that is switched off (#1166). #}
+{% block meta_description %}{% trans "Crush.lu is Luxembourg's dating app for meeting singles in real life: speed dating, quiz nights and social mixers. Verified members, no endless swiping. Join free." as meta_text %}{{ meta_text|force_escape }}{% endblock %}
 {% block meta_keywords %}{% trans "crush.lu, dating luxembourg, speed dating luxembourg, singles events luxembourg, meetup luxembourg, dating events, luxembourg singles, rencontre luxembourg, singles in luxemburg" %}{% endblock %}
 
 {% block structured_data %}
@@ -134,7 +136,9 @@
             </div>
             <h3 class="feature-title">{% trans "Real Events" %}</h3>
             <p class="feature-text">
-                {% trans "Speed dating nights, social mixers, and themed meetups. Meet people in person, the way it should be." %}
+                {# Names Quiz Night and links both format guides from the home page; same inline link style as the Premium link in the next card. #}
+                {% url 'crush_lu:speed_dating_guide' as speed_dating_url %}{% url 'crush_lu:quiz_night_guide' as quiz_night_url %}
+                {% with link_class="font-semibold text-crush-purple-dark dark:text-purple-300 underline underline-offset-2 hover:no-underline" %}{% blocktrans trimmed %}<a href="{{ speed_dating_url }}" class="{{ link_class }}">Speed dating nights</a>, <a href="{{ quiz_night_url }}" class="{{ link_class }}">quiz nights</a> and social mixers. Meet people in person, the way it should be.{% endblocktrans %}{% endwith %}
             </p>
         </div>
         <div class="feature-card">

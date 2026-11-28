@@ -1,7 +1,8 @@
 {% extends 'crush_lu/base.html' %}
 {% load static i18n %}
-{% block title %}{% trans "Speed Dating in Luxembourg - How the evening works | Crush.lu" %}{% endblock %}
-{% block meta_description %}{% trans "From coach check-in straight to one-to-one conversations: discover the current Crush.lu Speed Dating format, curated applications and arrival guidance." %}{% endblock %}
+{# Written for the bare "speed dating" search (how does it work?), where the site sits around position 7; /events/ already answers "speed dating luxembourg". #}
+{% block title %}{% trans "Speed Dating in Luxembourg: How It Works, Step by Step | Crush.lu" %}{% endblock %}
+{% block meta_description %}{% trans "How speed dating works in Luxembourg: a coach welcomes you, you have short one-to-one conversations, then you say who you would like to see again. See the next Crush.lu speed dating dates." %}{% endblock %}
 {% block og_title %}{% trans "Speed Dating at Crush.lu" %}{% endblock %}
 {% block og_description %}{% trans "Check in, take a seat and start meeting people. Short conversations, coach guidance and no public introduction round." %}{% endblock %}
 {% block extra_css %}<link rel="stylesheet" href="{% static 'crush_lu/css/marketing.css' %}">{% endblock %}

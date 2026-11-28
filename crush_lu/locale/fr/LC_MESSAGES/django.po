@@ -49659,3 +49659,102 @@ msgstr "Liste d’attente close"
 
 msgid "event over, no seat came free"
 msgstr "événement terminé, aucune place libérée"
+
+msgid "Dating App Luxembourg – Speed Dating & Singles Events | Crush.lu"
+msgstr "Site de rencontre au Luxembourg – Inscription gratuite | Crush.lu"
+
+msgid "Crush.lu is Luxembourg's dating app for meeting singles in real life: speed dating, quiz nights and social mixers. Verified members, no endless swiping. Join free."
+msgstr "Site de rencontre au Luxembourg, inscription gratuite. Rencontrez des femmes et des hommes célibataires en vrai : speed dating, soirées quiz et soirées célibataires. Profils vérifiés, sans swipe à l'infini."
+
+#, python-format
+msgid "<a href=\"%(speed_dating_url)s\" class=\"%(link_class)s\">Speed dating nights</a>, <a href=\"%(quiz_night_url)s\" class=\"%(link_class)s\">quiz nights</a> and social mixers. Meet people in person, the way it should be."
+msgstr "<a href=\"%(speed_dating_url)s\" class=\"%(link_class)s\">Soirées speed dating</a>, <a href=\"%(quiz_night_url)s\" class=\"%(link_class)s\">soirées quiz</a> et soirées célibataires. Rencontrez des gens en personne, comme il se doit."
+
+#, python-format
+msgid "Speed Dating Luxembourg - Singles Events & Meetups %(current_year)s | Crush.lu"
+msgstr "Speed Dating Luxembourg - Soirées Célibataires & Rencontres %(current_year)s | Crush.lu"
+
+msgid "Speed Dating in Luxembourg: How It Works, Step by Step | Crush.lu"
+msgstr "Speed dating au Luxembourg : comment ça marche, étape par étape | Crush.lu"
+
+msgid "How speed dating works in Luxembourg: a coach welcomes you, you have short one-to-one conversations, then you say who you would like to see again. See the next Crush.lu speed dating dates."
+msgstr "Comment fonctionne le speed dating au Luxembourg : un coach vous accueille, vous enchaînez de courtes conversations en tête-à-tête, puis vous indiquez qui vous aimeriez revoir. Découvrez les prochaines dates de speed dating Crush.lu."
+
+msgid "Crush.lu Pricing: Free Account, Events & Premium"
+msgstr "Tarifs Crush.lu : compte gratuit, événements et Premium"
+
+msgid "Crush.lu theme nights in Luxembourg: members vote for the theme of the next singles event and can suggest their own ideas."
+msgstr "Soirées à thème Crush.lu au Luxembourg : les membres votent pour le thème de la prochaine soirée célibataires et peuvent proposer leurs propres idées."
+
+msgctxt "event search format"
+msgid "Speed dating"
+msgstr "Speed dating"
+
+msgctxt "event search format"
+msgid "Social mixer for singles"
+msgstr "Soirée célibataires"
+
+msgctxt "event search format"
+msgid "Activity meetup for singles"
+msgstr "Sortie entre célibataires"
+
+msgctxt "event search format"
+msgid "Themed night for singles"
+msgstr "Soirée à thème pour célibataires"
+
+msgctxt "event search format"
+msgid "Quiz night for singles"
+msgstr "Soirée quiz pour célibataires"
+
+msgctxt "event search format"
+msgid "Scavenger hunt for singles"
+msgstr "Chasse au trésor pour célibataires"
+
+msgctxt "event search format"
+msgid "Wine tasting for singles"
+msgstr "Dégustation de vin pour célibataires"
+
+msgctxt "event search format"
+msgid "Singles event"
+msgstr "Événement pour célibataires"
+
+msgctxt "event search place"
+msgid "in Luxembourg"
+msgstr "au Luxembourg"
+
+#, python-format
+msgctxt "event search place"
+msgid "in %(place)s"
+msgstr "à %(place)s"
+
+#, python-format
+msgctxt "event search place"
+msgid "in %(place)s (Luxembourg)"
+msgstr "à %(place)s (Luxembourg)"
+
+#, python-format
+msgctxt "event search text"
+msgid "%(format)s %(place)s"
+msgstr "%(format)s %(place)s"
+
+#, python-format
+msgctxt "event search text"
+msgid "%(headline)s, %(date)s"
+msgstr "%(headline)s, %(date)s"
+
+#, python-format
+msgctxt "event search text"
+msgid "%(format)s %(place)s on %(date)s at %(time)s."
+msgstr "%(format)s %(place)s le %(date)s à %(time)s."
+
+msgctxt "event search date format"
+msgid "j F"
+msgstr "j F"
+
+msgctxt "event search date format"
+msgid "j F Y"
+msgstr "j F Y"
+
+msgctxt "event search date format"
+msgid "l j F Y"
+msgstr "l j F Y"

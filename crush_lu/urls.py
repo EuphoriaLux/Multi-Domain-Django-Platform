@@ -178,6 +178,11 @@ class UnifiedAuthView(LoginView):
         response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response["Pragma"] = "no-cache"
         response["Expires"] = "0"
+        # Keep the login page out of search results. The template says the
+        # same in a meta tag; the header also covers every response this view
+        # can give that is not that template. robots.txt lets crawlers fetch
+        # /login/ so that they can read this (see views_seo.robots_txt).
+        response["X-Robots-Tag"] = "noindex, nofollow"
         return response
 
 

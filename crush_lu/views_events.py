@@ -38,6 +38,11 @@ from .forms import (
 from .decorators import crush_login_required, ratelimit
 from .services.attendance_check import awaits_attendance_answer
 from .services.event_payments import online_payments_paused
+from .services.event_seo import (
+    event_search_description,
+    event_search_headline,
+    event_search_title,
+)
 from .services import funnel_events
 from .services.premium_billing import entitled_q
 from .services.event_grouping import (
@@ -1615,6 +1620,11 @@ def event_detail(request, event_id):
         "event_coaches": event_coaches,
         "event_jsonld": event_jsonld,
         "breadcrumb_jsonld": breadcrumb_jsonld,
+        # <title> and meta description in search words (format, canton, date)
+        # rather than the creative event name; see services/event_seo.py.
+        "seo_title": event_search_title(event, now=now),
+        "seo_headline": event_search_headline(event),
+        "seo_description": event_search_description(event),
         "event_lobby_cta": event_lobby_cta,
         "curated_group_outlook": curated_group_outlook,
         "curated_age_range": curated_age_range,

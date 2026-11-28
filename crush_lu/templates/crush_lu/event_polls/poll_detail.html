@@ -3,6 +3,8 @@
 {% load i18n %}
 
 {% block title %}{{ poll.title }} | Crush.lu{% endblock %}
+{# Public polls (the /themes/ ballot) describe themselves; members-only polls keep the site default. #}
+{% block meta_description %}{% if poll.is_public %}{% trans "Crush.lu theme nights in Luxembourg: members vote for the theme of the next singles event and can suggest their own ideas." %}{% else %}{{ block.super }}{% endif %}{% endblock %}
 
 {% block content %}
 <div class="section-container">

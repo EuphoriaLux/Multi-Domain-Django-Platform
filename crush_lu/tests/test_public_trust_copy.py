@@ -26,15 +26,15 @@ LIST_APPS = "allauth.socialaccount.adapter.DefaultSocialAccountAdapter.list_apps
 PAGES = ("", "how-it-works/", "crush-connect/")
 PERSONAL_VERIFICATION = "Come to an event and a coach verifies you in person."
 CONNECT_VERIFICATION = "Attend an in-person event — real people only."
+# The home description names no verification route, so it reads the same
+# whether or not LuxID is offered.
+HOME_META = (
+    "Crush.lu is Luxembourg's dating app for meeting singles in real life: speed "
+    "dating, quiz nights and social mixers. Verified members, no endless swiping. "
+    "Join free."
+)
 META = {
-    "": (
-        "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating "
-        "events, social mixers, and themed meetups. Members are verified in person "
-        "or via LuxID for authentic connections. Join free.",
-        "Crush.lu is Luxembourg's dating platform. Meet singles at speed dating "
-        "events, social mixers, and themed meetups. Members are verified in person "
-        "at an event for authentic connections. Join free.",
-    ),
+    "": (HOME_META, HOME_META),
     "how-it-works/": (
         "Learn how Crush.lu works in 4 simple steps: Create your profile, get "
         "verified at an event or via LuxID, browse events, and meet real people. "
